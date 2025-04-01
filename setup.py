@@ -5,9 +5,9 @@ setup(
     version="0.1.0",
     packages=find_packages(),
     install_requires=[
-        # Add dependencies here
+        "omegaconf>=2.3.0",
     ],
-    author="Roy Michael",
+    author="Roy Michaeli",
     description="A Python package for managing experiments",
     python_requires=">=3.6",
 )
