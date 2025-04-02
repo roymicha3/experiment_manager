@@ -24,7 +24,13 @@ class Experiment(YAMLSerializable):
         self.name = name
         self.id = id
         self.desc = desc
+        
+        # environment
         self.env = env
+        self.env.set_workspace(self.name, inner=True)
+        self.env.setup_environment()
+        
+        # TODO: might be a better idea to only receive the config_dir_path and build from there
         self.config_dir_path = config_dir_path if config_dir_path is not None else self.env.config_dir
         
         # configurations of the experiment
