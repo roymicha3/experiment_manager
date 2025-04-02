@@ -1,8 +1,8 @@
 import os
 from omegaconf import OmegaConf, DictConfig
 
-from environment import Environment
-from common.serializable import YAMLSerializable
+from experiment_manager.environment import Environment
+from experiment_manager.common.serializable import YAMLSerializable
 
 
 class Experiment(YAMLSerializable):
@@ -32,22 +32,26 @@ class Experiment(YAMLSerializable):
         self.base_config = None
         self.trials_config = None
         
-        if not Experiment.check_files_exist(self.config_dir_path):
+        if not self.check_files_exist():
             raise ValueError(f"Missing configuration files in directory {self.config_dir_path}.")
         
         self.setup_experiment()
-        
     
-    @staticmethod
-    def check_files_exist(base_path: str) -> bool:
-        config_files = [os.path.join(base_path, f) for f in [Experiment.CONFIG_FILE, Experiment.BASE_CONFIG, Experiment.TRIALS_CONFIG]]
+    def check_files_exist(self) -> bool:
+        """
+        Check if all required configuration files exist.
         
-        for config_file in config_files:
-            if not os.path.exists(config_file):
-                return False
-        return True
+        Returns:
+            bool: True if all files exist, False otherwise
+        """
+        required_files = [
+            os.path.join(self.config_dir_path, self.CONFIG_FILE),
+            os.path.join(self.config_dir_path, self.BASE_CONFIG),
+            os.path.join(self.config_dir_path, self.TRIALS_CONFIG)
+        ]
+        return all(os.path.exists(f) for f in required_files)
     
-    def setup_experiment(self) -> int:
+    def setup_experiment(self) -> None:
         """
         Setup the experiment directory and save the configuration.
         """
@@ -64,6 +68,7 @@ class Experiment(YAMLSerializable):
         self.env.save()
         
         # TODO: add a call for the create create_experiment event!
+
 
     def run(self) -> None:
         """
