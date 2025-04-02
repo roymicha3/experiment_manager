@@ -172,3 +172,8 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Experiment outputs
+outputs/
+**/outputs/
+test_outputs/
