@@ -1,0 +1,24 @@
+# List of trials with different hyperparameters
+- name: small_network
+  id: 1
+  repeat: 3  # Run each trial 3 times
+  settings:
+    hidden_layers: [64, 32]
+    dropout_rate: 0.1
+    learning_rate: 0.001
+
+- name: medium_network
+  id: 2
+  repeat: 3
+  settings:
+    hidden_layers: [128, 64, 32]
+    dropout_rate: 0.2
+    learning_rate: 0.0005
+
+- name: large_network
+  id: 3
+  repeat: 3
+  settings:
+    hidden_layers: [256, 128, 64, 32]
+    dropout_rate: 0.3
+    learning_rate: 0.0001

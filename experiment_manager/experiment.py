@@ -85,11 +85,15 @@ class Experiment(YAMLSerializable):
         Run the experiment.
         """
         # TODO: initialize registry or load existing one
+        trial_env = self.env.copy()
+        trial_env.set_workspace("trials", inner=True)
+        trial_env.setup_environment()
+        
         for conf in self.trials_config:
             conf.settings = OmegaConf.merge(self.config.settings, conf.settings)
             
-            trial = Trial.from_config(conf, self.env_config)
-            trial.run(self.id)
+            trial = Trial.from_config(conf, trial_env)
+            trial.run()
             
     @classmethod
     def from_config(cls, config: DictConfig, env: Environment):
@@ -100,16 +104,5 @@ class Experiment(YAMLSerializable):
                  env=env,
                  config_dir_path=config.config_dir_path)
 
-            # trial.run(self.id)
             
-    @classmethod
-    def from_config(cls, config: DictConfig, env: Environment):
-        # TODO: make config_dir_path optional
-        return cls(name=config.name, 
-                 id=config.id,
-                 desc=config.desc,
-                 env=env,
-                 config_dir_path=config.config_dir_path)
-
-            # trial.run(self.id)
             
