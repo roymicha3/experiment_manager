@@ -42,8 +42,9 @@ class Environment(YAMLSerializable):
     def set_workspace(self, new_workspace: str, inner: bool = False) -> None:
         """Set a new workspace and create required directories."""
         if inner:
-            new_workspace = os.path.join(self.workspace, new_workspace)
-        self.workspace = os.path.abspath(new_workspace)
+            self.workspace = os.path.join(self.workspace, new_workspace)
+        else:
+            self.workspace = os.path.abspath(new_workspace)
         
         # Create required directories
         os.makedirs(self.workspace, exist_ok=True)
@@ -52,7 +53,8 @@ class Environment(YAMLSerializable):
         os.makedirs(self.config_dir, exist_ok=True)
         
         # Update the logger
-        self.logger.set_log_dir(self.log_dir)
+        if not isinstance(self.logger, ConsoleLogger):
+            self.logger.set_log_dir(self.log_dir)
         
         self.save()  # Save config after workspace change
     
@@ -108,3 +110,10 @@ class Environment(YAMLSerializable):
     def from_config(cls, config: DictConfig):
         """Create environment from configuration."""
         return cls(workspace=config.workspace, config=config)
+    
+    def copy(self):
+        return self.__class__(
+            workspace=self.workspace,
+            config=self.config
+        )
+        

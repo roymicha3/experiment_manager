@@ -1,0 +1,16 @@
+settings:
+  # Common settings for all trials
+  model_type: mlp
+  dataset: mnist
+  batch_size: 32
+  epochs: 10
+  learning_rate: 0.001
+  
+  # Training settings
+  save_checkpoints: true
+  checkpoint_frequency: 5
+  
+  # Logging settings
+  log_level: INFO
+  log_metrics: true
+  log_frequency: 100

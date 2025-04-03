@@ -73,5 +73,5 @@ def test_experiment_creates_log_file(env, config_dir):
         if "log" in log_file:
             expected_log_file = os.path.join(env.log_dir, log_file)
             break
-    
+    assert expected_log_file is not None, "Log file not found in environment log directory"
     assert os.path.exists(expected_log_file), f"Log file not found at {expected_log_file}"

@@ -3,6 +3,7 @@ from omegaconf import OmegaConf, DictConfig
 
 from experiment_manager.environment import Environment
 from experiment_manager.common.serializable import YAMLSerializable
+from experiment_manager.trial import Trial
 
 
 class Experiment(YAMLSerializable):
@@ -83,11 +84,17 @@ class Experiment(YAMLSerializable):
         """
         Run the experiment.
         """
+        # TODO: initialize registry or load existing one
+        trials_env = self.env.copy()
+        trials_env.set_workspace("trials", inner=True)
+        trials_env.setup_environment()
+        
         for conf in self.trials_config:
             conf.settings = OmegaConf.merge(self.config.settings, conf.settings)
             
-            # trial = Trial.from_config(conf, self.env_config)
-            # trial.run(self.id)
+            trial_env = trials_env.copy()
+            trial = Trial.from_config(conf, trial_env)
+            trial.run()
             
     @classmethod
     def from_config(cls, config: DictConfig, env: Environment):
@@ -98,24 +105,5 @@ class Experiment(YAMLSerializable):
                  env=env,
                  config_dir_path=config.config_dir_path)
 
-            # trial.run(self.id)
             
-    @classmethod
-    def from_config(cls, config: DictConfig, env: Environment):
-        # TODO: make config_dir_path optional
-        return cls(name=config.name, 
-                 id=config.id,
-                 desc=config.desc,
-                 env=env,
-                 config_dir_path=config.config_dir_path)
-
-            # trial.run(self.id)
             
-    @classmethod
-    def from_config(cls, config: DictConfig, env: Environment):
-        # TODO: make config_dir_path optional
-        return cls(name=config.name, 
-                 id=config.id,
-                 desc=config.desc,
-                 env=env,
-                 config_dir_path=config.config_dir_path)
