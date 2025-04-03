@@ -23,40 +23,69 @@ class MetricsTracker(Callback, YAMLSerializable):
         
         self.log_path = os.path.join(self.env.log_dir, MetricsTracker.LOG_NAME)
         self.metrics: Dict[str, List[Any]] = {}
+        self.env.logger.info(f"Initialized metrics tracker. Log file: {self.log_path}")
+        
+    def on_start(self) -> None:
+        """Called when training starts."""
+        self.env.logger.info("Starting metrics tracking")
+        self.metrics.clear()  # Reset metrics at start
         
     def on_epoch_end(self, epoch_idx, metrics: Dict[str, Any]) -> bool:
-        
+        tracked_metrics = []
         for key, value in metrics.items():
-            
             if key.category == MetricCategory.TRACKED:
                 # save it to the metrics dictionary
                 if key not in self.metrics:
                     self.metrics[key] = []
+                    self.env.logger.debug(f"Started tracking metric: {key.value}")
                 self.metrics[key].append(value)
+                tracked_metrics.append(f"{key.value}: {value:.4f}")
         
+        if tracked_metrics:
+            self.env.logger.info(f"Epoch {epoch_idx} metrics - " + ", ".join(tracked_metrics))
         return True
 
     def on_end(self, metrics: Dict[str, Any]):
         """Called at the end."""
+        self.env.logger.info("Finalizing metrics tracking")
         
+        final_metrics = []
         for key, value in metrics.items():
             metric = Metric(key)
             if metric.category == MetricCategory.TRACKED:
                 self.metrics[key] = [value]
+                final_metrics.append(f"{key}: {value:.4f}")
+        
+        if final_metrics:
+            self.env.logger.info("Final metrics - " + ", ".join(final_metrics))
         
         # Save the metrics to the log path as a CSV file
-        with open(self.log_path, 'w', newline='', encoding="utf-8") as f:
-            writer = csv.writer(f)
-            # Write the header
-            writer.writerow(list(self.metrics.keys()))
-            # Write the rows
-            max_length = max(len(values) for values in self.metrics.values())
-            for i in range(max_length):
-                row = [values[i] if i < len(values) else '' for values in self.metrics.values()]
-                writer.writerow(row)
+        try:
+            self.env.logger.info(f"Saving metrics to {self.log_path}")
+            with open(self.log_path, 'w', newline='', encoding="utf-8") as f:
+                writer = csv.writer(f)
+                # Write the header
+                header = list(self.metrics.keys())
+                writer.writerow(header)
+                self.env.logger.debug(f"Wrote header: {', '.join(str(h) for h in header)}")
+                
+                # Write the rows
+                max_length = max(len(values) for values in self.metrics.values())
+                rows_written = 0
+                for i in range(max_length):
+                    row = [values[i] if i < len(values) else '' for values in self.metrics.values()]
+                    writer.writerow(row)
+                    rows_written += 1
+                
+                self.env.logger.info(f"Successfully wrote {rows_written} rows of metrics data")
+        except Exception as e:
+            self.env.logger.error(f"Failed to save metrics: {str(e)}")
 
     def get_latest(self, key: str, default: Any = None) -> Any:
-        return self.metrics.get(key, [default])[-1]
+        """Get the most recent value for a metric."""
+        value = self.metrics.get(key, [default])[-1]
+        self.env.logger.debug(f"Retrieved latest value for {key}: {value}")
+        return value
     
     @classmethod
     def from_config(cls, config: DictConfig, env: Environment):
