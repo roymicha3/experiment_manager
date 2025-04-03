@@ -15,14 +15,6 @@ class TestMNISTExperiment(unittest.TestCase):
         self.workspace = os.path.abspath("test_workspace")
         os.makedirs(self.workspace, exist_ok=True)
         
-        # Load experiment config
-        self.config = OmegaConf.create({
-            "name": "test_mnist",
-            "id": 1,
-            "desc": "Test MNIST experiment",
-            "config_dir_path": os.path.join(os.path.dirname(__file__), "..", "examples", "mnist_experiment", "configs")
-        })
-        
         # Create factory
         self.factory = Factory()
         
@@ -30,12 +22,31 @@ class TestMNISTExperiment(unittest.TestCase):
         self.env = Environment(
             workspace=self.workspace,
             config=OmegaConf.create({
-                "verbose": True,
-                "device": "cpu"
+                "settings": {
+                    "device": "cpu",
+                    "debug": True,
+                    "verbose": True
+                }
             }),
             factory=self.factory
         )
         self.env.setup_environment()
+        
+        # Load experiment config
+        self.config = OmegaConf.create({
+            "name": "test_mnist",
+            "id": 1,
+            "desc": "Test MNIST experiment",
+            "config_dir_path": os.path.join(os.path.dirname(__file__), "..", "examples", "mnist_experiment", "configs"),
+            "settings": {
+                "device": "cpu",
+                "debug": True,
+                "verbose": True
+            }
+        })
+        
+        # Register pipeline
+        TrainingPipeline.register()
         
         # Create experiment
         self.experiment = Experiment.from_config(self.config, self.env)

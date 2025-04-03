@@ -1,0 +1,27 @@
+pipeline:
+  type: TrainingPipeline
+  callbacks:
+  - type: EarlyStopping
+    metric: val_loss
+    patience: 3
+    min_delta_percent: 0.1
+  - type: MetricsTracker
+training:
+  dataset: mnist
+  validation_split: 0.1
+  test_split: 0.1
+  batch_size: 64
+  shuffle: true
+  epochs: 10
+  optimizer: adam
+  input_size: 784
+  hidden_size: 128
+  num_classes: 10
+  learning_rate: 0.001
+settings:
+  device: cuda
+  debug: true
+  verbose: true
+name: small_perceptron
+id: 1
+repeat: 1
