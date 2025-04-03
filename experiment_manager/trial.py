@@ -44,19 +44,22 @@ class Trial(YAMLSerializable):
                 self.env.logger.error("Factory not initialized in environment")
                 return
             
-            pipeline = self.env.factory.create(self.config.pipeline, trial_run_env, self.id)
-            pipeline.run(self.config, trial_run_env)
+            pipeline = self.env.factory.create(
+                name=self.config.pipeline.type,
+                config=self.config,
+                env=trial_run_env,
+                id=self.id
+            )
+            pipeline.run(self.config)
         
         except Exception as e:
             self.env.logger.error(f"Error running trial {self.id}: {e}")
             raise e
-        
     
     @classmethod
     def from_config(cls, config: DictConfig, env: Environment):
-        # TODO: make config_dir_path optional
-        return cls(name=config.name, 
-                 id=config.id,
-                 repeat=config.repeat,
-                 config=config,
-                 env=env)
+        return cls(name=config.name,
+                  id=config.id,
+                  repeat=config.repeat,
+                  config=config,
+                  env=env)

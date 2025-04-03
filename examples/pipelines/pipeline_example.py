@@ -29,23 +29,13 @@ class TrainingPipeline(Pipeline, YAMLSerializable):
     Class that is responsible for the training of the Network
     """
     def __init__(self, 
-                 epochs: int, 
-                 batch_size: int, 
-                 validation_split: float, 
-                 test_split: float,
                  env: Environment,
-                 shuffle: bool = True,
                  id: int = None):
         
         # Initialize both parent classes
         Pipeline.__init__(self, env)
         YAMLSerializable.__init__(self)
         
-        self.epochs = epochs
-        self.batch_size = batch_size
-        self.validation_split = validation_split
-        self.test_split = test_split
-        self.shuffle = shuffle
         self.id = id
         
     @classmethod
@@ -53,14 +43,7 @@ class TrainingPipeline(Pipeline, YAMLSerializable):
         """
         Create a training pipeline from configuration.
         """
-        pipeline = cls(
-            config.epochs,
-            config.batch_size, 
-            config.validation_split,
-            config.test_split,
-            env,
-            config.shuffle,
-            id)
+        pipeline = cls(env, id)
         
         # Register callbacks if specified in config
         if hasattr(config, 'callbacks'):
@@ -75,7 +58,7 @@ class TrainingPipeline(Pipeline, YAMLSerializable):
         Train the model using the provided data loader.
         """
         # Set device
-        device = torch.device(self.env.config.device if torch.cuda.is_available() else "cpu")
+        device = torch.device(config.settings.device if torch.cuda.is_available() else "cpu")
         self.env.logger.info(f"Using device: {device}")
         
         # Load MNIST dataset
@@ -91,7 +74,7 @@ class TrainingPipeline(Pipeline, YAMLSerializable):
         train_dataset = datasets.MNIST(data_dir, train=True, download=True, transform=transform)
         
         # Split into train and validation
-        train_size = int((1 - self.validation_split) * len(train_dataset))
+        train_size = int((1 - config.training.validation_split) * len(train_dataset))
         val_size = len(train_dataset) - train_size
         train_dataset, val_dataset = torch.utils.data.random_split(
             train_dataset, [train_size, val_size]
@@ -99,20 +82,23 @@ class TrainingPipeline(Pipeline, YAMLSerializable):
         
         train_loader = torch.utils.data.DataLoader(
             train_dataset,
-            batch_size=self.batch_size,
-            shuffle=self.shuffle)
+            batch_size=config.training.batch_size,
+            shuffle=config.training.shuffle)
         
         val_loader = torch.utils.data.DataLoader(
             val_dataset,
-            batch_size=self.batch_size,
+            batch_size=config.training.batch_size,
             shuffle=False)
         
         # Create network
-        network = SingleLayerPerceptron().to(device)
+        network = SingleLayerPerceptron(
+            input_size=config.training.input_size,
+            num_classes=config.training.num_classes
+        ).to(device)
         self.env.logger.info(f"Created network: {network}")
         
         # Create optimizer and criterion
-        optimizer = torch.optim.Adam(network.parameters())
+        optimizer = torch.optim.Adam(network.parameters(), lr=config.training.learning_rate)
         criterion = nn.CrossEntropyLoss()
         
         status = "completed"
@@ -120,7 +106,7 @@ class TrainingPipeline(Pipeline, YAMLSerializable):
         # Signal start to callbacks
         self.on_start()
         
-        for epoch in range(self.epochs):
+        for epoch in range(config.training.epochs):
             network.train()
             correct_predictions = 0
             total_predictions = 0
@@ -130,7 +116,7 @@ class TrainingPipeline(Pipeline, YAMLSerializable):
             progress_bar = tqdm(
                 enumerate(train_loader),
                 total=len(train_loader),
-                desc=f"Epoch [{epoch+1}/{self.epochs}]")
+                desc=f"Epoch [{epoch+1}/{config.training.epochs}]")
             
             for batch_idx, (inputs, labels) in progress_bar:
                 inputs = inputs.to(device)

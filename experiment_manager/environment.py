@@ -25,18 +25,19 @@ class Environment(YAMLSerializable):
         self.workspace = os.path.abspath(workspace)  # Convert to absolute path
         self.config = config
         self.factory = factory
+        self.verbose = verbose
         
         self.logger = EmptyLogger()
-        if verbose:
+        if self.verbose:
             self.logger = ConsoleLogger(name="log")
         
-    def setup_environment(self, verbose: bool = False) -> None:
+    def setup_environment(self) -> None:
         os.makedirs(self.workspace, exist_ok=True)
         os.makedirs(self.log_dir, exist_ok=True)
         os.makedirs(self.artifact_dir, exist_ok=True)
         os.makedirs(self.config_dir, exist_ok=True)
         
-        if verbose:
+        if self.verbose:
             self.logger = CompositeLogger(name="log",
                                          log_dir=self.log_dir)
         else:
@@ -85,12 +86,14 @@ class Environment(YAMLSerializable):
     @classmethod
     def from_config(cls, config: DictConfig):
         """Create environment from configuration."""
-        return cls(workspace=config.workspace, config=config)
+        return cls(workspace=config.workspace, config=config, verbose=config.verbose)
     
     def copy(self):
         return self.__class__(
             workspace=self.workspace,
-            config=self.config
+            config=self.config,
+            factory=self.factory,
+            verbose=self.verbose
         )
         
     def create_child(self, name: str) -> 'Environment':
