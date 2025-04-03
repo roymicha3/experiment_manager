@@ -11,6 +11,12 @@ A flexible and extensible framework for managing machine learning experiments an
 - **Logging System**: Hierarchical logging for experiments and trials
 - **Resume Support**: Ability to resume experiments from partial completion
 - **Error Handling**: Graceful handling of configuration errors and invalid states
+- **Pipeline System**: Extensible pipeline architecture with callback support
+- **Training Callbacks**: Built-in callbacks for:
+  - Early stopping with configurable patience
+  - Checkpointing at specified intervals
+  - Metric tracking and logging
+  - Custom callback support
 
 ## Installation
 
@@ -59,6 +65,8 @@ settings:
 ```python
 from experiment_manager.environment import Environment
 from experiment_manager.experiment import Experiment
+from experiment_manager.pipelines import Pipeline
+from experiment_manager.pipelines.callbacks import EarlyStopping, CheckpointCallback, MetricsTracker
 from omegaconf import OmegaConf
 
 # Create environment
@@ -69,7 +77,7 @@ env_config = OmegaConf.create({
 env = Environment(workspace="outputs", config=env_config)
 env.setup_environment()
 
-# Create and run experiment
+# Create experiment
 experiment = Experiment(
     name="my_experiment",
     id=1,
@@ -77,6 +85,14 @@ experiment = Experiment(
     env=env,
     config_dir_path="path/to/configs"
 )
+
+# Set up pipeline with callbacks
+pipeline = Pipeline(env)
+pipeline.register_callback(EarlyStopping(env, patience=5, min_delta_percent=0.1))
+pipeline.register_callback(CheckpointCallback(interval=10, env=env))
+pipeline.register_callback(MetricsTracker(env))
+
+# Run experiment
 experiment.run()
 ```
 
@@ -90,6 +106,15 @@ experiment_manager/
 │   ├── experiment.py     # Experiment execution
 │   ├── trial.py         # Trial execution
 │   ├── logger.py        # Logging utilities
+│   ├── pipelines/       # Pipeline and callback system
+│   │   ├── __init__.py
+│   │   ├── pipeline.py
+│   │   └── callbacks/
+│   │       ├── __init__.py
+│   │       ├── callback.py
+│   │       ├── early_stopping.py
+│   │       ├── checkpoint.py
+│   │       └── metric_tracker.py
 │   └── common/
 │       ├── __init__.py
 │       ├── serializable.py  # YAML serialization
@@ -137,6 +162,22 @@ The `Trial` class handles individual trial execution:
 - Handles trial repetitions with unique outputs
 - Supports nested trial environments
 
+### Pipeline
+
+The `Pipeline` class provides an extensible training pipeline:
+- Manages training workflow
+- Supports multiple callbacks
+- Tracks training metrics
+- Handles early stopping and checkpointing
+
+### Callbacks
+
+Built-in callbacks for common training tasks:
+- `EarlyStopping`: Stops training if metrics don't improve
+- `CheckpointCallback`: Saves model checkpoints at intervals
+- `MetricsTracker`: Tracks and logs training metrics
+- Support for custom callbacks via base `Callback` class
+
 ## Configuration System
 
 The configuration system uses OmegaConf and supports:
@@ -146,6 +187,61 @@ The configuration system uses OmegaConf and supports:
 - Configuration inheritance and merging
 - Validation of required fields (name, id, etc.)
 - Error handling for invalid configurations
+- YAML serialization and deserialization
+- Dynamic configuration generation:
+  - Placeholder replacement with `insert_value()`
+  - Cartesian product of configurations with `multiply()`
+
+### YAML Serialization
+
+The framework provides a `YAMLSerializable` base class that enables:
+- Automatic registration of serializable classes
+- Loading/saving objects from/to YAML
+- Factory pattern for creating objects from configuration
+- Support for custom serialization logic
+
+Example:
+```python
+from experiment_manager.common.serializable import YAMLSerializable
+
+@YAMLSerializable.register("MyCallback")
+class MyCallback(YAMLSerializable):
+    def __init__(self, config: DictConfig = None):
+        super().__init__(config)
+        # Custom initialization
+
+    @classmethod
+    def from_config(cls, config: DictConfig):
+        return cls(config)
+```
+
+### Configuration Generation
+
+The framework provides utilities for dynamic configuration:
+
+```python
+from experiment_manager.common.yaml_utils import insert_value, multiply
+from omegaconf import OmegaConf
+
+# Replace placeholders
+base_config = OmegaConf.create({
+    "learning_rate": "?",
+    "batch_size": 32
+})
+config = insert_value(base_config, 0.001)  # learning_rate becomes 0.001
+
+# Create cartesian product
+model_configs = [
+    {"model": "mlp", "layers": [64, 32]},
+    {"model": "cnn", "filters": [32, 64]}
+]
+lr_configs = [
+    {"learning_rate": 0.1},
+    {"learning_rate": 0.01}
+]
+# Creates 4 configurations combining each model with each learning rate
+configs = multiply(model_configs, lr_configs)
+```
 
 ## Directory Structure
 
@@ -158,21 +254,29 @@ workspace/
 │   │   ├── base.yaml
 │   │   └── trials.yaml
 │   ├── logs/
+│   │   └── metrics.log     # Training metrics log
 │   ├── artifacts/
+│   │   └── checkpoint-*    # Model checkpoints
 │   └── trials/
 │       ├── trial_1/
 │       │   ├── configs/
+│       │   │   └── trial.yaml
 │       │   ├── logs/
-│       │   └── artifacts/
+│       │   │   └── trial.log
+│       │   ├── artifacts/
 │       │   └── run_1/
 │       │       ├── logs/
+│       │       │   └── run.log
 │       │       └── artifacts/
 │       └── trial_2/
 │           ├── configs/
+│           │   └── trial.yaml
 │           ├── logs/
-│           └── artifacts/
+│           │   └── trial.log
+│           ├── artifacts/
 │           └── run_1/
 │               ├── logs/
+│               │   └── run.log
 │               └── artifacts/
 ```
 
