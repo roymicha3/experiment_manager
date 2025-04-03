@@ -90,7 +90,7 @@ class TestMNISTExperiment(unittest.TestCase):
                     "test_split": 0.1,
                     "batch_size": 64,
                     "shuffle": True,
-                    "epochs": 10,
+                    "epochs": 2,
                     "optimizer": "adam"
                 }
             }),
@@ -116,7 +116,7 @@ class TestMNISTExperiment(unittest.TestCase):
                     "test_split": 0.1,
                     "batch_size": 64,
                     "shuffle": True,
-                    "epochs": 10,
+                    "epochs": 2,
                     "optimizer": "adam"
                 }
             }),
@@ -138,8 +138,8 @@ class TestMNISTExperiment(unittest.TestCase):
                     "num_classes": 10,
                     "learning_rate": 0.001,
                     "dataset": "mnist",
-                    "validation_split": 0.1,
-                    "test_split": 0.1,
+                    "validation_split": 0.25,
+                    "test_split": 0.25,
                     "batch_size": 64,
                     "shuffle": True,
                     "epochs": 2,
@@ -206,26 +206,61 @@ class TestMNISTExperiment(unittest.TestCase):
         
         for trial_name in trial_names:
             trial_dir = os.path.join(trials_dir, trial_name)
-            self.assertTrue(os.path.exists(trial_dir))
+            self.assertTrue(os.path.exists(trial_dir), f"Trial directory does not exist: {trial_dir}")
             
             # Check trial subdirectories
-            self.assertTrue(os.path.exists(os.path.join(trial_dir, "artifacts")))
-            self.assertTrue(os.path.exists(os.path.join(trial_dir, "configs")))
-            self.assertTrue(os.path.exists(os.path.join(trial_dir, "logs")))
+            self.assertTrue(os.path.exists(os.path.join(trial_dir, "artifacts")), f"Trial artifacts directory missing: {trial_dir}")
+            self.assertTrue(os.path.exists(os.path.join(trial_dir, "configs")), f"Trial configs directory missing: {trial_dir}")
+            self.assertTrue(os.path.exists(os.path.join(trial_dir, "logs")), f"Trial logs directory missing: {trial_dir}")
             
             # Check trial config files
-            self.assertTrue(os.path.exists(os.path.join(trial_dir, "configs", "env.yaml")))
-            self.assertTrue(os.path.exists(os.path.join(trial_dir, "configs", "trial.yaml")))
+            self.assertTrue(os.path.exists(os.path.join(trial_dir, "configs", "env.yaml")), f"Trial env.yaml missing: {trial_dir}")
+            self.assertTrue(os.path.exists(os.path.join(trial_dir, "configs", "trial.yaml")), f"Trial trial.yaml missing: {trial_dir}")
             
             # Check trial run directory
-            trial_run_dir = os.path.join(trial_dir, trial_name)
-            self.assertTrue(os.path.exists(trial_run_dir))
-            self.assertTrue(os.path.exists(os.path.join(trial_run_dir, "artifacts")))
-            self.assertTrue(os.path.exists(os.path.join(trial_run_dir, "configs")))
-            self.assertTrue(os.path.exists(os.path.join(trial_run_dir, "logs")))
-            self.assertTrue(os.path.exists(os.path.join(trial_run_dir, "outputs")))
-            
+            trial_run_dir = os.path.join(trial_dir, f"{trial_name}-0")  
+            self.assertTrue(os.path.exists(trial_run_dir), f"Trial run directory does not exist: {trial_run_dir}")
+            self.assertTrue(os.path.exists(os.path.join(trial_run_dir, "artifacts")), f"Trial run artifacts directory missing: {trial_run_dir}")
+            self.assertTrue(os.path.exists(os.path.join(trial_run_dir, "configs")), f"Trial run configs directory missing: {trial_run_dir}")
+            self.assertTrue(os.path.exists(os.path.join(trial_run_dir, "logs")), f"Trial run logs directory missing: {trial_run_dir}")
+            self.assertTrue(os.path.exists(os.path.join(trial_run_dir, "outputs")), f"Trial run outputs directory missing: {trial_run_dir}")
     
+            
+    def test_experiment_repeats(self):
+        """Test that the experiment creates directories for each repeat."""
+        # Modify trial configs to have multiple repeats
+        for trial_config in self.experiment.trials_config:
+            trial_config.repeat = 3
+            # Reduce epochs to make test faster
+            trial_config.training.epochs = 1
+        
+        # Run experiment
+        self.experiment.run()
+        
+        # Wait a bit to ensure all files are written
+        import time
+        time.sleep(1)
+        
+        # Check experiment root directory
+        exp_dir = os.path.join(self.workspace, "test_mnist")
+        self.assertTrue(os.path.exists(exp_dir), "Experiment directory does not exist")
+        
+        # Check trials directory
+        trials_dir = os.path.join(exp_dir, "trials")
+        trial_names = ["small_perceptron", "medium_perceptron", "large_perceptron"]
+        
+        for trial_name in trial_names:
+            trial_dir = os.path.join(trials_dir, trial_name)
+            self.assertTrue(os.path.exists(trial_dir), f"Trial directory does not exist: {trial_dir}")
+            
+            # Check that each repeat has its own directory with required structure
+            for repeat in range(3):
+                trial_run_dir = os.path.join(trial_dir, f"{trial_name}-{repeat}")
+                self.assertTrue(os.path.exists(trial_run_dir), f"Trial repeat directory does not exist: {trial_run_dir}")
+                self.assertTrue(os.path.exists(os.path.join(trial_run_dir, "artifacts")), f"Trial repeat artifacts directory missing: {trial_run_dir}")
+                self.assertTrue(os.path.exists(os.path.join(trial_run_dir, "configs")), f"Trial repeat configs directory missing: {trial_run_dir}")
+                self.assertTrue(os.path.exists(os.path.join(trial_run_dir, "logs")), f"Trial repeat logs directory missing: {trial_run_dir}")
+                self.assertTrue(os.path.exists(os.path.join(trial_run_dir, "outputs")), f"Trial repeat outputs directory missing: {trial_run_dir}")
             
 if __name__ == '__main__':
     unittest.main()
