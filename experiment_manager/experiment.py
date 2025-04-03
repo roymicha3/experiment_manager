@@ -30,6 +30,7 @@ class Experiment(YAMLSerializable):
         self.env.set_workspace(self.name, inner=True)
         self.env.setup_environment()
         
+        
         # TODO: might be a better idea to only receive the config_dir_path and build from there
         self.config_dir_path = config_dir_path if config_dir_path is not None else self.env.config_dir
         
@@ -41,14 +42,16 @@ class Experiment(YAMLSerializable):
         if not self.check_files_exist():
             raise ValueError(f"Missing configuration files in directory {self.config_dir_path}.")
         
+        # helper function to setup the experiment
         self.setup_experiment()
+        
+        self.env.logger.info(f"Creating experiment '{self.name}' (ID: {self.id})")
+        self.env.logger.info(f"Description: {self.desc}")
+    
     
     def check_files_exist(self) -> bool:
         """
         Check if all required configuration files exist.
-        
-        Returns:
-            bool: True if all files exist, False otherwise
         """
         required_files = [
             os.path.join(self.config_dir_path, self.CONFIG_FILE),
@@ -59,23 +62,23 @@ class Experiment(YAMLSerializable):
     
     def setup_experiment(self) -> None:
         """
-        Setup the experiment directory and save the configuration.
+        Setup experiment by loading configurations.
         """
+        self.env.logger.info("Setting up experiment configuration")
         
-        # load the configuration files
-        self.config = OmegaConf.load(os.path.join(self.config_dir_path, Experiment.CONFIG_FILE))
-        self.base_config = OmegaConf.load(os.path.join(self.config_dir_path, Experiment.BASE_CONFIG))
-        self.trials_config = OmegaConf.load(os.path.join(self.config_dir_path, Experiment.TRIALS_CONFIG))
+        # load configurations
+        self.config = OmegaConf.load(os.path.join(self.config_dir_path, self.CONFIG_FILE))
+        self.base_config = OmegaConf.load(os.path.join(self.config_dir_path, self.BASE_CONFIG))
+        self.trials_config = OmegaConf.load(os.path.join(self.config_dir_path, self.TRIALS_CONFIG))
         
         # Save the configuration files
-        OmegaConf.save(self.config, os.path.join(self.env.config_dir, Experiment.CONFIG_FILE))
-        OmegaConf.save(self.base_config, os.path.join(self.env.config_dir, Experiment.BASE_CONFIG))
-        OmegaConf.save(self.trials_config, os.path.join(self.env.config_dir, Experiment.TRIALS_CONFIG))
+        OmegaConf.save(self.config, os.path.join(self.env.config_dir, self.CONFIG_FILE))
+        OmegaConf.save(self.base_config, os.path.join(self.env.config_dir, self.BASE_CONFIG))
+        OmegaConf.save(self.trials_config, os.path.join(self.env.config_dir, self.TRIALS_CONFIG))
         self.env.save()
         
-        # TODO: add a call for the create create_experiment event!
-
-
+        self.env.logger.info("Experiment setup complete")
+    
     def run(self) -> None:
         """
         Run the experiment.
@@ -84,6 +87,28 @@ class Experiment(YAMLSerializable):
             conf.settings = OmegaConf.merge(self.config.settings, conf.settings)
             
             # trial = Trial.from_config(conf, self.env_config)
+            # trial.run(self.id)
+            
+    @classmethod
+    def from_config(cls, config: DictConfig, env: Environment):
+        # TODO: make config_dir_path optional
+        return cls(name=config.name, 
+                 id=config.id,
+                 desc=config.desc,
+                 env=env,
+                 config_dir_path=config.config_dir_path)
+
+            # trial.run(self.id)
+            
+    @classmethod
+    def from_config(cls, config: DictConfig, env: Environment):
+        # TODO: make config_dir_path optional
+        return cls(name=config.name, 
+                 id=config.id,
+                 desc=config.desc,
+                 env=env,
+                 config_dir_path=config.config_dir_path)
+
             # trial.run(self.id)
             
     @classmethod

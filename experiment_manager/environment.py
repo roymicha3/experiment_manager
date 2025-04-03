@@ -2,6 +2,7 @@ import os
 from omegaconf import OmegaConf, DictConfig
 
 from experiment_manager.common.serializable import YAMLSerializable
+from experiment_manager.logger import FileLogger, ConsoleLogger, CompositeLogger
 
 
 class Environment(YAMLSerializable):
@@ -21,16 +22,39 @@ class Environment(YAMLSerializable):
         self.workspace = os.path.abspath(workspace)  # Convert to absolute path
         self.config = config
         
-    def setup_environment(self) -> None:
+        self.logger = ConsoleLogger(name="log")
+        
+    def setup_environment(self, verbose: bool = False) -> None:
         os.makedirs(self.workspace, exist_ok=True)
         os.makedirs(self.log_dir, exist_ok=True)
         os.makedirs(self.artifact_dir, exist_ok=True)
         os.makedirs(self.config_dir, exist_ok=True)
         
+        if verbose:
+            self.logger = CompositeLogger(name="log",
+                                         log_dir=self.log_dir)
+        else:
+            self.logger = FileLogger(name="log",
+                                     log_dir=self.log_dir)
+        
+        self.save()  # Save config after setup
+        
     def set_workspace(self, new_workspace: str, inner: bool = False) -> None:
+        """Set a new workspace and create required directories."""
         if inner:
             new_workspace = os.path.join(self.workspace, new_workspace)
         self.workspace = os.path.abspath(new_workspace)
+        
+        # Create required directories
+        os.makedirs(self.workspace, exist_ok=True)
+        os.makedirs(self.log_dir, exist_ok=True)
+        os.makedirs(self.artifact_dir, exist_ok=True)
+        os.makedirs(self.config_dir, exist_ok=True)
+        
+        # Update the logger
+        self.logger.set_log_dir(self.log_dir)
+        
+        self.save()  # Save config after workspace change
     
     @property
     def log_dir(self):
@@ -44,12 +68,43 @@ class Environment(YAMLSerializable):
     def config_dir(self):
         return os.path.join(self.workspace, Environment.CONFIG_DIR)
     
+    def save(self) -> None:
+        """Save environment configuration to file."""
+        config_path = os.path.join(self.config_dir, Environment.CONFIG_FILE)
+        OmegaConf.save(self.config, config_path)
+        self.logger.debug(f"Saved environment config to {config_path}")
+    
     @classmethod
     def from_config(cls, config: DictConfig):
-        return cls(workspace=config.workspace,
-                  config=config)
-        
-    def save(self, path: str = None):
-        if path is None:
-            path = self.config_dir
-        OmegaConf.save(self.config, os.path.join(path, self.CONFIG_FILE))
+        """Create environment from configuration."""
+        return cls(workspace=config.workspace, config=config)
+    
+    @property
+    def config_dir(self):
+        return os.path.join(self.workspace, Environment.CONFIG_DIR)
+    
+    def save(self) -> None:
+        """Save environment configuration to file."""
+        config_path = os.path.join(self.config_dir, Environment.CONFIG_FILE)
+        OmegaConf.save(self.config, config_path)
+        self.logger.debug(f"Saved environment config to {config_path}")
+    
+    @classmethod
+    def from_config(cls, config: DictConfig):
+        """Create environment from configuration."""
+        return cls(workspace=config.workspace, config=config)
+    
+    @property
+    def config_dir(self):
+        return os.path.join(self.workspace, Environment.CONFIG_DIR)
+    
+    def save(self) -> None:
+        """Save environment configuration to file."""
+        config_path = os.path.join(self.config_dir, Environment.CONFIG_FILE)
+        OmegaConf.save(self.config, config_path)
+        self.logger.debug(f"Saved environment config to {config_path}")
+    
+    @classmethod
+    def from_config(cls, config: DictConfig):
+        """Create environment from configuration."""
+        return cls(workspace=config.workspace, config=config)
