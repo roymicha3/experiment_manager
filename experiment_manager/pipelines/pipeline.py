@@ -41,3 +41,4 @@ class Pipeline(ABC):
     
     def run(self, config: DictConfig) -> None:
         raise NotImplementedError
+    
