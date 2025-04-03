@@ -10,7 +10,7 @@ from examples.pipelines.pipeline_factory_example import ExamplePipelineFactory
 class TestMNISTExperiment(unittest.TestCase):
     def setUp(self):
         # Create a temporary workspace for testing
-        self.workspace = os.path.abspath("test_workspace")
+        self.workspace = os.path.abspath("outputs/test_workspace")
         os.makedirs(self.workspace, exist_ok=True)
         
         # Create factory
