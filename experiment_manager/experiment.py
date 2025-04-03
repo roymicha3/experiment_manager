@@ -85,13 +85,14 @@ class Experiment(YAMLSerializable):
         Run the experiment.
         """
         # TODO: initialize registry or load existing one
-        trial_env = self.env.copy()
-        trial_env.set_workspace("trials", inner=True)
-        trial_env.setup_environment()
+        trials_env = self.env.copy()
+        trials_env.set_workspace("trials", inner=True)
+        trials_env.setup_environment()
         
         for conf in self.trials_config:
             conf.settings = OmegaConf.merge(self.config.settings, conf.settings)
             
+            trial_env = trials_env.copy()
             trial = Trial.from_config(conf, trial_env)
             trial.run()
             
