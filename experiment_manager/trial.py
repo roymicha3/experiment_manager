@@ -31,13 +31,13 @@ class Trial(YAMLSerializable):
         self.env.logger.info(f"Running trial '{self.name}' (ID: {self.id})")
         for i in range(self.repeat):
             self.env.logger.info(f"Trial '{self.name}' (ID: {self.id}) repeat {i}")
-            self.run_single()
+            self.run_single(i)
             self.env.logger.info(f"Trial '{self.name}' (ID: {self.id}) repeat {i} completed")
             
-    def run_single(self) -> None:
+    def run_single(self, repeat: int) -> None:
         # TODO: id logic here is not correct
-        trial_run_env = self.env.create_child(self.name)
-        self.env.logger.info(f"Trial Run'{self.name}' (ID: {self.id}) running single")
+        trial_run_env = self.env.create_child(f"{self.name}-{repeat}")
+        self.env.logger.info(f"Trial Run'{self.name}' (repeat: {repeat}) running single")
         
         try:
             if self.env.factory is None:

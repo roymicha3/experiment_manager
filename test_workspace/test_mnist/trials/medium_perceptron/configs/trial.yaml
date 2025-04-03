@@ -1,5 +1,5 @@
-name: small_perceptron
-id: 1
+name: medium_perceptron
+id: 2
 repeat: 1
 settings:
   device: cpu
@@ -9,7 +9,7 @@ pipeline:
   type: TrainingPipeline
 training:
   input_size: 784
-  hidden_size: 128
+  hidden_size: 256
   num_classes: 10
   learning_rate: 0.001
   dataset: mnist

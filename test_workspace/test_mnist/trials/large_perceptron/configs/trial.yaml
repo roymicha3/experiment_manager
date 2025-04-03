@@ -1,5 +1,5 @@
-name: small_perceptron
-id: 1
+name: large_perceptron
+id: 3
 repeat: 1
 settings:
   device: cpu
@@ -9,7 +9,7 @@ pipeline:
   type: TrainingPipeline
 training:
   input_size: 784
-  hidden_size: 128
+  hidden_size: 512
   num_classes: 10
   learning_rate: 0.001
   dataset: mnist
@@ -17,5 +17,5 @@ training:
   test_split: 0.1
   batch_size: 64
   shuffle: true
-  epochs: 10
+  epochs: 2
   optimizer: adam
