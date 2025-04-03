@@ -31,14 +31,19 @@ class CheckpointCallback(Callback, YAMLSerializable):
         self.index += 1
         if self.index % self.interval == 0:
             file_path = f"{self.checkpoint_path}-{self.parent_id}-{self.current_checkpoint}"
+            self.env.logger.info(f"Saving checkpoint {self.current_checkpoint} to {file_path}")
             metrics[Metric.NETWORK].save(file_path)
             self.current_checkpoint += 1
+            self.env.logger.info(f"Checkpoint {self.current_checkpoint-1} saved successfully")
         
         return True
 
     def on_end(self, metrics: Dict[str, Any]):
         """Called at the end of training."""
-        pass
+        self.env.logger.info("Saving final checkpoint")
+        file_path = f"{self.checkpoint_path}-{self.parent_id}-final"
+        metrics[Metric.NETWORK].save(file_path)
+        self.env.logger.info(f"Final checkpoint saved to {file_path}")
 
     def get_latest(self, key: str, default: Any = None) -> Any:
         pass
