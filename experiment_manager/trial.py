@@ -24,5 +24,26 @@ class Trial(YAMLSerializable):
         # configurations of the trial
         self.config = config
         
-        # TODO: might be a better idea to only receive the config_dir_path and build from there
-        self.config_dir_path = self.env.config_dir
+        OmegaConf.save(self.config, os.path.join(self.env.config_dir, self.CONFIG_FILE))
+        
+        self.env.logger.info(f"Trial '{self.name}' (ID: {self.id}) created")
+    
+    
+    def run(self) -> None:
+        self.env.logger.info(f"Running trial '{self.name}' (ID: {self.id})")
+        for i in range(self.repeat):
+            self.env.logger.info(f"Trial '{self.name}' (ID: {self.id}) repeat {i}")
+            self.run_single()
+            self.env.logger.info(f"Trial '{self.name}' (ID: {self.id}) repeat {i} completed")
+            
+    def run_single(self) -> None:
+        pass
+    
+    @classmethod
+    def from_config(cls, config: DictConfig, env: Environment):
+        # TODO: make config_dir_path optional
+        return cls(name=config.name, 
+                 id=config.id,
+                 repeat=config.repeat,
+                 config=config,
+                 env=env)

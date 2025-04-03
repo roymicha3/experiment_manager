@@ -83,6 +83,7 @@ class Experiment(YAMLSerializable):
         """
         Run the experiment.
         """
+        # TODO: initialize registry or load existing one
         for conf in self.trials_config:
             conf.settings = OmegaConf.merge(self.config.settings, conf.settings)
             
