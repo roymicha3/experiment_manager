@@ -27,10 +27,7 @@ class Experiment(YAMLSerializable):
         self.desc = desc
         
         # environment
-        self.env = env
-        self.env.set_workspace(self.name, inner=True)
-        self.env.setup_environment()
-        
+        self.env = env.create_child(self.name)
         
         # TODO: might be a better idea to only receive the config_dir_path and build from there
         self.config_dir_path = config_dir_path if config_dir_path is not None else self.env.config_dir
@@ -60,7 +57,8 @@ class Experiment(YAMLSerializable):
             os.path.join(self.config_dir_path, self.TRIALS_CONFIG)
         ]
         return all(os.path.exists(f) for f in required_files)
-    
+        
+        
     def setup_experiment(self) -> None:
         """
         Setup experiment by loading configurations.
@@ -84,26 +82,20 @@ class Experiment(YAMLSerializable):
         """
         Run the experiment.
         """
+        self.trials_env = self.env.create_child("trials")
         # TODO: initialize registry or load existing one
-        trials_env = self.env.copy()
-        trials_env.set_workspace("trials", inner=True)
-        trials_env.setup_environment()
-        
         for conf in self.trials_config:
             conf.settings = OmegaConf.merge(self.config.settings, conf.settings)
             
-            trial_env = trials_env.copy()
-            trial = Trial.from_config(conf, trial_env)
+            trial = Trial.from_config(conf, self.trials_env)
             trial.run()
             
     @classmethod
     def from_config(cls, config: DictConfig, env: Environment):
-        # TODO: make config_dir_path optional
+        # Get config_dir_path from config or use env.config_dir as default
+        config_dir_path = getattr(config, "config_dir_path", None)
         return cls(name=config.name, 
                  id=config.id,
                  desc=config.desc,
                  env=env,
-                 config_dir_path=config.config_dir_path)
-
-            
-            
+                 config_dir_path=config_dir_path)

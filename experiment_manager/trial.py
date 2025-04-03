@@ -17,9 +17,7 @@ class Trial(YAMLSerializable):
         self.repeat = repeat
         
         # environment
-        self.env = env
-        self.env.set_workspace(self.name, inner=True)
-        self.env.setup_environment()
+        self.env = env.create_child(self.name)
         
         # configurations of the trial
         self.config = config
@@ -37,7 +35,10 @@ class Trial(YAMLSerializable):
             self.env.logger.info(f"Trial '{self.name}' (ID: {self.id}) repeat {i} completed")
             
     def run_single(self) -> None:
-        pass
+        trial_run_env = self.env.create_child(self.name)
+        self.env.logger.info(f"Trial Run'{self.name}' (ID: {self.id}) running single")
+        
+        
     
     @classmethod
     def from_config(cls, config: DictConfig, env: Environment):

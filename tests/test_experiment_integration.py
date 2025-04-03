@@ -128,7 +128,7 @@ class TestExperimentIntegration:
         
         # Check total number of log files
         total_logs = count_log_files(experiment.env.workspace)
-        expected_logs = 4  # 1 experiment + 1 trials dir + 2 trial dirs
+        expected_logs = 6  # 1 experiment + 1 trials dir + 2 trial dirs + one trial with 2 repeat and another with 1 repeat
         assert total_logs == expected_logs, (
             f"Expected {expected_logs} log files in total "
             f"(1 experiment + 1 trials dir + 2 trial dirs), found {total_logs}"
