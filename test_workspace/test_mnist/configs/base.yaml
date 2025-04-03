@@ -1,0 +1,20 @@
+pipeline:
+  type: TrainingPipeline
+  callbacks:
+  - type: EarlyStopping
+    metric: val_loss
+    patience: 3
+    min_delta_percent: 0.1
+  - type: MetricsTracker
+training:
+  dataset: mnist
+  validation_split: 0.1
+  test_split: 0.1
+  batch_size: 64
+  shuffle: true
+  epochs: 10
+  optimizer: adam
+settings:
+  device: cuda
+  debug: true
+  verbose: true

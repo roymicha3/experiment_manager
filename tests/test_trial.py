@@ -24,7 +24,8 @@ def env_config(base_config):
     """Environment configuration"""
     env_conf = OmegaConf.create({
         "workspace": "test_outputs",
-        "settings": base_config.settings
+        "settings": base_config.settings,
+        "verbose": True
     })
     return env_conf
 

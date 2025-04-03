@@ -1,0 +1,6 @@
+name: mnist_experiment
+id: 1
+desc: Training MNIST with different perceptron architectures
+config_dir_path: examples/mnist_experiment/configs
+settings:
+  device: cuda

@@ -68,7 +68,8 @@ def env(workspace_dir):
         "settings": {
             "debug": True,
             "verbose": True
-        }
+        },
+        "verbose": True
     })
     env = Environment(workspace=workspace_dir, config=env_config)
     env.setup_environment()

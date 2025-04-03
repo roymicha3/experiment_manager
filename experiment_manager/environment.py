@@ -31,12 +31,15 @@ class Environment(YAMLSerializable):
         if self.verbose:
             self.logger = ConsoleLogger(name="log")
         
-    def setup_environment(self) -> None:
+    def setup_environment(self, verbose: bool = None) -> None:
         os.makedirs(self.workspace, exist_ok=True)
         os.makedirs(self.log_dir, exist_ok=True)
         os.makedirs(self.artifact_dir, exist_ok=True)
         os.makedirs(self.config_dir, exist_ok=True)
         
+        if verbose is not None:
+            self.verbose = verbose
+            
         if self.verbose:
             self.logger = CompositeLogger(name="log",
                                          log_dir=self.log_dir)
@@ -86,7 +89,8 @@ class Environment(YAMLSerializable):
     @classmethod
     def from_config(cls, config: DictConfig):
         """Create environment from configuration."""
-        return cls(workspace=config.workspace, config=config, verbose=config.verbose)
+        verbose = config.get("verbose", False)
+        return cls(workspace=config.workspace, config=config, verbose=verbose)
     
     def copy(self):
         return self.__class__(
