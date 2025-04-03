@@ -1,13 +1,12 @@
+import os
 import torch
+import numpy as np
 from tqdm import tqdm
 from omegaconf import DictConfig, OmegaConf
-import numpy as np
-from abc import ABC
 from typing import Dict, Any, List
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import datasets, transforms
-import os
 
 from experiment_manager.pipelines.pipeline import Pipeline
 from experiment_manager.pipelines.callbacks.callback import Metric, Callback
@@ -250,16 +249,3 @@ class TrainingPipeline(Pipeline, YAMLSerializable):
                 self.env.logger.info(f"Accuracy for label {label_val}: {label_accuracy:.2f}%")
 
         return average_loss, accuracy
-    
-    def save(self, file_path):
-        """
-        Save the training pipeline configuration to YAML.
-        """
-        config = DictConfig({
-            'epochs': self.epochs,
-            'batch_size': self.batch_size,
-            'validation_split': self.validation_split,
-            'test_split': self.test_split,
-            'shuffle': self.shuffle
-        })
-        OmegaConf.save(config, file_path)

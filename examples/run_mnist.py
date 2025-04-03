@@ -3,19 +3,22 @@ import torch
 from omegaconf import DictConfig, OmegaConf
 
 from experiment_manager.environment import Environment
-from pipeline_example import TrainingPipeline
+from examples.pipelines.pipeline_example import TrainingPipeline
+from pipelines.pipeline_factory_example import ExamplePipelineFactory
 
 def main():
-    # Create environment
+    # Create environment with factory
     workspace = os.path.join(os.path.dirname(__file__), "mnist_workspace")
     config = DictConfig({
         'device': 'cuda' if torch.cuda.is_available() else 'cpu'
     })
-    env = Environment(workspace, config, verbose=True)
+    factory = ExamplePipelineFactory
+    env = Environment(workspace, config, factory=factory, verbose=True)
     env.setup_environment()
     
     # Create pipeline config
     pipeline_config = DictConfig({
+        'type': 'TrainingPipeline',  # Must match the registered name
         'epochs': 10,
         'batch_size': 64,
         'validation_split': 0.1,
@@ -34,8 +37,8 @@ def main():
         ]
     })
     
-    # Create and run pipeline
-    pipeline = TrainingPipeline.from_config(pipeline_config, env)
+    # Create and run pipeline using factory
+    pipeline = factory.create(pipeline_config.type, pipeline_config, env, id=1)
     pipeline.run(pipeline_config)
 
 if __name__ == "__main__":

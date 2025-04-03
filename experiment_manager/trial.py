@@ -35,9 +35,21 @@ class Trial(YAMLSerializable):
             self.env.logger.info(f"Trial '{self.name}' (ID: {self.id}) repeat {i} completed")
             
     def run_single(self) -> None:
+        # TODO: id logic here is not correct
         trial_run_env = self.env.create_child(self.name)
         self.env.logger.info(f"Trial Run'{self.name}' (ID: {self.id}) running single")
         
+        try:
+            if self.env.factory is None:
+                self.env.logger.error("Factory not initialized in environment")
+                return
+            
+            pipeline = self.env.factory.create(self.config.pipeline, trial_run_env, self.id)
+            pipeline.run(self.config, trial_run_env)
+        
+        except Exception as e:
+            self.env.logger.error(f"Error running trial {self.id}: {e}")
+            raise e
         
     
     @classmethod

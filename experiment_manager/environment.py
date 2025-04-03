@@ -1,6 +1,7 @@
 import os
 from omegaconf import OmegaConf, DictConfig
 
+from experiment_manager.common.factory import Factory
 from experiment_manager.common.serializable import YAMLSerializable
 from experiment_manager.logger import FileLogger, ConsoleLogger, CompositeLogger, EmptyLogger
 
@@ -18,10 +19,12 @@ class Environment(YAMLSerializable):
     
     def __init__(self, workspace: str,
                  config: DictConfig,
+                 factory: Factory = None,
                  verbose: bool = False):
         super().__init__()
         self.workspace = os.path.abspath(workspace)  # Convert to absolute path
         self.config = config
+        self.factory = factory
         
         self.logger = EmptyLogger()
         if verbose:
