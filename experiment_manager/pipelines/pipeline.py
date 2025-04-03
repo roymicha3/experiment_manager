@@ -1,7 +1,9 @@
-from typing import List, Dict, Any
+from abc import ABC
+from typing import Dict, Any, List
+from omegaconf import DictConfig
+
 from experiment_manager.environment import Environment
 from experiment_manager.pipelines.callbacks.callback import Callback
-from abc import ABC, abstractmethod
 
 class Pipeline(ABC):
     
@@ -23,14 +25,14 @@ class Pipeline(ABC):
             callback.on_start()
             
     
-    def on_epoch_end(self, epoch_idx: int, metrics: Dict[str, Any]) -> None:
+    def on_epoch_end(self, epoch_idx: int, metrics: Dict[str, Any]) -> bool:
+        stop_flag = False
         for callback in self.callbacks:
             self.env.logger.debug(f"Executing on_epoch_end for {callback.__class__.__name__}")
             should_continue = callback.on_epoch_end(epoch_idx, metrics)
             if not should_continue:
-                self.env.logger.info(f"Callback {callback.__class__.__name__} requested early termination")
-                break
-            
+                stop_flag = True
+        return stop_flag
     
     def on_end(self, metrics: Dict[str, Any]) -> None:
         self.env.logger.info("Pipeline execution completed")
@@ -38,7 +40,8 @@ class Pipeline(ABC):
             self.env.logger.debug(f"Executing on_end for {callback.__class__.__name__}")
             callback.on_end(metrics)
             
-    
     def run(self, config: DictConfig) -> None:
-        raise NotImplementedError
-    
+        """
+        Run the pipeline with the given configuration.
+        """
+        raise NotImplementedError("Pipeline.run() must be implemented by subclasses")
