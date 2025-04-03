@@ -5,10 +5,12 @@ A flexible and extensible framework for managing machine learning experiments an
 ## Features
 
 - **Experiment Management**: Organize and track multiple experiments
-- **Trial Management**: Run multiple trials with different configurations
-- **Configuration Management**: YAML-based configuration with inheritance
+- **Trial Management**: Run multiple trials with different configurations and repeats
+- **Configuration Management**: YAML-based configuration with inheritance and merging
 - **Workspace Organization**: Structured directory layout for artifacts, logs, and configs
 - **Logging System**: Hierarchical logging for experiments and trials
+- **Resume Support**: Ability to resume experiments from partial completion
+- **Error Handling**: Graceful handling of configuration errors and invalid states
 
 ## Installation
 
@@ -68,13 +70,13 @@ env = Environment(workspace="outputs", config=env_config)
 env.setup_environment()
 
 # Create and run experiment
-exp_config = OmegaConf.create({
-    "name": "my_experiment",
-    "id": 1,
-    "desc": "Training with different hyperparameters",
-    "config_dir_path": "path/to/configs"
-})
-experiment = Experiment.from_config(exp_config, env)
+experiment = Experiment(
+    name="my_experiment",
+    id=1,
+    desc="Training with different hyperparameters",
+    env=env,
+    config_dir_path="path/to/configs"
+)
 experiment.run()
 ```
 
@@ -95,6 +97,7 @@ experiment_manager/
 ├── tests/
 │   ├── __init__.py
 │   ├── test_experiment.py
+│   ├── test_experiment_integration.py
 │   └── test_trial.py
 ├── examples/
 │   ├── configs/
@@ -115,20 +118,24 @@ The `Environment` class manages workspace directories and configurations:
 - Handles log, artifact, and config directories
 - Stores environment configuration
 - Provides logging capabilities
+- Supports nested environments for trials
 
 ### Experiment
 
 The `Experiment` class manages experiment execution:
 - Loads configurations from YAML files
 - Creates and manages trials
-- Handles configuration inheritance
+- Handles configuration inheritance and merging
+- Supports resuming from partial completion
+- Validates configuration integrity
 
 ### Trial
 
 The `Trial` class handles individual trial execution:
 - Manages trial-specific workspace
 - Executes trial with specified configuration
-- Handles trial repetitions
+- Handles trial repetitions with unique outputs
+- Supports nested trial environments
 
 ## Configuration System
 
@@ -137,6 +144,8 @@ The configuration system uses OmegaConf and supports:
 - Experiment-level settings
 - Trial-specific configurations
 - Configuration inheritance and merging
+- Validation of required fields (name, id, etc.)
+- Error handling for invalid configurations
 
 ## Directory Structure
 
@@ -155,10 +164,16 @@ workspace/
 │       │   ├── configs/
 │       │   ├── logs/
 │       │   └── artifacts/
+│       │   └── run_1/
+│       │       ├── logs/
+│       │       └── artifacts/
 │       └── trial_2/
 │           ├── configs/
 │           ├── logs/
 │           └── artifacts/
+│           └── run_1/
+│               ├── logs/
+│               └── artifacts/
 ```
 
 ## Contributing
