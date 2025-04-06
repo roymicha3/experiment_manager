@@ -128,13 +128,16 @@ def test_experiment_creates_log_file(env, config_dir):
     
     # Should have:
     # 1. Experiment log
-    # 2-4. test_trial_1 logs (2 run logs + 1 environment log)
-    # 5-6. test_trial_2 logs (1 run log + 1 environment log)
+    # 2. Trials log
+    # 3. first trial log
+    # 4-5.    two reapts - 2 run logs
+    # 6. second trial log
+    # 7.    one reapts - 1 run log
     print(f"\nFound {len(log_files)} log files")
     for log_file in log_files:
         print(f"- {log_file}")
     
-    assert len(log_files) == 6, f"Expected 6 log files (experiment + 3 trial_1 logs + 2 trial_2 logs), found {len(log_files)}"
+    assert len(log_files) == 7, f"Expected 7 log files (experiment + trials log + 3 trial_1 logs + 2 trial_2 logs), found {len(log_files)}"
     
     # Verify each log file exists and is readable
     for log_file in log_files:
