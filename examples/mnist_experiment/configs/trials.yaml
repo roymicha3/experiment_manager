@@ -1,0 +1,33 @@
+# List of trials with different model architectures
+- name: small_perceptron
+  id: 1
+  repeat: 1
+  pipeline:
+    type: TrainingPipeline
+  training:
+    input_size: 784  # 28x28 MNIST images
+    hidden_size: 128
+    num_classes: 10
+    learning_rate: 0.001
+
+- name: medium_perceptron
+  id: 2
+  repeat: 1
+  pipeline:
+    type: TrainingPipeline
+  training:
+    input_size: 784
+    hidden_size: 256
+    num_classes: 10
+    learning_rate: 0.0005
+
+- name: large_perceptron
+  id: 3
+  repeat: 1
+  pipeline:
+    type: TrainingPipeline
+  training:
+    input_size: 784
+    hidden_size: 512
+    num_classes: 10
+    learning_rate: 0.0001

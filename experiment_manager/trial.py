@@ -17,9 +17,7 @@ class Trial(YAMLSerializable):
         self.repeat = repeat
         
         # environment
-        self.env = env
-        self.env.set_workspace(self.name, inner=True)
-        self.env.setup_environment()
+        self.env = env.create_child(self.name)
         
         # configurations of the trial
         self.config = config
@@ -33,17 +31,35 @@ class Trial(YAMLSerializable):
         self.env.logger.info(f"Running trial '{self.name}' (ID: {self.id})")
         for i in range(self.repeat):
             self.env.logger.info(f"Trial '{self.name}' (ID: {self.id}) repeat {i}")
-            self.run_single()
+            self.run_single(i)
             self.env.logger.info(f"Trial '{self.name}' (ID: {self.id}) repeat {i} completed")
             
-    def run_single(self) -> None:
-        pass
+    def run_single(self, repeat: int) -> None:
+        # TODO: id logic here is not correct
+        trial_run_env = self.env.create_child(f"{self.name}-{repeat}")
+        self.env.logger.info(f"Trial Run'{self.name}' (repeat: {repeat}) running single")
+        
+        try:
+            if self.env.factory is None:
+                self.env.logger.error("Factory not initialized in environment")
+                return
+            
+            pipeline = self.env.factory.create(
+                name=self.config.pipeline.type,
+                config=self.config,
+                env=trial_run_env,
+                id=self.id
+            )
+            pipeline.run(self.config)
+        
+        except Exception as e:
+            self.env.logger.error(f"Error running trial {self.id}: {e}")
+            raise e
     
     @classmethod
     def from_config(cls, config: DictConfig, env: Environment):
-        # TODO: make config_dir_path optional
-        return cls(name=config.name, 
-                 id=config.id,
-                 repeat=config.repeat,
-                 config=config,
-                 env=env)
+        return cls(name=config.name,
+                  id=config.id,
+                  repeat=config.repeat,
+                  config=config,
+                  env=env)

@@ -3,6 +3,7 @@ import os
 from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Optional, Any
+from typing_extensions import override
 
 
 
@@ -167,3 +168,36 @@ class CompositeLogger(BaseLogger):
         # Update log directory and setup new file handler
         self.log_dir = log_dir
         self._setup_file_handler(log_dir, self.filename)
+        
+
+class EmptyLogger(BaseLogger):
+    """
+    Logger implementation that does nothing.
+    """
+    def __init__(self):
+        super().__init__(name="log", level="INFO")
+        
+    
+    def _setup_handler(self) -> None:
+        """Setup the specific handler for the logger implementation."""
+        pass
+    
+    @override
+    def debug(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+        pass
+    
+    @override
+    def info(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+        pass
+    
+    @override
+    def warning(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+        pass
+    
+    @override
+    def error(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+        pass
+    
+    @override
+    def critical(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+        pass

@@ -1,6 +1,5 @@
 from omegaconf import DictConfig
-
-from settings.serializable import YAMLSerializable
+from experiment_manager.common.serializable import YAMLSerializable
 
 class Factory:
     """

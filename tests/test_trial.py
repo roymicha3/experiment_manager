@@ -24,7 +24,8 @@ def env_config(base_config):
     """Environment configuration"""
     env_conf = OmegaConf.create({
         "workspace": "test_outputs",
-        "settings": base_config.settings
+        "settings": base_config.settings,
+        "verbose": True
     })
     return env_conf
 
@@ -59,7 +60,9 @@ def experiment_config(base_config, env):
         "name": "test_experiment",
         "id": 456,
         "desc": "Test experiment with multiple trials",
-        "settings": base_config.settings
+        "settings": base_config.settings,
+        "config_dir_path": os.path.join(env.config_dir, "experiment_configs"),  # Save to a subdirectory
+        "trials": []
     })
     
     base_conf = OmegaConf.create({
@@ -68,24 +71,25 @@ def experiment_config(base_config, env):
     
     trials_conf = OmegaConf.create([
         {
-            "name": "trial_1",
+            "name": "test_trial_1",
             "id": 1,
             "repeat": 2,
             "settings": {"trial_specific": "value1"}
         },
         {
-            "name": "trial_2",
+            "name": "test_trial_2",
             "id": 2,
-            "repeat": 3,
+            "repeat": 1,
             "settings": {"trial_specific": "value2"}
         }
     ])
     
-    # Save config files
-    os.makedirs(env.config_dir, exist_ok=True)
-    OmegaConf.save(config, os.path.join(env.config_dir, Experiment.CONFIG_FILE))
-    OmegaConf.save(base_conf, os.path.join(env.config_dir, Experiment.BASE_CONFIG))
-    OmegaConf.save(trials_conf, os.path.join(env.config_dir, Experiment.TRIALS_CONFIG))
+    # Save config files to config_dir_path
+    config_dir_path = os.path.join(env.config_dir, "experiment_configs")
+    os.makedirs(config_dir_path, exist_ok=True)
+    OmegaConf.save(config, os.path.join(config_dir_path, Experiment.CONFIG_FILE))
+    OmegaConf.save(base_conf, os.path.join(config_dir_path, Experiment.BASE_CONFIG))
+    OmegaConf.save(trials_conf, os.path.join(config_dir_path, Experiment.TRIALS_CONFIG))
     
     return config
 
@@ -146,7 +150,6 @@ class TestTrialConfiguration:
     def test_experiment_trial_config_inheritance(self, env, experiment_config):
         """Test trials inherit settings from experiment correctly"""
         experiment = Experiment.from_config(experiment_config, env)
-        experiment.setup()
         
         # Run experiment to create trials
         experiment.run()
@@ -194,7 +197,6 @@ class TestTrialLogging:
     def test_experiment_trial_logging(self, env, experiment_config):
         """Test trial logging when created from experiment"""
         experiment = Experiment.from_config(experiment_config, env)
-        experiment.setup()
         experiment.run()
         
         # Check each trial's logs
