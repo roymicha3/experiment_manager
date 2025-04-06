@@ -3,7 +3,7 @@ import unittest
 from datetime import datetime
 from omegaconf import OmegaConf
 
-from experiment_manager.environment import Environment
+from experiment_manager.environment import Environment, Level
 from experiment_manager.experiment import Experiment
 from examples.pipelines.pipeline_factory_example import ExamplePipelineFactory
 
@@ -26,7 +26,8 @@ class TestMNISTExperiment(unittest.TestCase):
                     "verbose": True
                 }
             }),
-            factory=self.factory
+            factory=self.factory,
+            level=Level.EXPERIMENT
         )
         self.env.setup_environment()
         

@@ -1,10 +1,20 @@
 import os
+import enum
 from omegaconf import OmegaConf, DictConfig
 
 from experiment_manager.common.factory import Factory
 from experiment_manager.common.serializable import YAMLSerializable
 from experiment_manager.logger import FileLogger, ConsoleLogger, CompositeLogger, EmptyLogger
 
+
+LOG_NAME = "log"
+
+# enum for levels:
+class Level(enum.Enum):
+    EXPERIMENT    = 0
+    TRIAL         = 1
+    TASK_RUN      = 2
+    PIPELINE      = 3
 
 class Environment(YAMLSerializable):
     """
@@ -20,16 +30,18 @@ class Environment(YAMLSerializable):
     def __init__(self, workspace: str,
                  config: DictConfig,
                  factory: Factory = None,
-                 verbose: bool = False):
+                 verbose: bool = False,
+                 level: Level = Level.EXPERIMENT):
         super().__init__()
         self.workspace = os.path.abspath(workspace)  # Convert to absolute path
         self.config = config
         self.factory = factory
         self.verbose = verbose
+        self.level = level
         
         self.logger = EmptyLogger()
         if self.verbose:
-            self.logger = ConsoleLogger(name="log")
+            self.logger = ConsoleLogger(name=LOG_NAME)
         
     def setup_environment(self, verbose: bool = None) -> None:
         os.makedirs(self.workspace, exist_ok=True)
@@ -41,10 +53,10 @@ class Environment(YAMLSerializable):
             self.verbose = verbose
             
         if self.verbose:
-            self.logger = CompositeLogger(name="log",
+            self.logger = CompositeLogger(name=LOG_NAME,
                                          log_dir=self.log_dir)
         else:
-            self.logger = FileLogger(name="log",
+            self.logger = FileLogger(name=LOG_NAME,
                                      log_dir=self.log_dir)
         
         self.save()  # Save config after setup
@@ -90,22 +102,36 @@ class Environment(YAMLSerializable):
     def from_config(cls, config: DictConfig):
         """Create environment from configuration."""
         verbose = config.get("verbose", False)
-        return cls(workspace=config.workspace, config=config, verbose=verbose)
+        return cls(workspace=config.workspace, config=config, verbose=verbose, level=Level.EXPERIMENT)
     
     def copy(self):
         return self.__class__(
             workspace=self.workspace,
             config=self.config,
             factory=self.factory,
-            verbose=self.verbose
+            verbose=self.verbose,
+            level=self.level
         )
         
     def create_child(self, name: str) -> 'Environment':
         """
         Create a child environment with its own workspace.
         """
-        child_env = self.copy()
-        child_env.set_workspace(name, inner=True)
+        # Calculate next level based on current level
+        next_level = {
+            Level.EXPERIMENT: Level.TRIAL,
+            Level.TRIAL: Level.TASK_RUN,
+            Level.TASK_RUN: Level.PIPELINE,
+            Level.PIPELINE: Level.PIPELINE  # Stay at pipeline level
+        }[self.level]
+        
+        child_env = self.__class__(
+            workspace=os.path.join(self.workspace, name),
+            config=self.config,
+            factory=self.factory,
+            verbose=self.verbose,
+            level=next_level
+        )
         child_env.setup_environment()
-        self.logger.debug(f"Created child environment '{name}' at {child_env.workspace}")
+        self.logger.debug(f"Created child environment '{name}' at {child_env.workspace} with level {next_level}")
         return child_env
