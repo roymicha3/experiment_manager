@@ -9,7 +9,9 @@ class Level(enum.Enum):
     TRIAL         = 1
     TASK_RUN      = 2
     PIPELINE      = 3
+    EPOCH         = 4
     
+
 class MetricCategory(enum.Enum):
     TRACKED = 0
     UNTRACKED = 1

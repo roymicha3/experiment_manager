@@ -17,6 +17,12 @@ A flexible and extensible framework for managing machine learning experiments an
   - Checkpointing at specified intervals
   - Metric tracking and logging
   - Custom callback support
+- **Database Integration**: Comprehensive experiment tracking with:
+  - Support for both SQLite (development) and MySQL (production)
+  - Hierarchical tracking of experiments, trials, and runs
+  - Metric storage with total and per-label values
+  - Artifact management at all levels
+  - Relationship tracking between entities
 
 ## Installation
 
@@ -106,7 +112,12 @@ experiment_manager/
 │   ├── experiment.py     # Experiment execution
 │   ├── trial.py         # Trial execution
 │   ├── logger.py        # Logging utilities
-│   ├── pipelines/       # Pipeline and callback system
+│   ├── db/             # Database management
+│   │   ├── __init__.py
+│   │   ├── manager.py  # Database operations
+│   │   ├── tables.py   # Database entities
+│   │   └── docs/       # Database documentation
+│   ├── pipelines/      # Pipeline and callback system
 │   │   ├── __init__.py
 │   │   ├── pipeline.py
 │   │   └── callbacks/
@@ -123,7 +134,10 @@ experiment_manager/
 │   ├── __init__.py
 │   ├── test_experiment.py
 │   ├── test_experiment_integration.py
-│   └── test_trial.py
+│   ├── test_trial.py
+│   └── db/
+│       ├── __init__.py
+│       └── test_manager.py
 ├── examples/
 │   ├── configs/
 │   │   ├── experiment.yaml
