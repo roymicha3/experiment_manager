@@ -108,9 +108,14 @@ class DatabaseManager:
         )
     
     def create_trial(self, experiment_id: int, name: str) -> Trial:
+        # Check if experiment exists
+        ph = self._get_placeholder()
+        check_query = f"SELECT id FROM EXPERIMENT WHERE id = {ph}"
+        cursor = self._execute_query(check_query, (experiment_id,))
+        if not cursor.fetchone():
+            raise QueryError(f"Experiment with id {experiment_id} does not exist")
         
         now = datetime.now().isoformat()
-        ph = self._get_placeholder()
         
         query = f"""
         INSERT INTO TRIAL (experiment_id, name, start_time, update_time)
@@ -129,9 +134,14 @@ class DatabaseManager:
         )
     
     def create_trial_run(self, trial_id: int, status: str = "started") -> TrialRun:
+        # Check if trial exists
+        ph = self._get_placeholder()
+        check_query = f"SELECT id FROM TRIAL WHERE id = {ph}"
+        cursor = self._execute_query(check_query, (trial_id,))
+        if not cursor.fetchone():
+            raise QueryError(f"Trial with id {trial_id} does not exist")
         
         now = datetime.now().isoformat()
-        ph = self._get_placeholder()
         
         query = f"""
         INSERT INTO TRIAL_RUN (trial_id, status, start_time, update_time)
@@ -264,6 +274,18 @@ class DatabaseManager:
     def link_experiment_artifact(self, experiment_id: int, artifact_id: int) -> None:
         """Link an artifact to an experiment."""
         ph = self._get_placeholder()
+        
+        # Check if experiment exists
+        check_exp_query = f"SELECT id FROM EXPERIMENT WHERE id = {ph}"
+        cursor = self._execute_query(check_exp_query, (experiment_id,))
+        if not cursor.fetchone():
+            raise QueryError(f"Experiment with id {experiment_id} does not exist")
+        
+        # Check if artifact exists
+        check_art_query = f"SELECT id FROM ARTIFACT WHERE id = {ph}"
+        cursor = self._execute_query(check_art_query, (artifact_id,))
+        if not cursor.fetchone():
+            raise QueryError(f"Artifact with id {artifact_id} does not exist")
         
         query = f"""
         INSERT INTO EXPERIMENT_ARTIFACT (experiment_id, artifact_id)
