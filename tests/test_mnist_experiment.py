@@ -5,7 +5,7 @@ from omegaconf import OmegaConf
 
 from experiment_manager.environment import Environment, Level
 from experiment_manager.experiment import Experiment
-from examples.pipelines.pipeline_factory_example import ExamplePipelineFactory
+from tests.pipelines.dummy_pipeline_factory import DummyPipelineFactory
 
 class TestMNISTExperiment(unittest.TestCase):
     def setUp(self):
@@ -14,7 +14,7 @@ class TestMNISTExperiment(unittest.TestCase):
         os.makedirs(self.workspace, exist_ok=True)
         
         # Create factory
-        self.factory = ExamplePipelineFactory
+        self.factory = DummyPipelineFactory
         
         # Create environment
         self.env = Environment(
@@ -55,16 +55,11 @@ class TestMNISTExperiment(unittest.TestCase):
                 "verbose": True
             },
             "pipeline": {
-                "type": "TrainingPipeline"
+                "type": "DummyPipeline"
             },
             "training": {
-                "dataset": "mnist",
-                "validation_split": 0.1,
-                "test_split": 0.1,
-                "batch_size": 64,
-                "shuffle": True,
                 "epochs": 10,
-                "optimizer": "adam"
+                "batch_size": 64
             }
         })
         
@@ -73,53 +68,31 @@ class TestMNISTExperiment(unittest.TestCase):
                 "name": "small_perceptron",
                 "id": 1,
                 "repeat": 1,
+                    "epochs": 2,
+                    "batch_size": 64,
                 "settings": {
                     "device": "cpu",
                     "debug": True,
                     "verbose": True
                 },
                 "pipeline": {
-                    "type": "TrainingPipeline"
+                    "type": "DummyPipeline"
                 },
-                "training": {
-                    "input_size": 784,
-                    "hidden_size": 128,
-                    "num_classes": 10,
-                    "learning_rate": 0.001,
-                    "dataset": "mnist",
-                    "validation_split": 0.1,
-                    "test_split": 0.1,
-                    "batch_size": 64,
-                    "shuffle": True,
-                    "epochs": 2,
-                    "optimizer": "adam"
-                }
             }),
             OmegaConf.create({
                 "name": "medium_perceptron",
                 "id": 2,
                 "repeat": 1,
+                "epochs": 2,
+                "batch_size": 64,
                 "settings": {
                     "device": "cpu",
                     "debug": True,
                     "verbose": True
                 },
                 "pipeline": {
-                    "type": "TrainingPipeline"
+                    "type": "DummyPipeline"
                 },
-                "training": {
-                    "input_size": 784,
-                    "hidden_size": 256,
-                    "num_classes": 10,
-                    "learning_rate": 0.001,
-                    "dataset": "mnist",
-                    "validation_split": 0.1,
-                    "test_split": 0.1,
-                    "batch_size": 64,
-                    "shuffle": True,
-                    "epochs": 2,
-                    "optimizer": "adam"
-                }
             }),
             OmegaConf.create({
                 "name": "large_perceptron",
@@ -131,21 +104,10 @@ class TestMNISTExperiment(unittest.TestCase):
                     "verbose": True
                 },
                 "pipeline": {
-                    "type": "TrainingPipeline"
+                    "type": "DummyPipeline"
                 },
-                "training": {
-                    "input_size": 784,
-                    "hidden_size": 512,
-                    "num_classes": 10,
-                    "learning_rate": 0.001,
-                    "dataset": "mnist",
-                    "validation_split": 0.25,
-                    "test_split": 0.25,
-                    "batch_size": 64,
-                    "shuffle": True,
-                    "epochs": 2,
-                    "optimizer": "adam"
-                }
+                "epochs": 2,
+                "batch_size": 64
             })
         ]
         
@@ -233,7 +195,7 @@ class TestMNISTExperiment(unittest.TestCase):
         for trial_config in self.experiment.trials_config:
             trial_config.repeat = 3
             # Reduce epochs to make test faster
-            trial_config.training.epochs = 1
+            trial_config.epochs = 1
         
         # Run experiment
         self.experiment.run()

@@ -5,7 +5,6 @@ from omegaconf import OmegaConf, DictConfig
 from experiment_manager.environment import Environment
 from experiment_manager.common.common import Metric
 from experiment_manager.trackers.log_tracker import LogTracker
-from tests.pipelines.dummy_pipeline import DummyPipeline
 from tests.pipelines.dummy_pipeline_factory import DummyPipelineFactory
 
 @pytest.fixture
