@@ -32,16 +32,17 @@ _metric_categories = {}
 
 def _init_metric_categories():
     global _metric_categories
-    _metric_categories = {
-        Metric.EPOCH: MetricCategory.TRACKED,
-        Metric.TEST_ACC: MetricCategory.TRACKED,
-        Metric.TEST_LOSS: MetricCategory.TRACKED,
-        Metric.VAL_ACC: MetricCategory.TRACKED,
-        Metric.VAL_LOSS: MetricCategory.TRACKED,
-        Metric.NETWORK: MetricCategory.UNTRACKED,
-        Metric.DATA: MetricCategory.UNTRACKED,
-        Metric.STATUS: MetricCategory.UNTRACKED
-    }
+    _metric_categories = \
+        {
+            Metric.EPOCH: MetricCategory.TRACKED,
+            Metric.TEST_ACC: MetricCategory.TRACKED,
+            Metric.TEST_LOSS: MetricCategory.TRACKED,
+            Metric.VAL_ACC: MetricCategory.TRACKED,
+            Metric.VAL_LOSS: MetricCategory.TRACKED,
+            Metric.NETWORK: MetricCategory.UNTRACKED,
+            Metric.DATA: MetricCategory.UNTRACKED,
+            Metric.STATUS: MetricCategory.UNTRACKED
+        }
 
 def get_metric_category(metric: Metric) -> MetricCategory:
     return _metric_categories[metric]

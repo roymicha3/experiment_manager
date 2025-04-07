@@ -7,8 +7,6 @@ from experiment_manager.common.serializable import YAMLSerializable
 from experiment_manager.logger import FileLogger, ConsoleLogger, CompositeLogger, EmptyLogger
 
 
-
-
 class Environment(YAMLSerializable):
     """
     Environment class for managing the environment.
@@ -20,7 +18,8 @@ class Environment(YAMLSerializable):
     ARTIFACT_DIR = "artifacts"
     CONFIG_DIR = "configs"
     
-    def __init__(self, workspace: str,
+    def __init__(self, 
+        workspace: str,
                  config: DictConfig,
                  factory: Factory = None,
                  verbose: bool = False,
