@@ -1,9 +1,9 @@
 import os
 from omegaconf import OmegaConf, DictConfig
 
+from experiment_manager.trial import Trial
 from experiment_manager.environment import Environment
 from experiment_manager.common.serializable import YAMLSerializable
-from experiment_manager.trial import Trial
 
 
 class Experiment(YAMLSerializable):

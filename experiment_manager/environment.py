@@ -1,20 +1,13 @@
 import os
-import enum
 from omegaconf import OmegaConf, DictConfig
 
 from experiment_manager.common.factory import Factory
+from experiment_manager.common.common import LOG_NAME, Level
 from experiment_manager.common.serializable import YAMLSerializable
 from experiment_manager.logger import FileLogger, ConsoleLogger, CompositeLogger, EmptyLogger
 
 
-LOG_NAME = "log"
 
-# enum for levels:
-class Level(enum.Enum):
-    EXPERIMENT    = 0
-    TRIAL         = 1
-    TASK_RUN      = 2
-    PIPELINE      = 3
 
 class Environment(YAMLSerializable):
     """
