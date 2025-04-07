@@ -123,9 +123,10 @@ class Environment(YAMLSerializable):
         # Calculate next level based on current level
         next_level = {
             Level.EXPERIMENT: Level.TRIAL,
-            Level.TRIAL: Level.TASK_RUN,
-            Level.TASK_RUN: Level.PIPELINE,
-            Level.PIPELINE: Level.PIPELINE  # Stay at pipeline level
+            Level.TRIAL: Level.TRIAL_RUN,
+            Level.TRIAL_RUN: Level.PIPELINE,
+            Level.PIPELINE: Level.EPOCH,
+            Level.EPOCH: Level.EPOCH
         }[self.level]
         
         child_env = self.__class__(

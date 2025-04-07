@@ -342,7 +342,20 @@ class DatabaseManager:
         
         self._execute_query(query, (trial_run_id, metric_id))
         self.connection.commit()
-
+        
+    
+    def update_trial_run_status(self, trial_run_id: int, status: str) -> None:
+        ph = self._get_placeholder()
+        
+        query = f"""
+        UPDATE TRIAL_RUN
+        SET status = {ph}
+        WHERE id = {ph}
+        """
+        
+        self._execute_query(query, (status, trial_run_id))
+        self.connection.commit()
+    
     def get_experiment_artifacts(self, experiment_id: int) -> List[Artifact]:
         """Get all artifacts associated with an experiment."""
         ph = self._get_placeholder()

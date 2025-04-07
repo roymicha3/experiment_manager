@@ -7,7 +7,7 @@ LOG_NAME = "log"
 class Level(enum.Enum):
     EXPERIMENT    = 0
     TRIAL         = 1
-    TASK_RUN      = 2
+    TRIAL_RUN      = 2
     PIPELINE      = 3
     EPOCH         = 4
     

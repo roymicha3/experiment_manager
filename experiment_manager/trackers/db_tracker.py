@@ -66,12 +66,21 @@ class DBTracker(Tracker, YAMLSerializable):
     def on_end(self, level: Level, *args, **kwargs):
         pass
     
-    def on_add_artifact(self, level: Level, *args, **kwargs):
+    def on_add_artifact(self, level: Level, artifact_path:str, *args, **kwargs):
+        
         self.db_manager.create_artifact(
             artifact_type=args[0],
-            location=args[1])
+            location=artifact_path)
         
-        self.db_manager
-    
-    def save(self):
-        pass
+        if level == Level.EXPERIMENT:
+            self.db_manager.link_experiment_artifact(args[0], artifact.id)
+        elif level == Level.TRIAL:
+            self.db_manager.link_trial_artifact(args[0], artifact.id)
+        elif level == Level.TRIAL_RUN:
+            self.db_manager.link_trial_run_artifact(args[0], artifact.id)
+        elif level == Level.EPOCH:
+            self.db_manager.link_epoch_artifact(args[0], args[1], artifact.id)
+        else:
+            raise ValueError(f"Invalid level: {level}")
+        
+        return artifact.id
