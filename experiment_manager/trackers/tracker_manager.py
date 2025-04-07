@@ -38,7 +38,8 @@ class TrackerManager(YAMLSerializable):
     def from_config(cls, config: DictConfig, workspace: str):
         manager = cls(workspace)
         for tracker_conf in config.get("trackers", []):
-            print(tracker_conf)
+            if "type" not in tracker_conf:
+                raise ValueError("missing required 'type' field")
             tracker = TrackerFactory.create(tracker_conf.type, tracker_conf, workspace)
             manager.add_tracker(tracker)
         return manager
