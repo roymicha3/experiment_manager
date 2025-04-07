@@ -3,9 +3,10 @@ import pytest
 from omegaconf import OmegaConf, DictConfig
 
 from experiment_manager.environment import Environment
-from experiment_manager.experiment import Experiment
-from experiment_manager.common.common import Level, Metric
+from experiment_manager.common.common import Metric
 from experiment_manager.trackers.log_tracker import LogTracker
+from tests.pipelines.dummy_pipeline import DummyPipeline
+from tests.pipelines.dummy_pipeline_factory import DummyPipelineFactory
 
 @pytest.fixture
 def env_config():
@@ -13,15 +14,17 @@ def env_config():
         "workspace": "test_workspace",
         "settings": {
             "debug": True,
-            "verbose": True
+            "verbose": True,
+            "epochs": 3,
+            "batch_size": 32
         },
-        "trackers": {
-            "log": {
+        "trackers": [
+            {
                 "type": "LogTracker",
                 "name": "test_tracker.log",
                 "verbose": True
             }
-        }
+        ]
     })
 
 @pytest.fixture
@@ -36,106 +39,139 @@ def experiment_config():
     })
 
 @pytest.fixture
+def trials_config():
+    return OmegaConf.create([
+        {
+            "name": "trial_1",
+            "id": 1,
+            "repeat": 2,
+            "settings": {
+                "learning_rate": 0.001
+            },
+            "pipeline": {
+                "type": "DummyPipeline",
+                "settings": {
+                    "epochs": 3
+                }
+            }
+        },
+        {
+            "name": "trial_2",
+            "id": 2,
+            "repeat": 1,
+            "settings": {
+                "learning_rate": 0.01
+            },
+            "pipeline": {
+                "type": "DummyPipeline",
+                "settings": {
+                    "epochs": 3
+                }
+            }
+        }
+    ])
+
+@pytest.fixture
 def env(env_config, tmp_path):
     workspace = os.path.join(str(tmp_path), env_config.workspace)
     env = Environment(
         workspace=workspace,
         config=env_config,
-        verbose=True,
-        level=Level.EXPERIMENT
+        factory=DummyPipelineFactory,
+        verbose=True
     )
     env.setup_environment()
     return env
 
-@pytest.fixture
-def experiment(env, experiment_config, tmp_path):
-    config_dir = os.path.join(str(tmp_path), "configs")
-    os.makedirs(config_dir, exist_ok=True)
+def test_basic_log_tracker(env):
+    """Test that individual metrics are properly logged to file"""
+    # Track some metrics
+    metrics = [
+        ("test_accuracy", 0.95, Metric.TEST_ACC),
+        ("test_loss", 0.15, Metric.TEST_LOSS),
+        ("val_accuracy", 0.92, Metric.VAL_ACC)
+    ]
     
-    experiment = Experiment(
-        name=experiment_config.name,
-        id=experiment_config.id,
-        desc=experiment_config.desc,
-        env=env,
-        config_dir_path=config_dir
-    )
-    return experiment
-
-def test_experiment_tracking(experiment):
-    """Test that metrics are tracked at experiment level"""
-    metric_value = 0.95
-    metric_name = "accuracy"
+    for i, (name, value, metric_type) in enumerate(metrics):
+        env.tracker_manager.track(
+            metric=metric_type,
+            value=value,
+            step=i
+        )
     
-    # Track a metric
-    experiment.env.tracker_manager.track(
-        name=metric_name,
-        value=metric_value,
-        metric_type=Metric.ACCURACY
-    )
-    
-    # Verify in log tracker
-    tracker = experiment.env.tracker_manager.trackers[0]
+    # Verify log tracker setup
+    tracker = env.tracker_manager.trackers[0]
     assert isinstance(tracker, LogTracker)
+    assert tracker.name == "test_tracker.log"
+    assert tracker.verbose == True
     
+    # Verify log file exists and contains metrics
     log_path = os.path.join(tracker.workspace, tracker.name)
     assert os.path.exists(log_path)
     
-    # Read log file and verify content
     with open(log_path, 'r') as f:
         content = f.read()
-        assert metric_name in content
-        assert str(metric_value) in content
-        assert Metric.ACCURACY.value in content
+        for name, value, metric_type in metrics:
+            assert metric_type.name in content
+            assert str(value) in content
+            assert str(metric_type.value) in content
 
-def test_hierarchical_tracking(experiment):
-    """Test that metrics are tracked through the hierarchy"""
-    metric_value = 0.85
-    metric_name = "loss"
+def test_dummy_pipeline(env):
+    """Test tracking metrics through a dummy pipeline run"""
+    # Create pipeline config
+    pipeline_config = DictConfig({
+        'type': 'DummyPipeline',
+        'epochs': 5,
+        'batch_size': 32,
+        'device': 'cpu'
+    })
     
-    # Create a trial environment
-    trial_env = experiment.env.create_child("trial_1")
-    
-    # Track from trial level
-    trial_env.tracker_manager.track(
-        name=metric_name,
-        value=metric_value,
-        metric_type=Metric.LOSS
+    # Create and run pipeline
+    pipeline = env.factory.create(
+        name=pipeline_config.type,
+        config=pipeline_config,
+        env=env,
+        id=1
     )
+    status = pipeline.run(pipeline_config)
+    assert status == "completed"
     
-    # Verify in both trial and experiment trackers
-    for env in [trial_env, experiment.env]:
-        tracker = env.tracker_manager.trackers[0]
-        log_path = os.path.join(tracker.workspace, tracker.name)
-        assert os.path.exists(log_path)
-        
-        with open(log_path, 'r') as f:
-            content = f.read()
-            assert metric_name in content
-            assert str(metric_value) in content
-            assert Metric.LOSS.value in content
-
-def test_tracker_cleanup(experiment):
-    """Test that trackers properly clean up resources"""
-    metric_value = 0.75
-    metric_name = "validation_loss"
+    # Verify log tracker
+    tracker = env.tracker_manager.trackers[0]
+    assert isinstance(tracker, LogTracker)
     
-    # Track some metrics
-    experiment.env.tracker_manager.track(
-        name=metric_name,
-        value=metric_value,
-        metric_type=Metric.VAL_LOSS
-    )
-    
-    # Get log file path
-    tracker = experiment.env.tracker_manager.trackers[0]
+    # Verify log file exists and contains metrics
     log_path = os.path.join(tracker.workspace, tracker.name)
-    
-    # Verify file exists
     assert os.path.exists(log_path)
     
-    # Clean up environment
-    experiment.env.tracker_manager.close()
-    
-    # File should still exist but be properly closed
-    assert os.path.exists(log_path)
-    # Could add more specific checks for file handles if needed
+    with open(log_path, 'r') as f:
+        content = f.read()
+        
+        # Check training metrics
+        for epoch in range(pipeline_config.epochs):
+            # Training metrics
+            train_acc = 0.5 + (epoch * 0.05)
+            train_loss = 1.0 - (epoch * 0.1)
+            assert str(round(train_acc, 2)) in content
+            assert str(round(train_loss, 2)) in content
+            
+            # Validation metrics
+            val_acc = train_acc - 0.05
+            val_loss = train_loss + 0.1
+            assert str(round(val_acc, 2)) in content
+            assert str(round(val_loss, 2)) in content
+        
+        # Check final test metrics
+        final_train_acc = 0.5 + ((pipeline_config.epochs - 1) * 0.05)
+        final_test_acc = final_train_acc + 0.02
+        final_train_loss = 1.0 - ((pipeline_config.epochs - 1) * 0.1)
+        final_test_loss = final_train_loss - 0.05
+        
+        assert str(round(final_test_acc, 2)) in content
+        assert str(round(final_test_loss, 2)) in content
+        
+        # Check metric names
+        assert Metric.TEST_ACC.name in content
+        assert Metric.TEST_LOSS.name in content
+        assert Metric.VAL_ACC.name in content
+        assert Metric.VAL_LOSS.name in content

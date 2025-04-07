@@ -36,8 +36,9 @@ class LogTracker(Tracker, YAMLSerializable):
     def log(self, message: str) -> None:
         self.logger.info(message)
 
-    def track(self, metric: Metric, step: int):
-        self.log(f"{metric} at step {step}")
+    def track(self, metric: Metric, value, step: int = None):
+        step_str = f" at step {step}" if step is not None else ""
+        self.log(f"{metric.name}: {value} ({metric.value}){step_str}")
 
     def on_create(self, level: Level, *args, **kwargs):
         self.log(f"Creating {level}")

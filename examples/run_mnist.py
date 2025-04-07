@@ -24,6 +24,9 @@ def main():
         'validation_split': 0.1,
         'test_split': 0.1,
         'shuffle': True,
+        'input_size': 784,
+        'num_classes': 10,
+        'learning_rate': 0.001,
         'callbacks': [
             {
                 'type': 'EarlyStopping',

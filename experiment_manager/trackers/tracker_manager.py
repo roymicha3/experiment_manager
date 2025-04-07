@@ -14,9 +14,9 @@ class TrackerManager(YAMLSerializable):
     def add_tracker(self, tracker: Tracker) -> None:
         self.trackers.append(tracker)
 
-    def track(self, metric: Metric, step: int):
+    def track(self, metric: Metric, value, step: int = None):
         for tracker in self.trackers:
-            tracker.track(metric, step)
+            tracker.track(metric, value, step)
 
     def on_create(self, level: Level, *args, **kwargs):
         for tracker in self.trackers:

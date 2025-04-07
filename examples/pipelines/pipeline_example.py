@@ -74,7 +74,7 @@ class TrainingPipeline(Pipeline, YAMLSerializable):
         train_dataset = datasets.MNIST(data_dir, train=True, download=True, transform=transform)
         
         # Split into train and validation
-        train_size = int((1 - config.training.validation_split) * len(train_dataset))
+        train_size = int((1 - config.validation_split) * len(train_dataset))
         val_size = len(train_dataset) - train_size
         train_dataset, val_dataset = torch.utils.data.random_split(
             train_dataset, [train_size, val_size]
@@ -82,23 +82,23 @@ class TrainingPipeline(Pipeline, YAMLSerializable):
         
         train_loader = torch.utils.data.DataLoader(
             train_dataset,
-            batch_size=config.training.batch_size,
-            shuffle=config.training.shuffle)
+            batch_size=config.batch_size,
+            shuffle=config.shuffle)
         
         val_loader = torch.utils.data.DataLoader(
             val_dataset,
-            batch_size=config.training.batch_size,
+            batch_size=config.batch_size,
             shuffle=False)
         
         # Create network
         network = SingleLayerPerceptron(
-            input_size=config.training.input_size,
-            num_classes=config.training.num_classes
+            input_size=config.input_size,
+            num_classes=config.num_classes
         ).to(device)
         self.env.logger.info(f"Created network: {network}")
         
         # Create optimizer and criterion
-        optimizer = torch.optim.Adam(network.parameters(), lr=config.training.learning_rate)
+        optimizer = torch.optim.Adam(network.parameters(), lr=config.learning_rate)
         criterion = nn.CrossEntropyLoss()
         
         status = "completed"
@@ -106,7 +106,7 @@ class TrainingPipeline(Pipeline, YAMLSerializable):
         # Signal start to callbacks
         self.on_start()
         
-        for epoch in range(config.training.epochs):
+        for epoch in range(config.epochs):
             network.train()
             correct_predictions = 0
             total_predictions = 0
@@ -116,7 +116,7 @@ class TrainingPipeline(Pipeline, YAMLSerializable):
             progress_bar = tqdm(
                 enumerate(train_loader),
                 total=len(train_loader),
-                desc=f"Epoch [{epoch+1}/{config.training.epochs}]")
+                desc=f"Epoch [{epoch+1}/{config.epochs}]")
             
             for batch_idx, (inputs, labels) in progress_bar:
                 inputs = inputs.to(device)

@@ -13,7 +13,7 @@ class Tracker(YAMLSerializable, ABC):
         self.workspace = workspace
         
     @abstractmethod
-    def track(self, metric: Metric, step: int):
+    def track(self, metric: Metric, value, step: int):
         pass
     
     @abstractmethod
