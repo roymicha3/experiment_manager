@@ -38,8 +38,8 @@ class Environment(YAMLSerializable):
             self.logger = ConsoleLogger(name=LOG_NAME)
 
         self.tracker_manager = TrackerManager.from_config(
-            config,
-            workspace = self.artifact_dir
+            self.config,
+            self.artifact_dir
         )
         
     def setup_environment(self, verbose: bool = None) -> None:

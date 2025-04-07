@@ -1,3 +1,4 @@
+import os
 from omegaconf import DictConfig
 
 from experiment_manager.common.common import Metric, MetricCategory, Level
@@ -14,31 +15,44 @@ class LogTracker(Tracker, YAMLSerializable):
         super().__init__()
         self.workspace = workspace
         self.name = name
-        if verbose:
-            self.logger = CompositeLogger(name=self.name, log_path=self.workspace)
+        self.verbose = verbose
+        self._setup_logger()
+
+    def _setup_logger(self):
+        os.makedirs(self.workspace, exist_ok=True)
+        if self.verbose:
+            self.logger = CompositeLogger(
+                name=self.name,
+                log_dir=self.workspace,
+                filename=self.name
+            )
         else:
-            self.logger = FileLogger(name=self.name, log_path=self.workspace)
+            self.logger = FileLogger(
+                name=self.name,
+                log_dir=self.workspace,
+                filename=self.name
+            )
 
     def log(self, message: str) -> None:
-        self.logger.log(message)
+        self.logger.info(message)
 
     def track(self, metric: Metric, step: int):
         self.log(f"{metric} at step {step}")
 
     def on_create(self, level: Level, *args, **kwargs):
         self.log(f"Creating {level}")
-        self.log(args)
-        self.log(kwargs)
+        self.log(str(args))
+        self.log(str(kwargs))
 
     def on_start(self, level: Level, *args, **kwargs):
         self.log(f"Starting {level}")
-        self.log(args)
-        self.log(kwargs)
+        self.log(str(args))
+        self.log(str(kwargs))
 
     def on_end(self, level: Level, *args, **kwargs):
         self.log(f"Ending {level}")
-        self.log(args)
-        self.log(kwargs)
+        self.log(str(args))
+        self.log(str(kwargs))
 
     def save(self):
         pass
