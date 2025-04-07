@@ -1,21 +1,23 @@
+from omegaconf import DictConfig
+
 from experiment_manager.common.common import Metric, MetricCategory, Level
 from experiment_manager.common.serializable import YAMLSerializable
 from experiment_manager.trackers.tracker import Tracker
 from experiment_manager.logger import FileLogger, CompositeLogger
 
 
-
-class LogTracker(Tracker):
+@YAMLSerializable.register("LogTracker")
+class LogTracker(Tracker, YAMLSerializable):
     LOG_NAME = "tracker.log"
 
-    def __init__(self, log_path: str, name: str = LogTracker.LOG_NAME, verbose: bool = False):
+    def __init__(self, workspace: str, name: str = LOG_NAME, verbose: bool = False):
         super().__init__()
-        self.log_path = log_path
+        self.workspace = workspace
         self.name = name
         if verbose:
-            self.logger = CompositeLogger(name=self.name, log_path=self.log_path)
+            self.logger = CompositeLogger(name=self.name, log_path=self.workspace)
         else:
-            self.logger = FileLogger(name=self.name, log_path=self.log_path)
+            self.logger = FileLogger(name=self.name, log_path=self.workspace)
 
     def log(self, message: str) -> None:
         self.logger.log(message)
@@ -40,3 +42,7 @@ class LogTracker(Tracker):
 
     def save(self):
         pass
+
+    @classmethod
+    def from_config(cls, config: DictConfig, workspace: str) -> "LogTracker":
+        return cls(workspace, config.name, config.verbose)

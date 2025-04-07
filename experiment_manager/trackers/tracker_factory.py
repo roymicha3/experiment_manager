@@ -8,5 +8,5 @@ from experiment_manager.trackers.log_tracker import LogTracker
 
 class TrackerFactory(Factory):
 
-    def create(self, name: str, config: DictConfig) -> Tracker:
-        return super().create(name, config)
+    def create(self, name: str, config: DictConfig, workspace: str) -> Tracker:
+        return super().create(name, config, workspace)

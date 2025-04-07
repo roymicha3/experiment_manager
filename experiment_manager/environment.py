@@ -4,6 +4,8 @@ from omegaconf import OmegaConf, DictConfig
 from experiment_manager.common.factory import Factory
 from experiment_manager.common.common import LOG_NAME, Level
 from experiment_manager.common.serializable import YAMLSerializable
+from experiment_manager.trackers.tracker_manager import TrackerManager
+from experiment_manager.trackers.tracker import Tracker
 from experiment_manager.logger import FileLogger, ConsoleLogger, CompositeLogger, EmptyLogger
 
 
@@ -34,6 +36,11 @@ class Environment(YAMLSerializable):
         self.logger = EmptyLogger()
         if self.verbose:
             self.logger = ConsoleLogger(name=LOG_NAME)
+
+        self.tracker_manager = TrackerManager.from_config(
+            config,
+            workspace = self.artifact_dir
+        )
         
     def setup_environment(self, verbose: bool = None) -> None:
         os.makedirs(self.workspace, exist_ok=True)
@@ -94,16 +101,20 @@ class Environment(YAMLSerializable):
     def from_config(cls, config: DictConfig):
         """Create environment from configuration."""
         verbose = config.get("verbose", False)
-        return cls(workspace=config.workspace, config=config, verbose=verbose, level=Level.EXPERIMENT)
+        env = cls(workspace=config.workspace, config=config, verbose=verbose, level=Level.EXPERIMENT)
+        return env
     
     def copy(self):
-        return self.__class__(
+        env = self.__class__(
             workspace=self.workspace,
             config=self.config,
             factory=self.factory,
             verbose=self.verbose,
             level=self.level
         )
+
+        env.tracker_manager = self.tracker_manager
+        return env
         
     def create_child(self, name: str) -> 'Environment':
         """

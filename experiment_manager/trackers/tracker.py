@@ -5,8 +5,12 @@ from experiment_manager.common.serializable import YAMLSerializable
 
 
 class Tracker(YAMLSerializable, ABC):
-    def __init__(self):
+    def __init__(self, workspace: str = None):
         super().__init__()
+        self.workspace = workspace
+
+    def set_workspace(self, workspace: str):
+        self.workspace = workspace
         
     @abstractmethod
     def track(self, metric: Metric, step: int):
