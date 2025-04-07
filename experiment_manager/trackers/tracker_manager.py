@@ -1,4 +1,5 @@
 from omegaconf import DictConfig
+from typing import Dict, Any
 
 from experiment_manager.trackers.tracker import Tracker
 from experiment_manager.common.common import Level, Metric
@@ -13,11 +14,15 @@ class TrackerManager(YAMLSerializable):
     
     def add_tracker(self, tracker: Tracker) -> None:
         self.trackers.append(tracker)
-
-    def track(self, metric: Metric, value, step: int = None):
+    
+    def track(self, metric: Metric, value, step: int = None, *args):
         for tracker in self.trackers:
-            tracker.track(metric, value, step)
-
+            tracker.track(metric, value, step, *args)
+    
+    def log_params(self, params: Dict[str, Any]):
+        for tracker in self.trackers:
+            tracker.log_params(params)
+    
     def on_create(self, level: Level, *args, **kwargs):
         for tracker in self.trackers:
             tracker.on_create(level, *args, **kwargs)
@@ -29,6 +34,10 @@ class TrackerManager(YAMLSerializable):
     def on_end(self, level: Level, *args, **kwargs):    
         for tracker in self.trackers:
             tracker.on_end(level, *args, **kwargs)
+            
+    def on_add_artifact(self, level: Level, artifact_path: str, *args, **kwargs):
+        for tracker in self.trackers:
+            tracker.on_add_artifact(level, artifact_path, *args, **kwargs)
     
     def save(self):
         for tracker in self.trackers:

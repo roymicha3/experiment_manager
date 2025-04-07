@@ -200,16 +200,30 @@ class DatabaseManager:
             location=location
         )
     
+    def create_epoch(self, epoch_idx: int, trial_run_id: int) -> None:
+        """Create a new epoch entry."""
+        ph = self._get_placeholder()
+        
+        query = f"""
+        INSERT INTO EPOCH (idx, trial_run_id, time)
+        VALUES ({ph}, {ph}, {ph})
+        """
+        
+        self._execute_query(query, (epoch_idx, trial_run_id, datetime.now().isoformat()))
+        self.connection.commit()
+
     def get_experiment_metrics(self, experiment_id: int) -> List[Metric]:
         
         ph = self._get_placeholder()
         
         query = f"""
-        SELECT m.* FROM METRIC m
-        JOIN EPOCH_METRIC em ON em.metric_id = m.id
-        JOIN EPOCH e ON e.idx = em.epoch_idx AND e.trial_run_id = em.epoch_trial_run_id
-        JOIN TRIAL_RUN tr ON tr.id = e.trial_run_id
-        JOIN TRIAL t ON t.id = tr.trial_id
+        SELECT DISTINCT m.* FROM METRIC m
+        LEFT JOIN EPOCH_METRIC em ON em.metric_id = m.id
+        LEFT JOIN EPOCH e ON e.idx = em.epoch_idx AND e.trial_run_id = em.epoch_trial_run_id
+        LEFT JOIN TRIAL_RUN tr ON tr.id = e.trial_run_id
+        LEFT JOIN RESULTS_METRIC rm ON rm.metric_id = m.id
+        LEFT JOIN RESULTS r ON r.trial_run_id = rm.results_id
+        JOIN TRIAL t ON t.id = tr.trial_id OR t.id = (SELECT trial_id FROM TRIAL_RUN WHERE id = r.trial_run_id)
         WHERE t.experiment_id = {ph}
         """
         
@@ -236,6 +250,132 @@ class DatabaseManager:
         """
         
         cursor = self._execute_query(query, (trial_id,))
+        rows = cursor.fetchall()
+        
+        return [
+            Artifact(
+                id=row["id"],
+                type=row["type"],
+                location=row["loc"]
+            )
+            for row in rows
+        ]
+
+    def link_experiment_artifact(self, experiment_id: int, artifact_id: int) -> None:
+        """Link an artifact to an experiment."""
+        ph = self._get_placeholder()
+        
+        query = f"""
+        INSERT INTO EXPERIMENT_ARTIFACT (experiment_id, artifact_id)
+        VALUES ({ph}, {ph})
+        """
+        
+        self._execute_query(query, (experiment_id, artifact_id))
+        self.connection.commit()
+
+    def link_trial_artifact(self, trial_id: int, artifact_id: int) -> None:
+        """Link an artifact to a trial."""
+        ph = self._get_placeholder()
+        
+        query = f"""
+        INSERT INTO TRIAL_ARTIFACT (trial_id, artifact_id)
+        VALUES ({ph}, {ph})
+        """
+        
+        self._execute_query(query, (trial_id, artifact_id))
+        self.connection.commit()
+
+    def link_epoch_artifact(self, epoch_idx: int, trial_run_id: int, artifact_id: int) -> None:
+        """Link an artifact to an epoch."""
+        ph = self._get_placeholder()
+        
+        query = f"""
+        INSERT INTO EPOCH_ARTIFACT (epoch_idx, epoch_trial_run_id, artifact_id)
+        VALUES ({ph}, {ph}, {ph})
+        """
+        
+        self._execute_query(query, (epoch_idx, trial_run_id, artifact_id))
+        self.connection.commit()
+
+    def link_trial_run_artifact(self, trial_run_id: int, artifact_id: int) -> None:
+        """Link an artifact to a trial run."""
+        ph = self._get_placeholder()
+        
+        query = f"""
+        INSERT INTO TRIAL_RUN_ARTIFACT (trial_run_id, artifact_id)
+        VALUES ({ph}, {ph})
+        """
+        
+        self._execute_query(query, (trial_run_id, artifact_id))
+        self.connection.commit()
+
+    def link_results_metric(self, trial_run_id: int, metric_id: int) -> None:
+        """Link a metric to results (trial run)."""
+        ph = self._get_placeholder()
+        
+        query = f"""
+        INSERT INTO RESULTS_METRIC (results_id, metric_id)
+        VALUES ({ph}, {ph})
+        """
+        
+        self._execute_query(query, (trial_run_id, metric_id))
+        self.connection.commit()
+
+    def get_experiment_artifacts(self, experiment_id: int) -> List[Artifact]:
+        """Get all artifacts associated with an experiment."""
+        ph = self._get_placeholder()
+        
+        query = f"""
+        SELECT a.* FROM ARTIFACT a
+        JOIN EXPERIMENT_ARTIFACT ea ON ea.artifact_id = a.id
+        WHERE ea.experiment_id = {ph}
+        """
+        
+        cursor = self._execute_query(query, (experiment_id,))
+        rows = cursor.fetchall()
+        
+        return [
+            Artifact(
+                id=row["id"],
+                type=row["type"],
+                location=row["loc"]
+            )
+            for row in rows
+        ]
+
+    def get_trial_run_artifacts(self, trial_run_id: int) -> List[Artifact]:
+        """Get all artifacts associated with a trial run."""
+        ph = self._get_placeholder()
+        
+        query = f"""
+        SELECT a.* FROM ARTIFACT a
+        JOIN TRIAL_RUN_ARTIFACT tra ON tra.artifact_id = a.id
+        WHERE tra.trial_run_id = {ph}
+        """
+        
+        cursor = self._execute_query(query, (trial_run_id,))
+        rows = cursor.fetchall()
+        
+        return [
+            Artifact(
+                id=row["id"],
+                type=row["type"],
+                location=row["loc"]
+            )
+            for row in rows
+        ]
+
+    def get_epoch_artifacts(self, epoch_idx: int, trial_run_id: int) -> List[Artifact]:
+        """Get all artifacts associated with an epoch."""
+        ph = self._get_placeholder()
+        
+        query = f"""
+        SELECT a.* FROM ARTIFACT a
+        JOIN EPOCH_ARTIFACT ea ON ea.artifact_id = a.id
+        WHERE ea.epoch_idx = {ph} AND ea.epoch_trial_run_id = {ph}
+        """
+        
+        cursor = self._execute_query(query, (epoch_idx, trial_run_id))
         rows = cursor.fetchall()
         
         return [

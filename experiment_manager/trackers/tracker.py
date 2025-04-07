@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Dict, Any
 from experiment_manager.common.common import Level, Metric
 
 from experiment_manager.common.serializable import YAMLSerializable
@@ -13,7 +14,11 @@ class Tracker(YAMLSerializable, ABC):
         self.workspace = workspace
         
     @abstractmethod
-    def track(self, metric: Metric, value, step: int):
+    def track(self, metric: Metric, value, step: int, *args):
+        pass
+    
+    @abstractmethod
+    def log_params(self, params: Dict[str, Any]):
         pass
     
     @abstractmethod
@@ -26,6 +31,10 @@ class Tracker(YAMLSerializable, ABC):
     
     @abstractmethod
     def on_end(self, level: Level, *args, **kwargs):
+        pass
+    
+    @abstractmethod
+    def on_add_artifact(self, level: Level, artifact_path: str, *args, **kwargs):
         pass
     
     @abstractmethod

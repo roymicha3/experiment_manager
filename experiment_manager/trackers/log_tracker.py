@@ -1,5 +1,6 @@
 import os
 from omegaconf import DictConfig
+from typing import Dict, Any
 
 from experiment_manager.common.common import Metric, MetricCategory, Level
 from experiment_manager.common.serializable import YAMLSerializable
@@ -32,14 +33,18 @@ class LogTracker(Tracker, YAMLSerializable):
                 log_dir=self.workspace,
                 filename=self.name
             )
-
+    
     def log(self, message: str) -> None:
         self.logger.info(message)
-
-    def track(self, metric: Metric, value, step: int = None):
+    
+    def track(self, metric: Metric, value, step: int = None, *args):
         step_str = f" at step {step}" if step is not None else ""
         self.log(f"{metric.name}: {value} ({metric.value}){step_str}")
-
+        self.log(str(args))
+    
+    def log_params(self, params: Dict[str, Any]):
+        self.log(f"Parameters: {params}")
+    
     def on_create(self, level: Level, *args, **kwargs):
         self.log(f"Creating {level}")
         self.log(str(args))
@@ -54,7 +59,12 @@ class LogTracker(Tracker, YAMLSerializable):
         self.log(f"Ending {level}")
         self.log(str(args))
         self.log(str(kwargs))
-
+    
+    def on_add_artifact(self, level: Level, artifact_path: str, *args, **kwargs):
+        self.log(f"Adding artifact {artifact_path} to {level}")
+        self.log(str(args))
+        self.log(str(kwargs))
+    
     def save(self):
         pass
 
