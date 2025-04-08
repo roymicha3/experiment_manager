@@ -24,6 +24,8 @@ class DBTracker(Tracker, YAMLSerializable):
                 database_path=os.path.join(self.workspace, self.name),
                 use_sqlite=True,
                 recreate=True)
+            
+        self.epoch_idx = None
     
     @classmethod
     def from_config(cls, config: DictConfig, workspace: str) -> "DBTracker":
@@ -71,11 +73,32 @@ class DBTracker(Tracker, YAMLSerializable):
         self.id = res.id
     
     def on_start(self, level: Level, *args, **kwargs):
-        pass
-            
+        if level == Level.EXPERIMENT:
+            pass
+        elif level == Level.TRIAL:
+            pass
+        elif level == Level.TRIAL_RUN:
+            self.epoch_idx = 0
+            pass
+        elif level == Level.EPOCH:
+            self.db_manager.create_epoch(
+                experiment_id=self.id,
+                trial_id=self.parent.id,
+                trial_run_id=self.parent.parent.id,
+                epoch=self.epoch_idx + 1,
+                status=kwargs.get("status", "started"))
+        
     
     def on_end(self, level: Level, *args, **kwargs):
-        pass
+        if level == Level.EXPERIMENT:
+            pass
+        elif level == Level.TRIAL:
+            pass
+        elif level == Level.TRIAL_RUN:
+            self.epoch_idx = 0
+            pass
+        elif level == Level.EPOCH:
+            self.epoch_idx += 1
     
     def on_add_artifact(self, level: Level, artifact_path:str, *args, **kwargs):
         
@@ -84,17 +107,17 @@ class DBTracker(Tracker, YAMLSerializable):
             location=artifact_path)
         
         if level == Level.EXPERIMENT:
-            self.db_manager.link_experiment_artifact(args[0], artifact.id)
+            self.db_manager.link_experiment_artifact(self.id, artifact.id)
         elif level == Level.TRIAL:
-            self.db_manager.link_trial_artifact(args[0], artifact.id)
+            self.db_manager.link_trial_artifact(self.id, artifact.id)
         elif level == Level.TRIAL_RUN:
-            self.db_manager.link_trial_run_artifact(args[0], artifact.id)
+            self.db_manager.link_trial_run_artifact(self.id, artifact.id)
         elif level == Level.EPOCH:
-            self.db_manager.link_epoch_artifact(args[0], args[1], artifact.id)
+            if not self.epoch_idx:
+                raise ValueError("Epoch must be created first")
+            self.db_manager.link_epoch_artifact(self.epoch_idx, self.id, artifact.id)
         else:
             raise ValueError(f"Invalid level: {level}")
-        
-        return artifact.id
     
     
     def create_child(self, workspace: str = None) -> "Tracker":
