@@ -118,4 +118,4 @@ class LogTracker(Tracker):
     
     @classmethod
     def from_config(cls, config: DictConfig, workspace: str) -> "LogTracker":
-        return cls(workspace, config.name, config.verbose)
+        return cls(workspace, config.type, config.verbose)

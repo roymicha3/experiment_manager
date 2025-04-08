@@ -115,10 +115,22 @@ class Environment(YAMLSerializable):
         env.tracker_manager = self.tracker_manager
         return env
         
-    def create_child(self, name: str) -> 'Environment':
+    def create_child(self, name: str, root: bool = False) -> 'Environment':
         """
         Create a child environment with its own workspace.
         """
+        if root:
+            child_env = self.__class__(
+                    workspace=os.path.join(self.workspace, name),
+                    config=self.config,
+                    factory=self.factory,
+                    verbose=self.verbose,
+                    level=self.level)
+            
+            child_env.setup_environment()
+            self.logger.debug(f"Created child environment '{name}' at {child_env.workspace} with level {self.level}")
+            return child_env
+        
         # Calculate next level based on current level
         next_level = {
             Level.EXPERIMENT: Level.TRIAL,
@@ -133,8 +145,9 @@ class Environment(YAMLSerializable):
             config=self.config,
             factory=self.factory,
             verbose=self.verbose,
-            level=next_level
-        )
+            level=next_level)
+        
+        child_env.tracker_manager = self.tracker_manager.create_child()
         child_env.setup_environment()
         self.logger.debug(f"Created child environment '{name}' at {child_env.workspace} with level {next_level}")
         return child_env

@@ -1,6 +1,7 @@
 import os
 from omegaconf import OmegaConf, DictConfig
 
+from experiment_manager.common.common import Level
 from experiment_manager.trial import Trial
 from experiment_manager.environment import Environment
 from experiment_manager.common.serializable import YAMLSerializable
@@ -27,7 +28,8 @@ class Experiment(YAMLSerializable):
         self.desc = desc
         
         # environment
-        self.env = env.create_child(self.name)
+        self.env = env.create_child(self.name, root=True)
+        self.env.tracker_manager.on_create(Level.EXPERIMENT, self.name)
         
         # TODO: might be a better idea to only receive the config_dir_path and build from there
         self.config_dir_path = config_dir_path if config_dir_path is not None else self.env.config_dir

@@ -1,0 +1,6 @@
+- name: single_run
+  id: 1
+  repeat: 1
+  settings: {}
+  pipeline: 
+    type: SimpleClassifierPipeline

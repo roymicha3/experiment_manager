@@ -1,6 +1,7 @@
 import os
 from omegaconf import OmegaConf, DictConfig
 
+from experiment_manager.common.common import Level
 from experiment_manager.environment import Environment
 from experiment_manager.common.serializable import YAMLSerializable
 
@@ -18,6 +19,7 @@ class Trial(YAMLSerializable):
         
         # environment
         self.env = env.create_child(self.name)
+        self.env.tracker_manager.on_create(Level.TRIAL)
         
         # configurations of the trial
         self.config = config
@@ -37,6 +39,7 @@ class Trial(YAMLSerializable):
     def run_single(self, repeat: int) -> None:
         # TODO: id logic here is not correct
         trial_run_env = self.env.create_child(f"{self.name}-{repeat}")
+        trial_run_env.tracker_manager.on_create(Level.TRIAL_RUN)
         self.env.logger.info(f"Trial Run'{self.name}' (repeat: {repeat}) running single")
         
         try:
@@ -48,8 +51,8 @@ class Trial(YAMLSerializable):
                 name=self.config.pipeline.type,
                 config=self.config,
                 env=trial_run_env,
-                id=self.id
-            )
+                id=self.id)
+            
             pipeline.run(self.config)
         
         except Exception as e:

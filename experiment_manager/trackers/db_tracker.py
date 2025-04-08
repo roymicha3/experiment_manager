@@ -153,6 +153,7 @@ class DBTracker(Tracker, YAMLSerializable):
             raise ValueError("Parent tracker must be created first")
         
         tracker = DBTracker(workspace or self.workspace, self.name, recreate=False)
+        tracker.id = self.id
         tracker.parent = self
         return tracker
     
