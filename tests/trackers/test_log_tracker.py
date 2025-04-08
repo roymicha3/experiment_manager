@@ -97,11 +97,17 @@ def test_metric_formatting(log_tracker, workspace):
     log_tracker.on_metric(Level.EXPERIMENT, metrics)
     
     log_path = workspace / LogTracker.LOG_NAME
-    log_content = log_path.read_text()
+    lines = log_path.read_text().splitlines()
     
-    assert "accuracy: 0.95" in log_content
-    assert "loss: 0.1" in log_content
-    assert "confusion_matrix" in log_content
+    # Extract content after timestamps
+    lines = [line.split(' - ', 1)[1] if ' - ' in line else line 
+            for line in lines]
+    content = '\n'.join(lines)
+    
+    assert "Metric:" in content
+    assert "  accuracy: 0.95" in content
+    assert "  loss: 0.1" in content
+    assert "  confusion_matrix:" in content
 
 def test_artifact_logging(log_tracker, workspace):
     """Test that artifacts are properly logged."""

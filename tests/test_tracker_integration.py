@@ -86,12 +86,12 @@ def test_basic_log_tracker(env):
     """Test that individual metrics are properly logged to file"""
     # Track some metrics
     metrics = [
-        ("test_accuracy", 0.95, Metric.TEST_ACC),
-        ("test_loss", 0.15, Metric.TEST_LOSS),
-        ("val_accuracy", 0.92, Metric.VAL_ACC)
+        (Metric.TEST_ACC, 0.95),
+        (Metric.TEST_LOSS, 0.15),
+        (Metric.VAL_ACC, 0.92)
     ]
     
-    for i, (name, value, metric_type) in enumerate(metrics):
+    for i, (metric_type, value) in enumerate(metrics):
         env.tracker_manager.track(
             metric=metric_type,
             value=value,
@@ -110,10 +110,9 @@ def test_basic_log_tracker(env):
     
     with open(log_path, 'r') as f:
         content = f.read()
-        for name, value, metric_type in metrics:
+        for metric_type, value in metrics:
             assert metric_type.name in content
             assert str(value) in content
-            assert str(metric_type.value) in content
 
 def test_dummy_pipeline(env):
     """Test tracking metrics through a dummy pipeline run"""

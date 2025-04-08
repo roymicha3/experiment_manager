@@ -14,35 +14,62 @@ from experiment_manager.common.common import Metric, MetricCategory, Level
 class DBTracker(Tracker, YAMLSerializable):
     DB_NAME = "tracker.db"
     
-    def __init__(self, workspace: str, name: str = DB_NAME):
+    def __init__(self, workspace: str, name: str = DB_NAME, recreate: bool = None):
         super().__init__(workspace)
         self.name = name
         self.id = None
         self.parent = None
+        
+        # Auto-detect if database exists if recreate not specified
+        db_path = os.path.join(self.workspace, self.name)
+        if recreate is None:
+            recreate = not os.path.exists(db_path)
+        
         self.db_manager = \
             DatabaseManager(
-                database_path=os.path.join(self.workspace, self.name),
+                database_path=db_path,
                 use_sqlite=True,
-                recreate=True)
+                recreate=recreate)
             
         self.epoch_idx = None
     
     @classmethod
     def from_config(cls, config: DictConfig, workspace: str) -> "DBTracker":
-        return cls(workspace, config.name)
+        return cls(workspace, config.name, config.get("recreate", False))
     
-    def track(self, metric: Metric, value, step: int, *args):
-        self.db_manager.create_metric(
-            metric_type=metric.value,
-            total_val=value,
-            per_label_val=args)
+    def track(self, metric: Metric, value, step: int = None, *args):
+        """Track a metric value.
+        
+        Args:
+            metric: The metric to track
+            value: The value to track (can be scalar or dict)
+            step: Optional step number
+            *args: Additional args treated as per_label_val
+        """
+        if not self.id:
+            raise ValueError("Tracker must be created first")
+        
+        if isinstance(value, dict):
+            metric_record = self.db_manager.record_metric(
+                metric_type=metric.name,
+                total_val=None,
+                per_label_val=value)
+        else:
+            metric_record = self.db_manager.record_metric(
+                metric_type=metric.name,
+                total_val=value,
+                per_label_val=args[0] if args else None)
+        
+        # Link metric to current trial run if we're in an epoch
+        if self.epoch_idx is not None and self.id:
+            self.db_manager.add_epoch_metric(self.epoch_idx, self.id, metric_record.id)
     
     def log_params(self, params: Dict[str, Any]):
         params_path = os.path.join(self.workspace, "params.json")
         with open(params_path, "w") as f:
             json.dump(params, f)
         
-        self.db_manager.create_artifact(
+        self.db_manager.record_artifact(
             artifact_type="params",
             location=params_path)
     
@@ -100,6 +127,7 @@ class DBTracker(Tracker, YAMLSerializable):
         elif level == Level.EPOCH:
             self.epoch_idx += 1
     
+
     def on_add_artifact(self, level: Level, artifact_path:str, *args, **kwargs):
         
         artifact = self.db_manager.record_artifact(
@@ -124,7 +152,11 @@ class DBTracker(Tracker, YAMLSerializable):
         if not self.id:
             raise ValueError("Parent tracker must be created first")
         
-        tracker = DBTracker(workspace, self.name)
+        tracker = DBTracker(workspace or self.workspace, self.name, recreate=False)
         tracker.parent = self
         return tracker
-        
+    
+    def save(self):
+        """Save any pending changes to the database."""
+        if hasattr(self, 'db_manager') and self.db_manager:
+            self.db_manager.connection.commit()

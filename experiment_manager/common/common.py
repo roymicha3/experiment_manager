@@ -1,10 +1,10 @@
-import enum
+from enum import Enum, IntEnum
 from typing import Dict
 
 LOG_NAME = "log"
 
 # enum for levels:
-class Level(enum.Enum):
+class Level(Enum):
     EXPERIMENT    = 0
     TRIAL         = 1
     TRIAL_RUN      = 2
@@ -12,11 +12,11 @@ class Level(enum.Enum):
     EPOCH         = 4
     
 
-class MetricCategory(enum.Enum):
+class MetricCategory(Enum):
     TRACKED = 0
     UNTRACKED = 1
 
-class Metric(enum.IntEnum):
+class Metric(IntEnum):
     # Tracked metrics
     EPOCH = 1
     TEST_ACC = 2
@@ -28,6 +28,12 @@ class Metric(enum.IntEnum):
     NETWORK = 6
     DATA = 7
     STATUS = 8
+    CONFUSION = 9
+    
+    @property
+    def name(self) -> str:
+        """Get the name of the metric."""
+        return self._name_.lower()
 
 # Static mapping of metrics to categories
 _metric_categories = {}
@@ -36,15 +42,16 @@ def _init_metric_categories():
     global _metric_categories
     _metric_categories = \
         {
-            Metric.EPOCH: MetricCategory.TRACKED,
-            Metric.TEST_ACC: MetricCategory.TRACKED,
-            Metric.TEST_LOSS: MetricCategory.TRACKED,
-            Metric.VAL_ACC: MetricCategory.TRACKED,
-            Metric.VAL_LOSS: MetricCategory.TRACKED,
-            Metric.NETWORK: MetricCategory.UNTRACKED,
-            Metric.DATA: MetricCategory.UNTRACKED,
-            Metric.STATUS: MetricCategory.UNTRACKED
-        }
+    Metric.EPOCH: MetricCategory.TRACKED,
+    Metric.TEST_ACC: MetricCategory.TRACKED,
+    Metric.TEST_LOSS: MetricCategory.TRACKED,
+    Metric.VAL_ACC: MetricCategory.TRACKED,
+    Metric.VAL_LOSS: MetricCategory.TRACKED,
+    Metric.NETWORK: MetricCategory.UNTRACKED,
+    Metric.DATA: MetricCategory.UNTRACKED,
+    Metric.STATUS: MetricCategory.UNTRACKED,
+    Metric.CONFUSION: MetricCategory.TRACKED
+}
 
 def get_metric_category(metric: Metric) -> MetricCategory:
     return _metric_categories[metric]
