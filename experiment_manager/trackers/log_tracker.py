@@ -13,8 +13,7 @@ class LogTracker(Tracker, YAMLSerializable):
     LOG_NAME = "tracker.log"
 
     def __init__(self, workspace: str, name: str = LOG_NAME, verbose: bool = False):
-        super().__init__()
-        self.workspace = workspace
+        super().__init__(workspace)
         self.name = name
         self.verbose = verbose
         self._setup_logger()
@@ -64,6 +63,9 @@ class LogTracker(Tracker, YAMLSerializable):
         self.log(f"Adding artifact {artifact_path} to {level}")
         self.log(str(args))
         self.log(str(kwargs))
+    
+    def create_child(self, workspace: str = None) -> "Tracker":
+        return self
     
     def save(self):
         pass

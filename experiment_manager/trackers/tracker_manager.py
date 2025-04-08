@@ -3,14 +3,13 @@ from typing import Dict, Any
 
 from experiment_manager.trackers.tracker import Tracker
 from experiment_manager.common.common import Level, Metric
-from experiment_manager.common.serializable import YAMLSerializable
 from experiment_manager.trackers.tracker_factory import TrackerFactory
 
 
-class TrackerManager(YAMLSerializable):
+class TrackerManager(Tracker):
     def __init__(self, workspace: str = None) -> None:
+        super().__init__(workspace)
         self.trackers = []
-        self.workspace = workspace
     
     def add_tracker(self, tracker: Tracker) -> None:
         self.trackers.append(tracker)
@@ -38,6 +37,14 @@ class TrackerManager(YAMLSerializable):
     def on_add_artifact(self, level: Level, artifact_path: str, *args, **kwargs):
         for tracker in self.trackers:
             tracker.on_add_artifact(level, artifact_path, *args, **kwargs)
+            
+    def create_child(self, workspace: str = None):
+        new_workspace = workspace if workspace else self.workspace
+        manager = TrackerManager(workspace = new_workspace)
+        
+        for tracker in self.trackers:
+            manager.add_tracker(tracker.create_child(new_workspace))
+        return manager
     
     def save(self):
         for tracker in self.trackers:
@@ -49,8 +56,10 @@ class TrackerManager(YAMLSerializable):
         for tracker_conf in config.get("trackers", []):
             if "type" not in tracker_conf:
                 raise ValueError("missing required 'type' field")
+            
             tracker = TrackerFactory.create(tracker_conf.type, tracker_conf, workspace)
             manager.add_tracker(tracker)
+        
         return manager
 
 

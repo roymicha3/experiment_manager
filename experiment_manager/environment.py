@@ -39,8 +39,7 @@ class Environment(YAMLSerializable):
 
         self.tracker_manager = TrackerManager.from_config(
             self.config,
-            self.artifact_dir
-        )
+            self.artifact_dir)
         
     def setup_environment(self, verbose: bool = None) -> None:
         os.makedirs(self.workspace, exist_ok=True)

@@ -15,16 +15,15 @@ class DBTracker(Tracker, YAMLSerializable):
     DB_NAME = "tracker.db"
     
     def __init__(self, workspace: str, name: str = DB_NAME):
-        super().__init__()
-        self.workspace = workspace
+        super().__init__(workspace)
         self.name = name
-        self._setup_db()
-
-    def _setup_db(self):
-        self.db_manager = DatabaseManager(
-            database_path=os.path.join(self.workspace, self.name),
-            use_sqlite=True,
-            recreate=True)
+        self.id = None
+        self.parent = None
+        self.db_manager = \
+            DatabaseManager(
+                database_path=os.path.join(self.workspace, self.name),
+                use_sqlite=True,
+                recreate=True)
     
     @classmethod
     def from_config(cls, config: DictConfig, workspace: str) -> "DBTracker":
@@ -46,18 +45,30 @@ class DBTracker(Tracker, YAMLSerializable):
             location=params_path)
     
     def on_create(self, level: Level, *args, **kwargs):
+        res = None
         if level == Level.EXPERIMENT:
-            self.db_manager.create_experiment(
+            res = self.db_manager.create_experiment(
                 title=args[0],
                 description=kwargs.get("description", ""))
+        
         elif level == Level.TRIAL:
-            self.db_manager.create_trial(
-                experiment_id=args[0],
-                name=args[1])
+            if not self.parent:
+                raise ValueError("Parent tracker must be created first")
+            res = self.db_manager.create_trial(
+                experiment_id=self.parent.id,
+                name=args[0])
+        
         elif level == Level.TRIAL_RUN:
-            self.db_manager.create_trial_run(
-                trial_id=args[0],
+            if not self.parent:
+                raise ValueError("Parent tracker must be created first")
+            res = self.db_manager.create_trial_run(
+                trial_id=self.parent.id,
                 status=kwargs.get("status", "started"))
+            
+        if not res:
+            raise ValueError("Invalid level")
+        
+        self.id = res.id
     
     def on_start(self, level: Level, *args, **kwargs):
         pass
@@ -68,7 +79,7 @@ class DBTracker(Tracker, YAMLSerializable):
     
     def on_add_artifact(self, level: Level, artifact_path:str, *args, **kwargs):
         
-        self.db_manager.create_artifact(
+        artifact = self.db_manager.record_artifact(
             artifact_type=args[0],
             location=artifact_path)
         
@@ -84,3 +95,13 @@ class DBTracker(Tracker, YAMLSerializable):
             raise ValueError(f"Invalid level: {level}")
         
         return artifact.id
+    
+    
+    def create_child(self, workspace: str = None) -> "Tracker":
+        if not self.id:
+            raise ValueError("Parent tracker must be created first")
+        
+        tracker = DBTracker(workspace, self.name)
+        tracker.parent = self
+        return tracker
+        
