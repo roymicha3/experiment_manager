@@ -2,22 +2,19 @@ import os
 import glob
 import pytest
 from omegaconf import OmegaConf
-from experiment_manager.environment import Environment
+from experiment_manager.environment import Environment, ProductPaths
 
 @pytest.fixture
 def env_config():
     return OmegaConf.create({
         "workspace": "test_outputs",
-        "settings": {
-            "debug": True,
-            "verbose": True
-        }
+        "verbose": True,
+        "debug": True,
     })
 
 @pytest.fixture
 def env(env_config, tmp_path):
-    workspace = os.path.join(str(tmp_path), env_config.workspace)
-    env = Environment(workspace=workspace, config=env_config)
+    env = Environment.from_config(env_config)
     env.setup_environment()  # Set up environment in the fixture
     return env
 
@@ -30,9 +27,9 @@ def test_environment_initialization(env):
 
 def test_environment_paths(env):
     """Test that environment paths are correct"""
-    assert env.log_dir == os.path.join(env.workspace, Environment.LOG_DIR)
-    assert env.artifact_dir == os.path.join(env.workspace, Environment.ARTIFACT_DIR)
-    assert env.config_dir == os.path.join(env.workspace, Environment.CONFIG_DIR)
+    assert env.log_dir == os.path.join(env.workspace, ProductPaths.LOG_DIR.value)
+    assert env.artifact_dir == os.path.join(env.workspace, ProductPaths.ARTIFACT_DIR.value)
+    assert env.config_dir == os.path.join(env.workspace, ProductPaths.CONFIG_DIR.value)
 
 def test_environment_from_config(env_config, tmp_path):
     """Test creating environment from config"""
@@ -45,7 +42,7 @@ def test_environment_from_config(env_config, tmp_path):
 
 def test_environment_save(env):
     """Test saving environment config"""
-    config_path = os.path.join(env.config_dir, Environment.CONFIG_FILE)
+    config_path = os.path.join(env.config_dir, ProductPaths.CONFIG_FILE.value)
     assert os.path.exists(config_path)
     loaded_config = OmegaConf.load(config_path)
     assert loaded_config == env.config
@@ -66,7 +63,7 @@ def test_set_workspace(env, tmp_path):
 def test_environment_logging_file_only(env):
     """Test that logs are created in the correct directory with file-only logging"""
     # Setup environment with verbose=False for file-only logging
-    env.setup_environment(verbose=False)
+    env.setup_environment()
     
     # Check that log directory exists
     assert os.path.exists(env.log_dir)
@@ -89,7 +86,7 @@ def test_environment_logging_file_only(env):
 def test_environment_logging_composite(env):
     """Test that logs are created with both file and console logging"""
     # Setup environment with verbose=True for both console and file logging
-    env.setup_environment(verbose=True)
+    env.setup_environment()
     
     # Check that log directory exists
     assert os.path.exists(env.log_dir)

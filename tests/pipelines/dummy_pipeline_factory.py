@@ -4,10 +4,9 @@ from experiment_manager.pipelines.pipeline import Pipeline
 from experiment_manager.pipelines.pipeline_factory import PipelineFactory
 from experiment_manager.common.serializable import YAMLSerializable
 from experiment_manager.environment import Environment
-
-#include the pipelines
 from tests.pipelines.dummy_pipeline import DummyPipeline
 from tests.pipelines.simple_classifier import SimpleClassifierPipeline
+
 
 class DummyPipelineFactory(PipelineFactory):
     """Factory for creating dummy pipelines."""

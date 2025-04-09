@@ -26,8 +26,8 @@ class DummyPipeline(Pipeline, YAMLSerializable):
         self.env.logger.info(f"Starting {self.name}")
         
         # Simulate epochs
-        for epoch in range(config.epochs):
-            self.env.logger.info(f"Epoch {epoch + 1}/{config.epochs}")
+        for epoch in range(config.pipeline.epochs):
+            self.env.logger.info(f"Epoch {epoch + 1}/{config.pipeline.epochs}")
             
             # Simulate training progress
             train_acc = 0.5 + (epoch * 0.05)  # Starts at 0.5, increases by 0.05 each epoch
@@ -68,12 +68,12 @@ class DummyPipeline(Pipeline, YAMLSerializable):
         self.env.tracker_manager.track(
             metric=Metric.TEST_ACC,
             value=train_acc + 0.02,  # Slightly better than training
-            step=config.epochs
+            step=config.pipeline.epochs
         )
         self.env.tracker_manager.track(
             metric=Metric.TEST_LOSS,
             value=train_loss - 0.05,  # Slightly better than training
-            step=config.epochs
+            step=config.pipeline.epochs
         )
         
         self.env.logger.info(f"Completed {self.name}")

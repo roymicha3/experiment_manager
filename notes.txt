@@ -1,0 +1,4 @@
+# TODO:
+[X] Make the Experiment create an inner environment (without root)
+[X] Remove the root (outputs) and trials (trials) directories
+[] update the existing tests to support the new structure

@@ -1,0 +1,14 @@
+
+- name: "Trial 1"
+  repeat: 1
+  settings: # the actual cofiguration of the trial
+    pipeline:
+      type: "DummyPipeline"
+      epochs: 3
+
+- name: "Trial 2"
+  repeat: 2
+  settings: # the actual cofiguration of the trial
+    pipeline:
+      type: "DummyPipeline"
+      epochs: 3

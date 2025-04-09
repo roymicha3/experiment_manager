@@ -38,8 +38,7 @@ class Tracker(YAMLSerializable, ABC):
         pass
     
     @abstractmethod
-    def create_child(self, workspace: str = None) -> "Tracker":
-        """Create a child tracker."""
+    def create_child(self, workspace: str=None) -> "Tracker":
         pass
     
     @abstractmethod

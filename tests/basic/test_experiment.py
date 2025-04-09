@@ -1,77 +1,28 @@
 import os
-import glob
 import pytest
 from omegaconf import OmegaConf
-from experiment_manager.experiment import Experiment
+from experiment_manager.experiment import Experiment, ConfigPaths
 from experiment_manager.environment import Environment
-from experiment_manager.logger import FileLogger
+from tests.pipelines.dummy_pipeline_factory import DummyPipelineFactory
 
 
 @pytest.fixture
 def env_config():
     return OmegaConf.create({
         "workspace": "test_outputs",
-        "settings": {
-            "debug": True,
-            "verbose": False  # Disable console logging
-        }
+        "verbose": True,
+        "debug": True,
     })
 
 @pytest.fixture
 def env(env_config, tmp_path):
-    workspace = os.path.join(str(tmp_path), env_config.workspace)
-    env = Environment(
-        workspace=workspace,
-        config=env_config,
-        verbose=False  # Disable console logging
-    )
-    env.setup_environment()  # This creates the log directory
-    
-    # Ensure log directory exists
-    os.makedirs(env.log_dir, exist_ok=True)
-    
-    # Set up a FileLogger for testing
-    log_file = "environment.log"
-    env.logger = FileLogger(
-        name="environment",
-        log_dir=env.log_dir,
-        filename=log_file
-    )
+    env = Environment.from_config(env_config)
+    env.setup_environment()  # Set up environment in the fixture
     return env
 
 @pytest.fixture
 def config_dir(env):
-    # Create config directory
-    config_dir = os.path.join(env.config_dir, "test_experiment")
-    os.makedirs(config_dir, exist_ok=True)
-    
-    # Create required config files
-    experiment_conf = {
-        "name": "test_experiment",
-        "id": 123,
-        "desc": "Test experiment",
-        "settings": {"param1": "value1"}
-    }
-    base_conf = {"settings": {"param2": "value2"}}
-    trials_conf = [
-        {
-            "name": "test_trial_1",
-            "id": 1,
-            "repeat": 2,
-            "settings": {"trial_specific": "value1", "trial_param": "trial_value"}
-        },
-        {
-            "name": "test_trial_2",
-            "id": 2,
-            "repeat": 1,
-            "settings": {"trial_specific": "value2", "trial_param": "trial_value"}
-        }
-    ]
-    
-    # Save config files
-    OmegaConf.save(experiment_conf, os.path.join(config_dir, Experiment.CONFIG_FILE))
-    OmegaConf.save(base_conf, os.path.join(config_dir, Experiment.BASE_CONFIG))
-    OmegaConf.save(trials_conf, os.path.join(config_dir, Experiment.TRIALS_CONFIG))
+    config_dir = os.path.join("tests", "configs", "test_experiment")
     
     return config_dir
 
@@ -79,17 +30,7 @@ def test_experiment_creates_log_file(env, config_dir):
     """Test that experiment logs to the environment's log file"""
     print("\nStarting test_experiment_creates_log_file")
     
-    # Create and setup experiment
-    name = "test_exp"
-    exp_id = 123
-    
-    experiment = Experiment(
-        name=name,
-        id=exp_id,
-        desc="Test experiment",
-        env=env,
-        config_dir_path=config_dir
-    )
+    experiment = Experiment.create(config_dir, DummyPipelineFactory)
     
     print("\nCreated experiment")
     print(f"Experiment workspace: {experiment.env.workspace}")
@@ -128,16 +69,15 @@ def test_experiment_creates_log_file(env, config_dir):
     
     # Should have:
     # 1. Experiment log
-    # 2. Trials log
-    # 3. first trial log
-    # 4-5.    two reapts - 2 run logs
-    # 6. second trial log
-    # 7.    one reapts - 1 run log
+    # 2. first trial log
+    # 3-4.    two reapts - 2 run logs
+    # 5. second trial log
+    # 6.    one reapts - 1 run log
     print(f"\nFound {len(log_files)} log files")
     for log_file in log_files:
         print(f"- {log_file}")
     
-    assert len(log_files) == 7, f"Expected 7 log files (experiment + trials log + 3 trial_1 logs + 2 trial_2 logs), found {len(log_files)}"
+    assert len(log_files) == 6, f"Expected 6 log files (experiment + 3 trial_1 logs + 2 trial_2 logs), found {len(log_files)}"
     
     # Verify each log file exists and is readable
     for log_file in log_files:
