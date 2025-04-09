@@ -37,7 +37,7 @@ class DBTracker(Tracker, YAMLSerializable):
     def from_config(cls, config: DictConfig, workspace: str) -> "DBTracker":
         return cls(workspace, config.name, config.get("recreate", False))
     
-    def track(self, metric: Metric, value, step: int = None, *args):
+    def track(self, metric: Metric, value, step: int = None, *args, **kwargs):
         """Track a metric value.
         
         Args:
@@ -58,7 +58,7 @@ class DBTracker(Tracker, YAMLSerializable):
             metric_record = self.db_manager.record_metric(
                 metric_type=metric.name,
                 total_val=value,
-                per_label_val=args[0] if args else None)
+                per_label_val=kwargs.get("per_label_val", None))
         
         # Link metric to current trial run if we're in an epoch
         if self.epoch_idx is not None and self.id:

@@ -19,7 +19,7 @@ class Trial(YAMLSerializable):
         
         # environment
         self.env = env.create_child(self.name)
-        self.env.tracker_manager.on_create(Level.TRIAL)
+        self.env.tracker_manager.on_create(Level.TRIAL, self.name)
         
         # configurations of the trial
         self.config = config

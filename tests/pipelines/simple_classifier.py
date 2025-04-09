@@ -9,7 +9,7 @@ from experiment_manager.pipelines.pipeline import Pipeline
 from experiment_manager.common.serializable import YAMLSerializable
 from experiment_manager.environment import Environment
 
-YAMLSerializable.register("SimpleClassifierPipeline")
+@YAMLSerializable.register("SimpleClassifierPipeline")
 class SimpleClassifierPipeline(Pipeline, YAMLSerializable):
     """A simple pipeline that trains a logistic regression classifier."""
 
@@ -73,5 +73,5 @@ class SimpleClassifierPipeline(Pipeline, YAMLSerializable):
         pass
     
     @classmethod
-    def from_config(cls, config: DictConfig, env: Environment, id: int):
+    def from_config(cls, config: DictConfig, env: Environment, id: int = None):
         return cls(config, env)

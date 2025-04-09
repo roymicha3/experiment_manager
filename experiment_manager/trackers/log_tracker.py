@@ -21,7 +21,7 @@ class LogTracker(Tracker):
 
     def _setup_logger(self):
         os.makedirs(self.workspace, exist_ok=True)
-        log_path = os.path.join(self.workspace, self.name)
+        self.log_path = os.path.join(self.workspace, self.name)
         self.logger = logging.getLogger("experiment_tracker")
         self.logger.setLevel(logging.INFO)
         
@@ -29,7 +29,7 @@ class LogTracker(Tracker):
         self.logger.handlers = []
         
         # Add file handler
-        file_handler = logging.FileHandler(log_path)
+        file_handler = logging.FileHandler(self.log_path)
         file_formatter = logging.Formatter('%(asctime)s - %(message)s')
         file_handler.setFormatter(file_formatter)
         self.logger.addHandler(file_handler)
@@ -56,12 +56,14 @@ class LogTracker(Tracker):
         indent = self._get_indent(level)
         self.logger.info(f"{indent}{message}")
     
-    def track(self, metric: Metric, value, step: int = None, *args):
+    def track(self, metric: Metric, value, step: int = None, *args, **kwargs):
         level = self.current_level or Level.EXPERIMENT
         step_str = f" at step {step}" if step is not None else ""
         self.log(level, f"{metric.name}: {value}{step_str}")
         if args:
             self.log(level, f"Additional info: {args}")
+        if kwargs:
+            self.log(level, f"Kwargs: {kwargs}")
     
     def log_params(self, params: Dict[str, Any]):
         level = self.current_level or Level.EXPERIMENT

@@ -14,9 +14,9 @@ class TrackerManager(Tracker):
     def add_tracker(self, tracker: Tracker) -> None:
         self.trackers.append(tracker)
     
-    def track(self, metric: Metric, value, step: int = None, *args):
+    def track(self, metric: Metric, value, step: int = None, *args, **kwargs):
         for tracker in self.trackers:
-            tracker.track(metric, value, step, *args)
+            tracker.track(metric, value, step, *args, **kwargs)
     
     def log_params(self, params: Dict[str, Any]):
         for tracker in self.trackers:

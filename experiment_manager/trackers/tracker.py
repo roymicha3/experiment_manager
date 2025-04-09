@@ -14,7 +14,7 @@ class Tracker(YAMLSerializable, ABC):
         self.workspace = workspace
         
     @abstractmethod
-    def track(self, metric: Metric, value, step: int, *args):
+    def track(self, metric: Metric, value, step: int, *args, **kwargs):
         pass
     
     @abstractmethod
@@ -38,7 +38,8 @@ class Tracker(YAMLSerializable, ABC):
         pass
     
     @abstractmethod
-    def create_child(self, workspace: str=None) -> "Tracker":
+    def create_child(self, workspace: str = None) -> "Tracker":
+        """Create a child tracker."""
         pass
     
     @abstractmethod

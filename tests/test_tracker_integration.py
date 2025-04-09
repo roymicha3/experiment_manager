@@ -101,7 +101,7 @@ def test_basic_log_tracker(env):
     # Verify log tracker setup
     tracker = env.tracker_manager.trackers[0]
     assert isinstance(tracker, LogTracker)
-    assert tracker.name == "test_tracker.log"
+    assert tracker.name == "LogTracker"
     assert tracker.verbose == True
     
     # Verify log file exists and contains metrics

@@ -126,7 +126,7 @@ def test_metric_tracking(workspace):
     
     # Test dictionary value
     confusion = {"true_positive": 100, "false_positive": 5}
-    tracker.track(Metric.CONFUSION, 0.0, 0, confusion)
+    tracker.track(Metric.CONFUSION, 0.0, 0, per_label_val=confusion)
     
     # Test with step
     tracker.track(Metric.TEST_LOSS, 0.1, 1)

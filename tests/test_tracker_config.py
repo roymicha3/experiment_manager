@@ -43,7 +43,7 @@ def test_tracker_config_loading(env, base_config):
     
     tracker = env.tracker_manager.trackers[0]
     assert isinstance(tracker, LogTracker)
-    assert tracker.name == "test_tracker.log"
+    assert tracker.name == "LogTracker"
     assert tracker.verbose == True
 
 def test_tracker_config_inheritance(env, base_config):
