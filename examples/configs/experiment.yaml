@@ -1,9 +1,0 @@
-name: hyperparameter_search
-id: 1
-desc: Training a model with different hyperparameters
-settings:
-  model_type: mlp
-  dataset: mnist
-  batch_size: 32
-  epochs: 10
-  learning_rate: 0.001

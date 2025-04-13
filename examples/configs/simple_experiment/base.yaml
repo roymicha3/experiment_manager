@@ -1,0 +1,4 @@
+pipeline:
+  type: DummyPipeline
+  epochs: 5
+  batch_size: 32

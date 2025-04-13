@@ -1,5 +1,7 @@
 import os
+import random
 from enum import Enum
+from datetime import datetime
 from omegaconf import OmegaConf, DictConfig
 
 from experiment_manager.common.factory import Factory
@@ -35,10 +37,14 @@ class Environment(YAMLSerializable):
         self.factory = factory
         self.verbose = verbose
         self.debug = debug
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f") + f"_{random.randint(0, 1000):03d}"
+        self.log_name = f"{LOG_NAME}-{timestamp}"
         
         self.logger = EmptyLogger()
         if self.verbose:
-            self.logger = ConsoleLogger(name=LOG_NAME, debug=self.debug)
+            self.logger = ConsoleLogger(
+                name=self.log_name, 
+                debug=self.debug)
         
         self.tracker_manager = TrackerManager.from_config(
             self.config,
@@ -54,11 +60,11 @@ class Environment(YAMLSerializable):
         os.makedirs(self.config_dir, exist_ok=True)
         
         if self.verbose:
-            self.logger = CompositeLogger(name=LOG_NAME,
+            self.logger = CompositeLogger(name=self.log_name,
                                       log_dir=self.log_dir,
                                       debug=self.debug)
         else:
-            self.logger = FileLogger(name=LOG_NAME,
+            self.logger = FileLogger(name=self.log_name,
                                      log_dir=self.log_dir,
                                      debug=self.debug)
         

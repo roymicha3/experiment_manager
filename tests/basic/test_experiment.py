@@ -1,37 +1,29 @@
 import os
 import shutil
+from _pytest import tmpdir
 import pytest
 from omegaconf import OmegaConf
 from experiment_manager.experiment import Experiment, ConfigPaths
 from experiment_manager.environment import Environment
 from tests.pipelines.dummy_pipeline_factory import DummyPipelineFactory
 
-
-@pytest.fixture
-def env_config(tmp_path):
-    return OmegaConf.create({
-        "workspace": os.path.join(str(tmp_path), "test_outputs"),
-        "verbose": True,
-        "debug": True,
-    })
-
-@pytest.fixture
-def env(env_config, tmp_path):
-    env = Environment.from_config(env_config)
-    env.setup_environment()  # Set up environment in the fixture
-    return env
-
-@pytest.fixture
-def config_dir(env, tmp_path):
-    config_dir = os.path.join("tests", "configs", "test_experiment")
-    workspace = os.path.join(str(tmp_path), "test_experiment")
-    os.mkdir(workspace)
-
-    env.workspace = workspace
     
+@pytest.fixture
+def config_dir(tmp_path):
+    config_dir = os.path.join("tests", "configs", "test_experiment")
     return config_dir
 
-def test_experiment_creates_log_file(env, config_dir):
+
+@pytest.fixture
+def prepare_env(tmp_path, config_dir):
+    env_path = os.path.join(config_dir, ConfigPaths.ENV_CONFIG.value)
+    env = OmegaConf.load(env_path)
+    env.workspace = os.path.join(tmp_path, "test_outputs")
+    OmegaConf.save(env, env_path)
+    return env
+
+
+def test_experiment_creates_log_file(prepare_env, config_dir):
     """Test that experiment logs to the environment's log file"""
     print("\nStarting test_experiment_creates_log_file")
     

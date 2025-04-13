@@ -16,10 +16,11 @@ class BaseLogger(ABC):
         self.name = name
         self.level = "DEBUG" if debug else "INFO"
         self.logger = logging.getLogger(name)
+        self.logger.propagate = False
         self.logger.setLevel(self.level)
         self.formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         self._setup_handler()
-
+    
     @abstractmethod
     def _setup_handler(self) -> None:
         """Setup the specific handler for the logger implementation."""
@@ -124,6 +125,7 @@ class CompositeLogger(BaseLogger):
         
         self.log_dir = log_dir
         self.filename = filename if filename else f"{name}.log"
+        self.logger.handlers = [] # reset handlers
         
         # Setup both handlers
         self._setup_console_handler()
