@@ -1,30 +1,9 @@
 import os
-from omegaconf import OmegaConf
 
-from experiment_manager.environment import Environment
 from experiment_manager.experiment import Experiment
 from examples.pipelines.dummy_pipeline_factory import DummyPipelineFactory
 
 def main():
-    # Create environment config
-    env_config = OmegaConf.create({
-        "workspace": os.path.join("outputs", "simple_experiment"),
-        "verbose": True,
-        "debug": True,
-        "trackers": [
-            {
-                "type": "LogTracker",
-                "name": "LogTracker",
-                "verbose": True
-            }
-        ]
-    })
-
-    # Initialize environment
-    env = Environment.from_config(env_config)
-    env.setup_environment()
-    print(f"Environment workspace: {env.workspace}")
-    print(f"Environment log directory: {env.log_dir}")
 
     # Create and run experiment
     config_dir = os.path.join(os.path.dirname(__file__), "configs", "simple_experiment")

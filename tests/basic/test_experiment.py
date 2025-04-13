@@ -1,6 +1,4 @@
 import os
-import shutil
-from _pytest import tmpdir
 import pytest
 from omegaconf import OmegaConf
 from experiment_manager.experiment import Experiment, ConfigPaths

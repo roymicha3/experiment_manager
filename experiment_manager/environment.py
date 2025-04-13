@@ -1,5 +1,4 @@
 import os
-import random
 from enum import Enum
 from datetime import datetime
 from omegaconf import OmegaConf, DictConfig
@@ -37,7 +36,7 @@ class Environment(YAMLSerializable):
         self.factory = factory
         self.verbose = verbose
         self.debug = debug
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f") + f"_{random.randint(0, 1000):03d}"
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         self.log_name = f"{LOG_NAME}-{timestamp}"
         
         self.logger = EmptyLogger()
