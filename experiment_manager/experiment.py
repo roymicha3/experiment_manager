@@ -31,6 +31,10 @@ class Experiment:
                  base_config: DictConfig,
                  trials_config: DictConfig,
                  factory: Factory):
+        """
+        Initialize the experiment.
+        Shouldnt be used by the user, please refer to the create function instead
+        """
         
         # basic properties
         self.name             = experiment_conf.name

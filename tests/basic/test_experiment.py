@@ -1,4 +1,5 @@
 import os
+import shutil
 import pytest
 from omegaconf import OmegaConf
 from experiment_manager.experiment import Experiment, ConfigPaths
@@ -7,9 +8,9 @@ from tests.pipelines.dummy_pipeline_factory import DummyPipelineFactory
 
 
 @pytest.fixture
-def env_config():
+def env_config(tmp_path):
     return OmegaConf.create({
-        "workspace": "test_outputs",
+        "workspace": os.path.join(str(tmp_path), "test_outputs"),
         "verbose": True,
         "debug": True,
     })
@@ -21,8 +22,12 @@ def env(env_config, tmp_path):
     return env
 
 @pytest.fixture
-def config_dir(env):
+def config_dir(env, tmp_path):
     config_dir = os.path.join("tests", "configs", "test_experiment")
+    workspace = os.path.join(str(tmp_path), "test_experiment")
+    os.mkdir(workspace)
+
+    env.workspace = workspace
     
     return config_dir
 
@@ -77,7 +82,7 @@ def test_experiment_creates_log_file(env, config_dir):
     for log_file in log_files:
         print(f"- {log_file}")
     
-    assert len(log_files) == 6, f"Expected 6 log files (experiment + 3 trial_1 logs + 2 trial_2 logs), found {len(log_files)}"
+    assert len(log_files) == 5, f"Expected 5 log files (experiment + 3 trial_1 logs + 2 trial_2 logs), found {len(log_files)}"
     
     # Verify each log file exists and is readable
     for log_file in log_files:

@@ -5,9 +5,9 @@ from omegaconf import OmegaConf
 from experiment_manager.environment import Environment, ProductPaths
 
 @pytest.fixture
-def env_config():
+def env_config(tmp_path):
     return OmegaConf.create({
-        "workspace": "test_outputs",
+        "workspace": os.path.join(str(tmp_path), "test_outputs"),
         "verbose": True,
         "debug": True,
     })

@@ -88,15 +88,21 @@ class Environment(YAMLSerializable):
     
     @property
     def log_dir(self):
-        return os.path.join(self.workspace, ProductPaths.LOG_DIR.value)
+        log_dir = os.path.join(self.workspace, ProductPaths.LOG_DIR.value)
+        os.makedirs(log_dir, exist_ok = True)
+        return log_dir
     
     @property
     def artifact_dir(self):
-        return os.path.join(self.workspace, ProductPaths.ARTIFACT_DIR.value)
+        artifact_dir = os.path.join(self.workspace, ProductPaths.ARTIFACT_DIR.value)
+        os.makedirs(artifact_dir, exist_ok = True)
+        return artifact_dir
     
     @property
     def config_dir(self):
-        return os.path.join(self.workspace, ProductPaths.CONFIG_DIR.value)
+        config_dir = os.path.join(self.workspace, ProductPaths.CONFIG_DIR.value)
+        os.makedirs(config_dir, exist_ok = True)
+        return config_dir
     
     def save(self) -> None:
         """Save environment configuration to file."""
