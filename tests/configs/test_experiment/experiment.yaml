@@ -2,7 +2,7 @@
 #   Experiment Configuration -    #
 #####################################################################################
 
-name: "simple"
+name: "test_experiment"
 desc: "a simple experiment"
 settings: # the base cofiguration of the experiment
       

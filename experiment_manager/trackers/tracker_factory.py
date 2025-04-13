@@ -5,6 +5,7 @@ from experiment_manager.common.serializable import YAMLSerializable
 # import the tracker classes
 from experiment_manager.trackers.tracker import Tracker
 from experiment_manager.trackers.log_tracker import LogTracker
+from experiment_manager.trackers.db_tracker import DBTracker
 
 class TrackerFactory(Factory):
     

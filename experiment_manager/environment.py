@@ -29,34 +29,18 @@ class Environment(YAMLSerializable):
                  config: DictConfig,
                  factory: Factory = None,
                  verbose: bool = False, 
-                 debug: bool = False):
+                 debug: bool = False,
+                 tracker_manager: TrackerManager = None):
         super().__init__()
         self.workspace = os.path.abspath(workspace)  # Convert to absolute path
+        os.makedirs(self.workspace, exist_ok=True)
+        
         self.config = config
         self.factory = factory
         self.verbose = verbose
         self.debug = debug
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         self.log_name = f"{LOG_NAME}-{timestamp}"
-        
-        self.logger = EmptyLogger()
-        if self.verbose:
-            self.logger = ConsoleLogger(
-                name=self.log_name, 
-                debug=self.debug)
-        
-        self.tracker_manager = TrackerManager.from_config(
-            self.config,
-            self.artifact_dir)
-        
-    def setup_environment(self) -> None:
-        """
-        Setup the environment
-        """
-        os.makedirs(self.workspace, exist_ok=True)
-        os.makedirs(self.log_dir, exist_ok=True)
-        os.makedirs(self.artifact_dir, exist_ok=True)
-        os.makedirs(self.config_dir, exist_ok=True)
         
         if self.verbose:
             self.logger = CompositeLogger(name=self.log_name,
@@ -67,8 +51,13 @@ class Environment(YAMLSerializable):
                                      log_dir=self.log_dir,
                                      debug=self.debug)
         
-        
+        self.tracker_manager = tracker_manager or \
+                TrackerManager.from_config(
+                                        self.config,
+            self.artifact_dir)
+
         self.save()
+    
         
     def set_workspace(self, new_workspace: str, inner: bool = False) -> None:
         """
@@ -93,21 +82,24 @@ class Environment(YAMLSerializable):
     
     @property
     def log_dir(self):
-        log_dir = os.path.join(self.workspace, ProductPaths.LOG_DIR.value)
-        os.makedirs(log_dir, exist_ok = True)
-        return log_dir
+        log_dir_path = os.path.join(self.workspace, ProductPaths.LOG_DIR.value)
+        if not os.path.exists(log_dir_path):
+            os.mkdir(log_dir_path)
+        return log_dir_path
     
     @property
     def artifact_dir(self):
-        artifact_dir = os.path.join(self.workspace, ProductPaths.ARTIFACT_DIR.value)
-        os.makedirs(artifact_dir, exist_ok = True)
-        return artifact_dir
+        artifact_dir_path = os.path.join(self.workspace, ProductPaths.ARTIFACT_DIR.value)
+        if not os.path.exists(artifact_dir_path):
+            os.mkdir(artifact_dir_path)
+        return artifact_dir_path
     
     @property
     def config_dir(self):
-        config_dir = os.path.join(self.workspace, ProductPaths.CONFIG_DIR.value)
-        os.makedirs(config_dir, exist_ok = True)
-        return config_dir
+        config_dir_path = os.path.join(self.workspace, ProductPaths.CONFIG_DIR.value)
+        if not os.path.exists(config_dir_path):
+            os.mkdir(config_dir_path)
+        return config_dir_path
     
     def save(self) -> None:
         """Save environment configuration to file."""
@@ -144,9 +136,8 @@ class Environment(YAMLSerializable):
             config=self.config,
             factory=self.factory,
             verbose=self.verbose,
-            debug=self.debug)
+            debug=self.debug,
+            tracker_manager=self.tracker_manager.create_child())
         
-        child_env.tracker_manager = self.tracker_manager.create_child()
-        child_env.setup_environment()
         self.logger.debug(f"Created child environment '{name}' at {child_env.workspace}")
         return child_env

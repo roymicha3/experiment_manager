@@ -72,7 +72,7 @@ def test_experiment_creates_log_file(prepare_env, config_dir):
     for log_file in log_files:
         print(f"- {log_file}")
     
-    assert len(log_files) == 5, f"Expected 5 log files (experiment + 3 trial_1 logs + 2 trial_2 logs), found {len(log_files)}"
+    assert len(log_files) == 6, f"Expected 6 log files (experiment + 3 trial_1 logs + 2 trial_2 logs), found {len(log_files)}"
     
     # Verify each log file exists and is readable
     for log_file in log_files:
