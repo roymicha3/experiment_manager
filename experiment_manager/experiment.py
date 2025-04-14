@@ -1,11 +1,10 @@
 import os
-from enum import Enum
 from omegaconf import OmegaConf, DictConfig
 
 from experiment_manager.trial import Trial
-from experiment_manager.common.common import Level
 from experiment_manager.common.factory import Factory
 from experiment_manager.environment import Environment
+from experiment_manager.common.common import Level, ConfigPaths
 
 """
 This is the main class that is responsible for the experiment.
@@ -16,12 +15,6 @@ The configuration files are:
 - base.yaml: contains the objects that are used throughout the experiment - model, optimizer, dataset, pipeline etc.
 - trials.yaml: the trials configuration file - each trial has its own configuration (very much like the base.yaml)
 """
-
-class ConfigPaths(Enum):
-    ENV_CONFIG     = "env.yaml"
-    CONFIG_FILE    = "experiment.yaml"
-    BASE_CONFIG    = "base.yaml"
-    TRIALS_CONFIG  = "trials.yaml"
 
 class Experiment:
     

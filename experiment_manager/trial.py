@@ -4,6 +4,7 @@ from omegaconf import OmegaConf, DictConfig
 from experiment_manager.common.common import Level
 from experiment_manager.environment import Environment
 from experiment_manager.common.serializable import YAMLSerializable
+from experiment_manager.common.common import ConfigPaths
 
 
 class Trial(YAMLSerializable):
@@ -31,6 +32,9 @@ class Trial(YAMLSerializable):
     def run(self) -> None:
         self.env.logger.info(f"Running trial '{self.name}'")
         self.env.tracker_manager.on_start(level=Level.TRIAL)
+        
+        # save config
+        OmegaConf.save(self.config, os.path.join(self.env.config_dir, ConfigPaths.CONFIG_FILE.value))
         
         for i in range(self.repeat):
             self.env.logger.info(f"Trial '{self.name}' repeat {i}")

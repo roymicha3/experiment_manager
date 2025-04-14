@@ -3,6 +3,13 @@ from typing import Dict
 
 LOG_NAME = "log"
 
+
+class ConfigPaths(Enum):
+    ENV_CONFIG     = "env.yaml"
+    CONFIG_FILE    = "experiment.yaml"
+    BASE_CONFIG    = "base.yaml"
+    TRIALS_CONFIG  = "trials.yaml"
+
 # enum for levels:
 class Level(Enum):
     EXPERIMENT    = 0

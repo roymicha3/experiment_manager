@@ -5,24 +5,7 @@ id: 1
 settings:
   debug: true
   verbose: true
-  pipeline:
-    type: DummyPipeline
-    epochs: 3
-    batch_size: 32
+
 
 trials:
-  - name: trial_1
-    repeat: 2
-    settings:
-      learning_rate: 0.001
-      pipeline:
-        type: DummyPipeline
-        epochs: 3
 
-  - name: trial_2
-    repeat: 1
-    settings:
-      learning_rate: 0.01
-      pipeline:
-        type: DummyPipeline
-        epochs: 5
