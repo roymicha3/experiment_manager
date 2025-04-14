@@ -23,12 +23,14 @@ class Metric(IntEnum):
     TEST_LOSS = 3
     VAL_ACC = 4
     VAL_LOSS = 5
+    TRAIN_ACC = 6
+    TRAIN_LOSS = 7
 
     # Untracked metrics
-    NETWORK = 6
-    DATA = 7
-    STATUS = 8
-    CONFUSION = 9
+    NETWORK = 8
+    DATA = 9
+    STATUS = 10
+    CONFUSION = 11
     
     @property
     def name(self) -> str:
@@ -47,10 +49,13 @@ def _init_metric_categories():
     Metric.TEST_LOSS: MetricCategory.TRACKED,
     Metric.VAL_ACC: MetricCategory.TRACKED,
     Metric.VAL_LOSS: MetricCategory.TRACKED,
+    Metric.TRAIN_ACC: MetricCategory.TRACKED,
+    Metric.TRAIN_LOSS: MetricCategory.TRACKED,
+    Metric.CONFUSION: MetricCategory.TRACKED,
+    
     Metric.NETWORK: MetricCategory.UNTRACKED,
     Metric.DATA: MetricCategory.UNTRACKED,
     Metric.STATUS: MetricCategory.UNTRACKED,
-    Metric.CONFUSION: MetricCategory.TRACKED
 }
 
 def get_metric_category(metric: Metric) -> MetricCategory:

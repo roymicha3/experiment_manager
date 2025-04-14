@@ -1,6 +1,7 @@
 from omegaconf import DictConfig
 import time
 
+from experiment_manager.common.common import Level
 from experiment_manager.environment import Environment
 from experiment_manager.pipelines.pipeline import Pipeline
 from experiment_manager.common.common import Metric
@@ -28,6 +29,8 @@ class DummyPipeline(Pipeline, YAMLSerializable):
         # Simulate epochs
         for epoch in range(config.pipeline.epochs):
             self.env.logger.info(f"Epoch {epoch + 1}/{config.pipeline.epochs}")
+            self.env.tracker_manager.on_create(Level.EPOCH)
+            self.env.tracker_manager.on_start(Level.EPOCH)
             
             # Simulate training progress
             train_acc = 0.5 + (epoch * 0.05)  # Starts at 0.5, increases by 0.05 each epoch
@@ -35,14 +38,12 @@ class DummyPipeline(Pipeline, YAMLSerializable):
             
             # Track training metrics
             self.env.tracker_manager.track(
-                metric=Metric.TEST_ACC,  # Using TEST_ACC since TRAIN_ACC not available
-                value=train_acc,
-                step=epoch
+                metric=Metric.TRAIN_ACC,
+                value=train_acc
             )
             self.env.tracker_manager.track(
-                metric=Metric.TEST_LOSS,  # Using TEST_LOSS since TRAIN_LOSS not available
-                value=train_loss,
-                step=epoch
+                metric=Metric.TRAIN_LOSS,
+                value=train_loss
             )
             
             # Simulate validation
@@ -52,28 +53,26 @@ class DummyPipeline(Pipeline, YAMLSerializable):
             # Track validation metrics
             self.env.tracker_manager.track(
                 metric=Metric.VAL_ACC,
-                value=val_acc,
-                step=epoch
+                value=val_acc
             )
             self.env.tracker_manager.track(
                 metric=Metric.VAL_LOSS,
-                value=val_loss,
-                step=epoch
+                value=val_loss
             )
             
             # Small delay to simulate computation
             time.sleep(0.1)
+            
+            self.env.tracker_manager.on_end(Level.EPOCH)
         
         # Track final test metrics
         self.env.tracker_manager.track(
             metric=Metric.TEST_ACC,
-            value=train_acc + 0.02,  # Slightly better than training
-            step=config.pipeline.epochs
+            value=train_acc + 0.02
         )
         self.env.tracker_manager.track(
             metric=Metric.TEST_LOSS,
-            value=train_loss - 0.05,  # Slightly better than training
-            step=config.pipeline.epochs
+            value=train_loss - 0.05
         )
         
         self.env.logger.info(f"Completed {self.name}")

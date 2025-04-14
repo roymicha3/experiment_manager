@@ -1,6 +1,7 @@
 import os
 import json
 from typing import Dict, Any
+from datetime import datetime
 from omegaconf import DictConfig
 
 from experiment_manager.trackers.tracker import Tracker
@@ -62,7 +63,20 @@ class DBTracker(Tracker, YAMLSerializable):
         
         # Link metric to current trial run if we're in an epoch
         if self.epoch_idx is not None and self.id:
-            self.db_manager.add_epoch_metric(self.epoch_idx, self.id, metric_record.id)
+            # Link metric to epoch
+            self.db_manager.add_epoch_metric(
+                epoch_idx=self.epoch_idx,
+                trial_run_id=self.id,
+                metric_id=metric_record.id)
+        else:
+            # Create results entry if it doesn't exist
+            self.db_manager._execute_query(
+                "INSERT OR IGNORE INTO RESULTS (trial_run_id, time) VALUES (?, ?)",
+                (self.id, datetime.now().isoformat()))
+            # Link metric to results
+            self.db_manager.link_results_metric(
+                trial_run_id=self.id,
+                metric_id=metric_record.id)
     
     def log_params(self, params: Dict[str, Any]):
         params_path = os.path.join(self.workspace, "params.json")
@@ -93,6 +107,15 @@ class DBTracker(Tracker, YAMLSerializable):
             res = self.db_manager.create_trial_run(
                 trial_id=self.parent.id,
                 status=kwargs.get("status", "started"))
+            self.epoch_idx = 0
+            
+        elif level == Level.EPOCH:
+            if not self.parent:
+                raise ValueError("Parent tracker must be created first")
+            self.db_manager.create_epoch(
+                epoch_idx=self.epoch_idx,
+                trial_run_id=self.id)
+            return
             
         if not res:
             raise ValueError("Invalid level")
@@ -108,12 +131,7 @@ class DBTracker(Tracker, YAMLSerializable):
             self.epoch_idx = 0
             pass
         elif level == Level.EPOCH:
-            self.db_manager.create_epoch(
-                experiment_id=self.id,
-                trial_id=self.parent.id,
-                trial_run_id=self.parent.parent.id,
-                epoch=self.epoch_idx + 1,
-                status=kwargs.get("status", "started"))
+            pass
         
     
     def on_end(self, level: Level, *args, **kwargs):
@@ -122,7 +140,6 @@ class DBTracker(Tracker, YAMLSerializable):
         elif level == Level.TRIAL:
             pass
         elif level == Level.TRIAL_RUN:
-            self.epoch_idx = 0
             pass
         elif level == Level.EPOCH:
             self.epoch_idx += 1

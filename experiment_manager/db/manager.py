@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 
 from experiment_manager.db.db import init_sqlite_db, init_mysql_db
-from experiment_manager.db.tables import Experiment, Trial, TrialRun, Metric, Artifact
+from experiment_manager.db.tables import Experiment, Trial, TrialRun, Metric, Artifact, Epoch
 
 logger = logging.getLogger(__name__)
 
@@ -219,8 +219,9 @@ class DatabaseManager:
         VALUES ({ph}, {ph}, {ph})
         """
         
-        self._execute_query(query, (epoch_idx, trial_run_id, datetime.now().isoformat()))
+        cursor = self._execute_query(query, (epoch_idx, trial_run_id, datetime.now().isoformat()))
         self.connection.commit()
+        
 
     def get_experiment_metrics(self, experiment_id: int) -> List[Metric]:
         

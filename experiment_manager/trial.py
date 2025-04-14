@@ -30,6 +30,8 @@ class Trial(YAMLSerializable):
     
     def run(self) -> None:
         self.env.logger.info(f"Running trial '{self.name}'")
+        self.env.tracker_manager.on_start(level=Level.TRIAL)
+        
         for i in range(self.repeat):
             self.env.logger.info(f"Trial '{self.name}' repeat {i}")
             self.run_single(i)
@@ -39,6 +41,8 @@ class Trial(YAMLSerializable):
         trial_run_env = self.env.create_child(f"{self.name}-{repeat}")
         trial_run_env.tracker_manager.on_create(Level.TRIAL_RUN)
         self.env.logger.info(f"Trial Run'{self.name}' (repeat: {repeat}) running single")
+        
+        trial_run_env.tracker_manager.on_start(Level.TRIAL_RUN)
         
         try:
             if self.env.factory is None:

@@ -11,7 +11,9 @@ from tests.pipelines.dummy_pipeline_factory import DummyPipelineFactory
 def get_db_connection(experiment_path):
     """Get connection to the experiment database"""
     db_path = os.path.join(experiment_path, "artifacts", "experiment.db")
-    return sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 
 @pytest.fixture
@@ -79,24 +81,36 @@ def test_metric_hierarchy(tmp_path, prepare_env, config_dir):
     db = get_db_connection(experiment.env.workspace)
     cursor = db.cursor()
     
-    # Get all metrics with their hierarchy
+    # Get all metrics with their hierarchy through RESULTS_METRIC
     cursor.execute("""
         SELECT m.*, tr.trial_id
         FROM METRIC m
-        JOIN TRIAL_RUN tr ON m.trial_run_id = tr.id
+        JOIN RESULTS_METRIC rm ON m.id = rm.metric_id
+        JOIN RESULTS r ON rm.results_id = r.trial_run_id
+        JOIN TRIAL_RUN tr ON r.trial_run_id = tr.id
     """)
-    metrics = cursor.fetchall()
+    results_metrics = cursor.fetchall()
     
-    assert len(metrics) > 0
+    # Get all metrics with their hierarchy through EPOCH_METRIC
+    cursor.execute("""
+        SELECT m.*, tr.trial_id, e.idx as epoch
+        FROM METRIC m
+        JOIN EPOCH_METRIC em ON m.id = em.metric_id
+        JOIN EPOCH e ON em.epoch_idx = e.idx AND em.epoch_trial_run_id = e.trial_run_id
+        JOIN TRIAL_RUN tr ON e.trial_run_id = tr.id
+    """)
+    epoch_metrics = cursor.fetchall()
+    
+    assert len(results_metrics) > 0 or len(epoch_metrics) > 0
     
     # Check metric values follow expected patterns
-    for metric in metrics:
-        value = metric[3]  # value column
-        name = metric[2]   # name column
-        if name == 'test_acc':
-            assert 0 <= value <= 1
-        elif name == 'test_loss':
-            assert value >= 0
+    for metric in results_metrics + epoch_metrics:
+        value = float(metric['total_val'])
+        type_name = metric['type']
+        if type_name in ['TEST_ACC', 'TRAIN_ACC', 'VAL_ACC']:
+            assert 0 <= value <= 1, f"Invalid {type_name} value: {value}"
+        elif type_name in ['TEST_LOSS', 'TRAIN_LOSS', 'VAL_LOSS']:
+            assert value >= 0, f"Invalid {type_name} value: {value}"
 
 
 def test_artifact_references(tmp_path, prepare_env, config_dir):
@@ -105,58 +119,176 @@ def test_artifact_references(tmp_path, prepare_env, config_dir):
     db = get_db_connection(experiment.env.workspace)
     cursor = db.cursor()
     
-    # Check artifacts exist and are linked
+    # Check artifacts exist and are linked through various tables
     cursor.execute("""
-        SELECT a.*, tr.trial_id
+        SELECT DISTINCT a.*, tr.trial_id
         FROM ARTIFACT a
-        JOIN TRIAL_RUN tr ON a.trial_run_id = tr.id
+        LEFT JOIN EXPERIMENT_ARTIFACT ea ON a.id = ea.artifact_id
+        LEFT JOIN TRIAL_ARTIFACT ta ON a.id = ta.artifact_id
+        LEFT JOIN TRIAL_RUN_ARTIFACT tra ON a.id = tra.artifact_id
+        LEFT JOIN TRIAL_RUN tr ON tra.trial_run_id = tr.id
+        LEFT JOIN RESULTS_ARTIFACT ra ON a.id = ra.artifact_id
+        LEFT JOIN RESULTS r ON ra.results_id = r.trial_run_id
+        LEFT JOIN EPOCH_ARTIFACT epa ON a.id = epa.artifact_id
+        LEFT JOIN EPOCH e ON epa.epoch_idx = e.idx AND epa.epoch_trial_run_id = e.trial_run_id
     """)
     artifacts = cursor.fetchall()
     
+    # Verify any found artifacts belong to correct hierarchy
     for artifact in artifacts:
-        path = artifact[2]  # path column
-        # Verify artifact belongs to correct hierarchy
+        path = artifact['loc']  # location column
         assert path.startswith(experiment.env.workspace)
 
 
-def test_data_consistency(tmp_path, prepare_env, config_dir):
-    """Test referential integrity and data consistency in DB"""
+@pytest.fixture
+def test_db(tmp_path, prepare_env, config_dir):
+    """Setup test database and return connection"""
     experiment = setup_and_run_test_experiment(tmp_path, config_dir)
     db = get_db_connection(experiment.env.workspace)
+    yield db, experiment
+    db.close()
+
+
+def test_no_orphaned_trials(test_db):
+    """Test that all trials are linked to an experiment"""
+    db, _ = test_db
     cursor = db.cursor()
     
-    # Test no orphaned trials
     cursor.execute("""
-        SELECT COUNT(*) FROM TRIAL t 
-        LEFT JOIN experiments e ON t.experiment_id = e.id
+        SELECT COUNT(*) as cnt FROM TRIAL t 
+        LEFT JOIN EXPERIMENT e ON t.experiment_id = e.id
         WHERE e.id IS NULL
     """)
-    assert cursor.fetchone()[0] == 0
+    assert cursor.fetchone()['cnt'] == 0
+
+
+def test_no_orphaned_trial_runs(test_db):
+    """Test that all trial runs are linked to a trial"""
+    db, _ = test_db
+    cursor = db.cursor()
     
-    # Test no orphaned runs
     cursor.execute("""
-        SELECT COUNT(*) FROM trial_runs tr
-        LEFT JOIN trials t ON tr.trial_id = t.id
+        SELECT COUNT(*) as cnt FROM TRIAL_RUN tr
+        LEFT JOIN TRIAL t ON tr.trial_id = t.id
         WHERE t.id IS NULL
     """)
-    assert cursor.fetchone()[0] == 0
+    assert cursor.fetchone()['cnt'] == 0
+
+
+def test_no_orphaned_epochs(test_db):
+    """Test that all epochs are linked to a trial run"""
+    db, _ = test_db
+    cursor = db.cursor()
     
-    # Test metric counts match expectations
-    cursor.execute("SELECT * FROM trials")
-    for trial in cursor.fetchall():
-        trial_id = trial[0]
-        repeat = trial[3]  # repeat count
+    cursor.execute("""
+        SELECT COUNT(*) as cnt FROM EPOCH e
+        LEFT JOIN TRIAL_RUN tr ON e.trial_run_id = tr.id
+        WHERE tr.id IS NULL
+    """)
+    assert cursor.fetchone()['cnt'] == 0
+
+
+def test_no_orphaned_results(test_db):
+    """Test that all results are linked to a trial run"""
+    db, _ = test_db
+    cursor = db.cursor()
+    
+    cursor.execute("""
+        SELECT COUNT(*) as cnt FROM RESULTS r
+        LEFT JOIN TRIAL_RUN tr ON r.trial_run_id = tr.id
+        WHERE tr.id IS NULL
+    """)
+    assert cursor.fetchone()['cnt'] == 0
+
+
+def test_no_orphaned_metrics(test_db):
+    """Test that all metrics are linked to either an epoch or results"""
+    db, _ = test_db
+    cursor = db.cursor()
+    
+    cursor.execute("""
+        SELECT COUNT(*) as cnt FROM METRIC m
+        LEFT JOIN EPOCH_METRIC em ON m.id = em.metric_id
+        LEFT JOIN RESULTS_METRIC rm ON m.id = rm.metric_id
+        WHERE em.metric_id IS NULL AND rm.metric_id IS NULL
+    """)
+    assert cursor.fetchone()['cnt'] == 0
+
+
+def test_no_orphaned_artifacts(test_db):
+    """Test that all artifacts are linked to an experiment, trial, trial run, or epoch"""
+    db, _ = test_db
+    cursor = db.cursor()
+    
+    cursor.execute("""
+        SELECT COUNT(*) as cnt FROM ARTIFACT a
+        LEFT JOIN EXPERIMENT_ARTIFACT ea ON a.id = ea.artifact_id
+        LEFT JOIN TRIAL_ARTIFACT ta ON a.id = ta.artifact_id
+        LEFT JOIN TRIAL_RUN_ARTIFACT tra ON a.id = tra.artifact_id
+        LEFT JOIN EPOCH_ARTIFACT epa ON a.id = epa.artifact_id
+        WHERE ea.artifact_id IS NULL
+            AND ta.artifact_id IS NULL
+            AND tra.artifact_id IS NULL
+            AND epa.artifact_id IS NULL
+    """)
+    assert cursor.fetchone()['cnt'] == 0
+
+
+def test_artifact_paths(test_db):
+    """Test that all artifact paths are within the experiment workspace"""
+    db, experiment = test_db
+    cursor = db.cursor()
+    
+    cursor.execute("SELECT loc FROM ARTIFACT")
+    artifacts = cursor.fetchall()
+    
+    for artifact in artifacts:
+        path = artifact['loc']  # location column
+        assert path.startswith(experiment.env.workspace)
+
+
+def test_epoch_metrics(test_db):
+    """Test that each trial run has the correct number of epoch metrics"""
+    db, _ = test_db
+    cursor = db.cursor()
+    
+    for trial_run in cursor.execute("SELECT id, trial_id FROM TRIAL_RUN ORDER BY trial_id, id").fetchall():
+        run_id = trial_run['id']
+        trial_id = trial_run['trial_id']
         
-        # Count metrics for this trial
+        # Get unique epoch indices
         cursor.execute("""
-            SELECT COUNT(*) FROM metrics m
-            JOIN trial_runs tr ON m.trial_run_id = tr.id
-            WHERE tr.trial_id = ?
-        """, (trial_id,))
-        metrics_count = cursor.fetchone()[0]
+            SELECT DISTINCT e.idx as epoch_idx
+            FROM EPOCH e
+            WHERE e.trial_run_id = ?
+            ORDER BY e.idx
+        """, (run_id,))
+        epochs = cursor.fetchall()
+        print(f"\nTrial {trial_id} Run {run_id} epochs: {[e['epoch_idx'] for e in epochs]}")
+        
+        # Get epoch metrics
+        cursor.execute("""
+            SELECT e.idx as epoch_idx, m.type as metric_type, m.total_val
+            FROM METRIC m
+            JOIN EPOCH_METRIC em ON m.id = em.metric_id
+            JOIN EPOCH e ON em.epoch_idx = e.idx AND em.epoch_trial_run_id = e.trial_run_id
+            WHERE e.trial_run_id = ?
+            ORDER BY e.idx, m.type
+        """, (run_id,))
+        epoch_metrics = cursor.fetchall()
+        
+        print(f"\nTrial {trial_id} Run {run_id}:")
+        print("Epoch metrics:")
+        for metric in epoch_metrics:
+            print(f"  Epoch {metric['epoch_idx']}: {metric['metric_type']} = {metric['total_val']}")
         
         # Each trial run should have metrics for each epoch
         # In DummyPipeline: 2 metrics (acc, loss) * 2 phases (train, val) * epochs
         epochs = 3  # from test experiment config
-        expected_count = repeat * epochs * 4  # 4 metrics per epoch
-        assert metrics_count >= expected_count  # >= because we also have final test metrics
+        expected_epoch_count = epochs * 4  # 4 metrics per epoch (train_acc, train_loss, val_acc, val_loss)
+        expected_results_count = 2  # final test metrics (acc, loss)
+        
+        # Assert we have the expected number of metrics for this trial run
+        assert len(epoch_metrics) == expected_epoch_count, \
+            f"Trial {trial_id} Run {run_id}: Expected {expected_epoch_count} epoch metrics but got {len(epoch_metrics)}"
+        

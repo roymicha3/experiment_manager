@@ -44,3 +44,11 @@ class Artifact:
     id: Optional[int]
     type: str
     location: str
+    
+@dataclass
+class Epoch:
+    id: Optional[int]
+    epoch_idx: int
+    trial_run_id: int
+    time: datetime
+    
