@@ -3,10 +3,11 @@ import csv
 from typing import Dict, List, Any
 from omegaconf import DictConfig
 
+from experiment_manager.common.common import Level
 from experiment_manager.environment import Environment
-from experiment_manager.pipelines.callbacks.callback import Callback
-from experiment_manager.common.common import Metric, MetricCategory, get_metric_category
 from experiment_manager.common.serializable import YAMLSerializable
+from experiment_manager.pipelines.callbacks.callback import Callback
+from experiment_manager.common.common import MetricCategory, get_metric_category
 
 
 @YAMLSerializable.register("MetricsTracker")
@@ -22,7 +23,7 @@ class MetricsTracker(Callback, YAMLSerializable):
         
         self.env = env
         
-        self.log_path = os.path.join(self.env.log_dir, MetricsTracker.LOG_NAME)
+        self.log_path = os.path.join(self.env.artifact_dir, MetricsTracker.LOG_NAME)
         self.metrics: Dict[str, List[Any]] = {}
         self.env.logger.info(f"Initialized metrics tracker. Log file: {self.log_path}")
         
@@ -78,6 +79,12 @@ class MetricsTracker(Callback, YAMLSerializable):
                     rows_written += 1
                 
                 self.env.logger.info(f"Successfully wrote {rows_written} rows of metrics data")
+            
+            self.env.tracker_manager.on_add_artifact(
+                level=Level.TRIAL_RUN,
+                artifact_path=self.log_path,
+                artifact_type="metrics")
+        
         except Exception as e:
             self.env.logger.error(f"Failed to save metrics: {str(e)}")
 
