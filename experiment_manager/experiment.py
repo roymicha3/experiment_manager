@@ -41,7 +41,7 @@ class Experiment:
 
         self.env.logger.info(f"Creating experiment '{self.name}'")
         self.env.logger.info(f"Description: {self.desc}")
-        self.env.logger.info(f"Pipeline factory: {type(factory)}")
+        self.env.logger.info(f"Pipeline factory: {factory.__name__}")
         
         # configurations of the experiment
         self.experiment_config = experiment_conf

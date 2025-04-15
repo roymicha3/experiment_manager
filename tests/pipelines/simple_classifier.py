@@ -132,14 +132,16 @@ class SimpleClassifierPipeline(Pipeline, YAMLSerializable):
 
     def run(self, config: DictConfig):
         """Run the pipeline."""
+        self.env.logger.info("Starting pipeline run")
         self.on_start()
-
+        
         # Create DataLoaders for training, validation, and testing
         train_loader = DataLoader(TensorDataset(self.X_train, self.y_train), batch_size=self.batch_size, shuffle=True)
         val_loader = DataLoader(TensorDataset(self.X_val, self.y_val), batch_size=self.batch_size, shuffle=False)
         test_loader = DataLoader(TensorDataset(self.X_test, self.y_test), batch_size=self.batch_size, shuffle=False)
         for epoch in range(self.epochs):
             self.on_epoch_start()
+            self.env.logger.info(f"Epoch {epoch+1}/{self.epochs}")
 
             # Train the model for one epoch
             train_loss = self.train_one_epoch(self.model, train_loader, self.criterion, self.optimizer, self.device)

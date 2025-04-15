@@ -16,7 +16,10 @@ class PipelineFactory(Factory):
         pipeline_class = YAMLSerializable.get_by_name(name)
         pipeline = pipeline_class.from_config(config, env, id)
         
-        callbacks = config.get("callbacks", [])
+        callbacks = config.pipeline.get("callbacks", [])
+        if not callbacks:
+            env.logger.error("No callbacks found in configuration")
+        
         for callback in callbacks:
             callback = CallbackFactory.create(callback.type, callback, env)
             pipeline.register_callback(callback)
