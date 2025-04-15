@@ -1,0 +1,46 @@
+#####################################################################################
+#   Base Configuration - contains all the objects that are used in the experiment   #
+#####################################################################################
+
+# Model Architecture
+model:
+
+
+# Optimizer
+optimizer:
+  type: MomentumOptimizer
+  lr: 100
+  momentum: 0.99
+
+# LR Scheduler
+lr_scheduler:
+  type: StepLR
+  args:
+    step_size: 50
+    gamma: 0.9
+
+# Loss Function
+loss:
+  type: "BinaryLoss"
+
+# Dataset
+dataset:
+  type: "RandomDataset"
+  input_size: 500
+  len: 1000
+  root: "./outputs/data/random"  # Path to the dataset
+  normalize: False  # Normalize values to [0, 1]
+  flatten: True
+
+
+# Pipeline
+pipeline:
+  type: "DummyPipeline"
+  epochs: 3
+  batch_size: 64
+  validation_split: 0.2
+  test_split: 0.2
+  shuffle: True
+
+  # Callbacks (Optional)
+  callbacks:

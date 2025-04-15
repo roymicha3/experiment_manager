@@ -1,0 +1,10 @@
+#####################################################################################
+#   Experiment Configuration -    #
+#####################################################################################
+
+name: "test_experiment"
+desc: "a simple experiment"
+settings: # the base cofiguration of the experiment
+      
+trials: # each trial changes the parameters it chooses - this is later merged with the trials.yaml
+

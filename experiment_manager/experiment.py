@@ -1,80 +1,70 @@
 import os
 from omegaconf import OmegaConf, DictConfig
 
-from experiment_manager.environment import Environment
-from experiment_manager.common.serializable import YAMLSerializable
 from experiment_manager.trial import Trial
+from experiment_manager.common.factory import Factory
+from experiment_manager.environment import Environment
+from experiment_manager.common.common import Level, ConfigPaths
 
+"""
+This is the main class that is responsible for the experiment.
+In order to run it you should supply its configurations file in a given directory.
+The configuration files are:
+- env.yaml: the environment in which the experiment runs in, responsible for the workding dir, trackers and logs
+- experiment.yaml: the configuration of the experiment - name, description and so on
+- base.yaml: contains the objects that are used throughout the experiment - model, optimizer, dataset, pipeline etc.
+- trials.yaml: the trials configuration file - each trial has its own configuration (very much like the base.yaml)
+"""
 
-class Experiment(YAMLSerializable):
-    
-    CONFIG_FILE = "experiment.yaml"
-    BASE_CONFIG = "base.yaml"
-    TRIALS_CONFIG = "trials.yaml"
+class Experiment:
     
     def __init__(self, 
-                 name: str, 
-                 id: int,
-                 desc: str,
-                 env: Environment,
-                 config_dir_path: str = None):
-        
-        super().__init__()
+                 env_config: DictConfig,
+                 experiment_conf: DictConfig,
+                 base_config: DictConfig,
+                 trials_config: DictConfig,
+                 factory: Factory):
+        """
+        Initialize the experiment.
+        Shouldnt be used by the user, please refer to the create function instead
+        """
         
         # basic properties
-        self.name = name
-        self.id = id
-        self.desc = desc
+        self.name             = experiment_conf.name
+        self.desc             = experiment_conf.desc
         
         # environment
-        self.env = env.create_child(self.name)
-        
-        # TODO: might be a better idea to only receive the config_dir_path and build from there
-        self.config_dir_path = config_dir_path if config_dir_path is not None else self.env.config_dir
+        self.env_config  = env_config
+        self.env         = Environment.from_config(env_config)
+        self.env.factory = factory
+        self.env.tracker_manager.on_create(Level.EXPERIMENT, self.name)
+
+        self.env.logger.info(f"Creating experiment '{self.name}'")
+        self.env.logger.info(f"Description: {self.desc}")
+        self.env.logger.info(f"Pipeline factory: {factory.__name__}")
         
         # configurations of the experiment
-        self.config = None
-        self.base_config = None
-        self.trials_config = None
-        
-        if not self.check_files_exist():
-            raise ValueError(f"Missing configuration files in directory {self.config_dir_path}.")
+        self.experiment_config = experiment_conf
+        self.base_config       = base_config
+        self.trials_config     = trials_config
         
         # helper function to setup the experiment
         self.setup_experiment()
         
-        self.env.logger.info(f"Creating experiment '{self.name}' (ID: {self.id})")
-        self.env.logger.info(f"Description: {self.desc}")
     
-    
-    def check_files_exist(self) -> bool:
-        """
-        Check if all required configuration files exist.
-        """
-        required_files = [
-            os.path.join(self.config_dir_path, self.CONFIG_FILE),
-            os.path.join(self.config_dir_path, self.BASE_CONFIG),
-            os.path.join(self.config_dir_path, self.TRIALS_CONFIG)
-        ]
-        return all(os.path.exists(f) for f in required_files)
-        
-        
     def setup_experiment(self) -> None:
         """
         Setup experiment by loading configurations.
         """
         self.env.logger.info("Setting up experiment configuration")
         
-        # load configurations
-        self.config = OmegaConf.load(os.path.join(self.config_dir_path, self.CONFIG_FILE))
-        self.base_config = OmegaConf.load(os.path.join(self.config_dir_path, self.BASE_CONFIG))
-        self.trials_config = OmegaConf.load(os.path.join(self.config_dir_path, self.TRIALS_CONFIG))
+        self.experiment_config.settings = self.base_config
         
         # Save the configuration files
-        OmegaConf.save(self.config, os.path.join(self.env.config_dir, self.CONFIG_FILE))
-        OmegaConf.save(self.base_config, os.path.join(self.env.config_dir, self.BASE_CONFIG))
-        OmegaConf.save(self.trials_config, os.path.join(self.env.config_dir, self.TRIALS_CONFIG))
-        self.env.save()
+        OmegaConf.save(self.experiment_config, os.path.join(self.env.config_dir, ConfigPaths.CONFIG_FILE.value))
+        OmegaConf.save(self.base_config, os.path.join(self.env.config_dir, ConfigPaths.BASE_CONFIG.value))
+        OmegaConf.save(self.trials_config, os.path.join(self.env.config_dir, ConfigPaths.TRIALS_CONFIG.value))
+        OmegaConf.save(self.env_config, os.path.join(self.env.config_dir, ConfigPaths.ENV_CONFIG.value))
         
         self.env.logger.info("Experiment setup complete")
     
@@ -82,20 +72,38 @@ class Experiment(YAMLSerializable):
         """
         Run the experiment.
         """
-        self.trials_env = self.env.create_child("trials")
         # TODO: initialize registry or load existing one
         for conf in self.trials_config:
-            conf.settings = OmegaConf.merge(self.config.settings, conf.settings)
+            conf.settings = OmegaConf.merge(self.experiment_config.settings, conf.settings)
             
-            trial = Trial.from_config(conf, self.trials_env)
+            trial = Trial.from_config(conf, self.env)
             trial.run()
             
-    @classmethod
-    def from_config(cls, config: DictConfig, env: Environment):
-        # Get config_dir_path from config or use env.config_dir as default
-        config_dir_path = getattr(config, "config_dir_path", None)
-        return cls(name=config.name, 
-                 id=config.id,
-                 desc=config.desc,
-                 env=env,
-                 config_dir_path=config_dir_path)
+        
+    @staticmethod
+    def create(config_dir: str, factory: Factory) -> "Experiment":
+        """
+        Create a new environment from a configuration directory - you should always use this method to create a new experiment.
+        """
+        if not os.path.exists(config_dir):
+            raise ValueError(f"Config directory {config_dir} does not exist.")
+        
+        if not Experiment.check_files_exist(config_dir):
+            raise ValueError(f"Missing configuration files in directory {config_dir}.")
+        
+        env_config = OmegaConf.load(os.path.join(config_dir, ConfigPaths.ENV_CONFIG.value))
+        experiment_config = OmegaConf.load(os.path.join(config_dir, ConfigPaths.CONFIG_FILE.value))
+        base_config = OmegaConf.load(os.path.join(config_dir, ConfigPaths.BASE_CONFIG.value))
+        trials_config = OmegaConf.load(os.path.join(config_dir, ConfigPaths.TRIALS_CONFIG.value))
+        
+        return Experiment(env_config, experiment_config, base_config, trials_config, factory)
+    
+    @staticmethod
+    def check_files_exist(config_dir: str) -> bool:
+        """
+        Check if all required configuration files exist.
+        """
+        required_files = [
+            os.path.join(config_dir, path.value) for path in ConfigPaths]
+        
+        return all(os.path.exists(f) for f in required_files)

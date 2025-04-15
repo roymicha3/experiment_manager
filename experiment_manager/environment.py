@@ -1,9 +1,21 @@
 import os
+from enum import Enum
+from datetime import datetime
 from omegaconf import OmegaConf, DictConfig
 
 from experiment_manager.common.factory import Factory
+from experiment_manager.common.common import LOG_NAME, Level
 from experiment_manager.common.serializable import YAMLSerializable
+from experiment_manager.trackers.tracker_manager import TrackerManager
 from experiment_manager.logger import FileLogger, ConsoleLogger, CompositeLogger, EmptyLogger
+
+
+class ProductPaths(Enum):
+    CONFIG_FILE = "env.yaml"
+    
+    LOG_DIR = "logs"
+    ARTIFACT_DIR = "artifacts"
+    CONFIG_DIR = "configs"
 
 
 class Environment(YAMLSerializable):
@@ -11,46 +23,46 @@ class Environment(YAMLSerializable):
     Environment class for managing the environment.
     All experiment outputs will be written to the workspace directory.
     """
-    CONFIG_FILE = "env.yaml"
     
-    LOG_DIR = "logs"
-    ARTIFACT_DIR = "artifacts"
-    CONFIG_DIR = "configs"
-    
-    def __init__(self, workspace: str,
+    def __init__(self, 
+                 workspace: str,
                  config: DictConfig,
                  factory: Factory = None,
-                 verbose: bool = False):
+                 verbose: bool = False, 
+                 debug: bool = False,
+                 tracker_manager: TrackerManager = None):
         super().__init__()
         self.workspace = os.path.abspath(workspace)  # Convert to absolute path
+        os.makedirs(self.workspace, exist_ok=True)
+        
         self.config = config
         self.factory = factory
         self.verbose = verbose
+        self.debug = debug
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        self.log_name = f"{LOG_NAME}-{timestamp}"
         
-        self.logger = EmptyLogger()
         if self.verbose:
-            self.logger = ConsoleLogger(name="log")
-        
-    def setup_environment(self, verbose: bool = None) -> None:
-        os.makedirs(self.workspace, exist_ok=True)
-        os.makedirs(self.log_dir, exist_ok=True)
-        os.makedirs(self.artifact_dir, exist_ok=True)
-        os.makedirs(self.config_dir, exist_ok=True)
-        
-        if verbose is not None:
-            self.verbose = verbose
-            
-        if self.verbose:
-            self.logger = CompositeLogger(name="log",
-                                         log_dir=self.log_dir)
+            self.logger = CompositeLogger(name=self.log_name,
+                                      log_dir=self.log_dir,
+                                      debug=self.debug)
         else:
-            self.logger = FileLogger(name="log",
-                                     log_dir=self.log_dir)
+            self.logger = FileLogger(name=self.log_name,
+                                     log_dir=self.log_dir,
+                                     debug=self.debug)
         
-        self.save()  # Save config after setup
+        self.tracker_manager = tracker_manager or \
+                TrackerManager.from_config(
+                                        self.config,
+            self.artifact_dir)
+
+        self.save()
+    
         
     def set_workspace(self, new_workspace: str, inner: bool = False) -> None:
-        """Set a new workspace and create required directories."""
+        """
+        Set a new workspace and create required directories.
+        """
         if inner:
             self.workspace = os.path.join(self.workspace, new_workspace)
         else:
@@ -70,19 +82,28 @@ class Environment(YAMLSerializable):
     
     @property
     def log_dir(self):
-        return os.path.join(self.workspace, Environment.LOG_DIR)
+        log_dir_path = os.path.join(self.workspace, ProductPaths.LOG_DIR.value)
+        if not os.path.exists(log_dir_path):
+            os.mkdir(log_dir_path)
+        return log_dir_path
     
     @property
     def artifact_dir(self):
-        return os.path.join(self.workspace, Environment.ARTIFACT_DIR)
+        artifact_dir_path = os.path.join(self.workspace, ProductPaths.ARTIFACT_DIR.value)
+        if not os.path.exists(artifact_dir_path):
+            os.mkdir(artifact_dir_path)
+        return artifact_dir_path
     
     @property
     def config_dir(self):
-        return os.path.join(self.workspace, Environment.CONFIG_DIR)
+        config_dir_path = os.path.join(self.workspace, ProductPaths.CONFIG_DIR.value)
+        if not os.path.exists(config_dir_path):
+            os.mkdir(config_dir_path)
+        return config_dir_path
     
     def save(self) -> None:
         """Save environment configuration to file."""
-        config_path = os.path.join(self.config_dir, Environment.CONFIG_FILE)
+        config_path = os.path.join(self.config_dir, ProductPaths.CONFIG_FILE.value)
         OmegaConf.save(self.config, config_path)
         self.logger.debug(f"Saved environment config to {config_path}")
     
@@ -90,22 +111,33 @@ class Environment(YAMLSerializable):
     def from_config(cls, config: DictConfig):
         """Create environment from configuration."""
         verbose = config.get("verbose", False)
-        return cls(workspace=config.workspace, config=config, verbose=verbose)
+        debug = config.get("debug", False)
+        env = cls(workspace=config.workspace, config=config, verbose=verbose, debug=debug)
+        return env
     
     def copy(self):
-        return self.__class__(
+        env = self.__class__(
             workspace=self.workspace,
             config=self.config,
             factory=self.factory,
-            verbose=self.verbose
-        )
+            verbose=self.verbose,
+            debug=self.debug)
+
+        env.tracker_manager = self.tracker_manager
+        return env
         
-    def create_child(self, name: str) -> 'Environment':
+    def create_child(self, name: str, root: bool = False) -> 'Environment':
         """
         Create a child environment with its own workspace.
         """
-        child_env = self.copy()
-        child_env.set_workspace(name, inner=True)
-        child_env.setup_environment()
+        
+        child_env = self.__class__(
+            workspace=os.path.join(self.workspace, name),
+            config=self.config,
+            factory=self.factory,
+            verbose=self.verbose,
+            debug=self.debug,
+            tracker_manager=self.tracker_manager.create_child())
+        
         self.logger.debug(f"Created child environment '{name}' at {child_env.workspace}")
         return child_env

@@ -1,0 +1,13 @@
+
+- name: "Trial 1"
+  repeat: 5
+  settings: # the actual cofiguration of the trial
+    data: 
+      type: "RandomDataset"
+
+- name: "Trial 2"
+  repeat: 2
+  settings: # the actual cofiguration of the trial
+    data: 
+      type: "RandomDataset"
+      

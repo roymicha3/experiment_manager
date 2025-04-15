@@ -12,14 +12,15 @@ class BaseLogger(ABC):
     Abstract base class for all loggers.
     Provides standard logging methods that delegate to the underlying logger.
     """
-    def __init__(self, name: str, level: str = "INFO"):
+    def __init__(self, name: str, debug: bool = False):
         self.name = name
-        self.level = level
+        self.level = "DEBUG" if debug else "INFO"
         self.logger = logging.getLogger(name)
+        self.logger.propagate = False
         self.logger.setLevel(self.level)
         self.formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         self._setup_handler()
-
+    
     @abstractmethod
     def _setup_handler(self) -> None:
         """Setup the specific handler for the logger implementation."""
@@ -53,7 +54,7 @@ class FileLogger(BaseLogger):
     def __init__(self, name: str, 
                  log_dir: str,
                  filename: Optional[str] = None,
-                 level: str = "INFO"):
+                 debug: bool = False):
         
         if not os.path.exists(log_dir):
             raise ValueError(f"Log directory {log_dir} does not exist")
@@ -66,7 +67,7 @@ class FileLogger(BaseLogger):
         self.log_file = os.path.join(log_dir, filename)
         self.filename = filename
         
-        super().__init__(name, level)
+        super().__init__(name, debug)
     
     def _setup_handler(self) -> None:
         """Setup file handler for logging."""
@@ -100,8 +101,8 @@ class ConsoleLogger(BaseLogger):
     """
     Logger implementation that prints to console.
     """
-    def __init__(self, name: str, level: str = "INFO"):
-        super().__init__(name, level)
+    def __init__(self, name: str, debug: bool = False):
+        super().__init__(name, debug)
     
     def _setup_handler(self) -> None:
         """Setup console handler for logging."""
@@ -118,16 +119,18 @@ class CompositeLogger(BaseLogger):
     def __init__(self, name: str, 
                  log_dir: Optional[str] = None,
                  filename: Optional[str] = None,
-                 level: str = "DEBUG"):  # Set default level to DEBUG for composite logger
-        super().__init__(name, level)
+                 debug: bool = False):
+    
+        super().__init__(name, debug)
         
         self.log_dir = log_dir
-        self.filename = filename
+        self.filename = filename if filename else f"{name}.log"
+        self.logger.handlers = [] # reset handlers
         
         # Setup both handlers
         self._setup_console_handler()
         if log_dir is not None:
-            self._setup_file_handler(log_dir, filename)
+            self._setup_file_handler(log_dir, self.filename)
     
     def _setup_handler(self) -> None:
         """Not used in CompositeLogger as we set up handlers separately"""
@@ -137,21 +140,19 @@ class CompositeLogger(BaseLogger):
         """Setup console handler"""
         handler = logging.StreamHandler()
         handler.setFormatter(self.formatter)
+        handler.setLevel(self.level)
         self.logger.addHandler(handler)
     
-    def _setup_file_handler(self, log_dir: str, filename: Optional[str] = None) -> None:
+    def _setup_file_handler(self, log_dir: str, filename) -> None:
         """Setup file handler"""
         if not os.path.exists(log_dir):
             raise ValueError(f"Log directory {log_dir} does not exist")
             
-        if filename is None:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"{self.name}_{timestamp}.log"
-        self.filename = filename
         log_file = os.path.join(log_dir, filename)
         
         handler = logging.FileHandler(log_file)
         handler.setFormatter(self.formatter)
+        handler.setLevel("DEBUG")
         self.logger.addHandler(handler)
     
     def set_log_dir(self, log_dir: str) -> None:
@@ -175,7 +176,7 @@ class EmptyLogger(BaseLogger):
     Logger implementation that does nothing.
     """
     def __init__(self):
-        super().__init__(name="log", level="INFO")
+        super().__init__(name="log", debug=False)
         
     
     def _setup_handler(self) -> None:

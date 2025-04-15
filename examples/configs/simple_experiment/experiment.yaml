@@ -1,0 +1,11 @@
+name: simple_experiment
+desc: A simple experiment using the dummy pipeline
+id: 1
+
+settings:
+  debug: true
+  verbose: true
+
+
+trials:
+

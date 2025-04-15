@@ -1,0 +1,49 @@
+#####################################################################################
+#   Base Configuration - contains all the objects that are used in the experiment   #
+#####################################################################################
+
+# Model Architecture
+model:
+  type: "Network"
+
+# Optimizer
+optimizer:
+  type: "AdamOptimizer"
+  lr: 0.01
+
+# LR Scheduler
+lr_scheduler:
+  type: "StepLR"
+  args:
+
+
+# Loss Function
+loss:
+  type: "BinaryLoss"
+
+# Dataset
+dataset:
+  type: "RandomDataset"
+
+
+# Pipeline
+pipeline:
+  type: "SimpleClassifierPipeline"
+  epochs: 15
+  batch_size: 64
+  validation_split: 0.2
+  test_split: 0.2
+  shuffle: True
+
+  # Callbacks (Optional)
+  callbacks:
+    - type: "CheckpointCallback"
+      interval: 5
+
+    - type: "MetricsTracker"
+
+    - type: "EarlyStopping"
+      metric: "val_loss"
+      patience: 3
+      min_delta_percent: 5.0
+      verbose: True

@@ -1,0 +1,5 @@
+trials:
+  - name: "Trial 1"
+    repeat: 1
+    settings: # the actual cofiguration of the trial
+    
