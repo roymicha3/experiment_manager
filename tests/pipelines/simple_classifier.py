@@ -8,13 +8,15 @@ from experiment_manager.common.common import Metric, Level
 from experiment_manager.pipelines.pipeline import Pipeline
 from experiment_manager.common.serializable import YAMLSerializable
 from experiment_manager.environment import Environment
+from experiment_manager.common.common import Level, Metric
 
 @YAMLSerializable.register("SimpleClassifierPipeline")
 class SimpleClassifierPipeline(Pipeline, YAMLSerializable):
     """A simple pipeline that trains a logistic regression classifier."""
 
     def __init__(self, config: DictConfig, env: Environment):
-        super().__init__(config)
+        super().__init__(env)
+        self.config = config
         self.n_samples = config.get('n_samples', 1000)
         self.n_features = config.get('n_features', 20)
         self.n_classes = config.get('n_classes', 2)
@@ -40,11 +42,33 @@ class SimpleClassifierPipeline(Pipeline, YAMLSerializable):
         
     def run(self, config: DictConfig):
         """Run the pipeline."""
-        self.env.logger.info("Starting pipeline")
-        self.env.tracker_manager.on_start(Level.PIPELINE)
+        self.on_start()
         
-        # Train model
-        self.model.fit(self.X_train, self.y_train)
+        for epoch in range(self.config.pipeline.epochs):
+            self.on_epoch_start()
+            
+            # Train model
+            self.model.fit(self.X_train, self.y_train)
+            
+            # Get predictions
+            y_pred_train = self.model.predict(self.X_train)
+            y_pred_test = self.model.predict(self.X_test)
+            
+            # Calculate metrics
+            train_acc = np.mean(y_pred_train == self.y_train)
+            test_acc = np.mean(y_pred_test == self.y_test)
+            
+            # Track metrics
+            self.env.tracker_manager.track(Metric.TRAIN_ACC, train_acc)
+            self.env.tracker_manager.track(Metric.TEST_ACC, test_acc)
+            
+            metrics = {
+                Metric.TRAIN_ACC: train_acc,
+                Metric.TEST_ACC: test_acc,
+                Metric.NETWORK: self.model
+            }
+            
+            self.on_epoch_end(epoch, metrics)
         
         # Get predictions
         y_pred_train = self.model.predict(self.X_train)
@@ -66,9 +90,13 @@ class SimpleClassifierPipeline(Pipeline, YAMLSerializable):
         
         self.env.tracker_manager.track(Metric.TEST_ACC, test_acc, per_label_val=test_per_class)
         
-        self.env.tracker_manager.on_end(Level.PIPELINE)
+        metrics = {
+            Metric.TRAIN_ACC: train_acc,
+            Metric.TEST_ACC: test_acc
+        }
+        self.on_end(metrics)
         return {"test_acc": test_acc}
-
+    
     def save(self):
         pass
     

@@ -1,4 +1,17 @@
 pipeline:
-  type: DummyPipeline
+  type: SimpleClassifierPipeline
   epochs: 3
   batch_size: 32
+
+  # Callbacks (Optional)
+  callbacks:
+    - type: "CheckpointCallback"
+      interval: 5
+
+    - type: "MetricsTracker"
+
+    - type: "EarlyStopping"
+      metric: "val_loss"
+      patience: 3
+      min_delta_percent: 5.0
+      verbose: True

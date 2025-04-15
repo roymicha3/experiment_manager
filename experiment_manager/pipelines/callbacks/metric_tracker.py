@@ -4,7 +4,8 @@ from typing import Dict, List, Any
 from omegaconf import DictConfig
 
 from experiment_manager.environment import Environment
-from experiment_manager.pipelines.callbacks.callback import Callback, Metric, MetricCategory
+from experiment_manager.pipelines.callbacks.callback import Callback
+from experiment_manager.common.common import Metric, MetricCategory, get_metric_category
 from experiment_manager.common.serializable import YAMLSerializable
 
 
@@ -33,7 +34,7 @@ class MetricsTracker(Callback, YAMLSerializable):
     def on_epoch_end(self, epoch_idx, metrics: Dict[str, Any]) -> bool:
         tracked_metrics = []
         for key, value in metrics.items():
-            if key.category == MetricCategory.TRACKED:
+            if get_metric_category(key) == MetricCategory.TRACKED:
                 # save it to the metrics dictionary
                 if key not in self.metrics:
                     self.metrics[key] = []

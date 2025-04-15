@@ -1,9 +1,10 @@
 from typing import Dict, Any
 from omegaconf import DictConfig
 
-from experiment_manager.pipelines.callbacks.callback import Callback, Metric
-from experiment_manager.common.serializable import YAMLSerializable
+from experiment_manager.common.common import Metric
 from experiment_manager.environment import Environment
+from experiment_manager.common.serializable import YAMLSerializable
+from experiment_manager.pipelines.callbacks.callback import Callback
 
 @YAMLSerializable.register("EarlyStopping")
 class EarlyStopping(Callback, YAMLSerializable):

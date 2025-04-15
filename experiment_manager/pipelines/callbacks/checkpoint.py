@@ -3,7 +3,8 @@ from typing import Dict, Any
 from omegaconf import DictConfig
 
 from experiment_manager.environment import Environment
-from experiment_manager.pipelines.callbacks.callback import Callback, Metric
+from experiment_manager.common.common import Metric, Level
+from experiment_manager.pipelines.callbacks.callback import Callback
 from experiment_manager.common.serializable import YAMLSerializable
 
 
@@ -30,19 +31,34 @@ class CheckpointCallback(Callback, YAMLSerializable):
         """Called at the end of each epoch."""
         self.index += 1
         if self.index % self.interval == 0:
-            file_path = f"{self.checkpoint_path}-{self.parent_id}-{self.current_checkpoint}"
+            file_path = f"{self.checkpoint_path}-{self.current_checkpoint}"
             self.env.logger.info(f"Saving checkpoint {self.current_checkpoint} to {file_path}")
+            if not Metric.NETWORK in metrics.keys():
+                self.env.logger.error(f"Metric {Metric.NETWORK.name} is not in metrics, cant save checkpoint...")
+                raise ValueError(f"Metric {Metric.NETWORK.name} is not in metrics, cant save checkpoint...")
             metrics[Metric.NETWORK].save(file_path)
+            self.env.tracker_manager.on_add_artifact(
+                level=Level.TRIAL_RUN,
+                artifact_path=file_path)
             self.current_checkpoint += 1
             self.env.logger.info(f"Checkpoint {self.current_checkpoint-1} saved successfully")
         
         return True
+    
+    def on_start(self) -> None:
+        pass
 
     def on_end(self, metrics: Dict[str, Any]):
         """Called at the end of training."""
         self.env.logger.info("Saving final checkpoint")
-        file_path = f"{self.checkpoint_path}-{self.parent_id}-final"
+        file_path = f"{self.checkpoint_path}-final"
+        if not Metric.NETWORK in metrics.keys():
+                self.env.logger.error(f"Metric {Metric.NETWORK.name} is not in metrics, cant save checkpoint...")
+                raise ValueError(f"Metric {Metric.NETWORK.name} is not in metrics, cant save checkpoint...")
         metrics[Metric.NETWORK].save(file_path)
+        self.env.tracker_manager.on_add_artifact(
+            level=Level.TRIAL_RUN,
+            artifact_path=file_path)
         self.env.logger.info(f"Final checkpoint saved to {file_path}")
 
     def get_latest(self, key: str, default: Any = None) -> Any:

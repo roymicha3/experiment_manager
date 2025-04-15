@@ -2,6 +2,7 @@ from abc import ABC
 from typing import Dict, Any, List
 from omegaconf import DictConfig
 
+from experiment_manager.common.common import Level
 from experiment_manager.environment import Environment
 from experiment_manager.pipelines.callbacks.callback import Callback
 
@@ -11,6 +12,7 @@ class Pipeline(ABC):
         super().__init__()
         self.env = env
         self.callbacks: List[Callback] = []
+        self.env.tracker_manager.on_create(level=Level.PIPELINE)
         
     
     def register_callback(self, callback: Callback) -> None:
@@ -20,12 +22,19 @@ class Pipeline(ABC):
     
     def on_start(self) -> None:
         self.env.logger.info("Starting pipeline execution")
+        self.env.tracker_manager.on_start(level=Level.PIPELINE)
         for callback in self.callbacks:
             self.env.logger.debug(f"Executing on_start for {callback.__class__.__name__}")
             callback.on_start()
             
+    def on_epoch_start(self) -> None:
+        self.env.tracker_manager.on_create(Level.EPOCH)
+        self.env.tracker_manager.on_start(Level.EPOCH)
+            
     
     def on_epoch_end(self, epoch_idx: int, metrics: Dict[str, Any]) -> bool:
+        self.env.tracker_manager.on_end(Level.EPOCH)
+        
         stop_flag = False
         for callback in self.callbacks:
             self.env.logger.debug(f"Executing on_epoch_end for {callback.__class__.__name__}")
@@ -36,6 +45,7 @@ class Pipeline(ABC):
     
     def on_end(self, metrics: Dict[str, Any]) -> None:
         self.env.logger.info("Pipeline execution completed")
+        self.env.tracker_manager.on_end(Level.PIPELINE)
         for callback in self.callbacks:
             self.env.logger.debug(f"Executing on_end for {callback.__class__.__name__}")
             callback.on_end(metrics)

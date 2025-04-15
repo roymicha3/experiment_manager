@@ -7,7 +7,7 @@ from omegaconf import DictConfig
 from experiment_manager.trackers.tracker import Tracker
 from experiment_manager.db.manager import DatabaseManager
 from experiment_manager.common.serializable import YAMLSerializable
-from experiment_manager.common.common import Metric, MetricCategory, Level
+from experiment_manager.common.common import Metric, Level
 
 
 
@@ -108,6 +108,9 @@ class DBTracker(Tracker, YAMLSerializable):
                 trial_id=self.parent.id,
                 status=kwargs.get("status", "started"))
             self.epoch_idx = 0
+            
+        elif level == Level.PIPELINE:
+            return
             
         elif level == Level.EPOCH:
             if not self.parent:

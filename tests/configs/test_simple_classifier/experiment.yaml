@@ -1,8 +1,0 @@
-name: test_simple_classifier
-id: 1
-desc: Test Simple Classifier
-settings:
-  n_samples: 1000
-  n_features: 20
-  test_size: 0.2
-  random_state: 42

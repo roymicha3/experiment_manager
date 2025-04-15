@@ -10,7 +10,7 @@ from experiment_manager.common.serializable import YAMLSerializable
 
 @YAMLSerializable.register("LogTracker")
 class LogTracker(Tracker):
-    LOG_NAME = "tracker.log"
+    LOG_NAME = "experiment.log"
 
     def __init__(self, workspace: str, name: str = LOG_NAME, verbose: bool = False):
         super().__init__(workspace)
@@ -121,4 +121,6 @@ class LogTracker(Tracker):
     
     @classmethod
     def from_config(cls, config: DictConfig, workspace: str) -> "LogTracker":
-        return cls(workspace, config.type, config.verbose)
+        name = config.get("name", LogTracker.LOG_NAME)
+        verbose = config.get("verbose", False)
+        return cls(workspace, name, verbose)

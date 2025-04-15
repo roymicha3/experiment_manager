@@ -8,7 +8,6 @@ from experiment_manager.common.common import ConfigPaths
 
 
 class Trial(YAMLSerializable):
-    CONFIG_FILE = "trial.yaml"
     
     def __init__(self, name: str, repeat: int, config: DictConfig, env: Environment):
         super().__init__()
@@ -24,7 +23,8 @@ class Trial(YAMLSerializable):
         # configurations of the trial
         self.config = config
         
-        OmegaConf.save(self.config, os.path.join(self.env.config_dir, self.CONFIG_FILE))
+        # save config
+        OmegaConf.save(self.config, os.path.join(self.env.config_dir, ConfigPaths.CONFIG_FILE.value))
         
         self.env.logger.info(f"Trial '{self.name}' created")
     
@@ -33,8 +33,6 @@ class Trial(YAMLSerializable):
         self.env.logger.info(f"Running trial '{self.name}'")
         self.env.tracker_manager.on_start(level=Level.TRIAL)
         
-        # save config
-        OmegaConf.save(self.config, os.path.join(self.env.config_dir, ConfigPaths.CONFIG_FILE.value))
         
         for i in range(self.repeat):
             self.env.logger.info(f"Trial '{self.name}' repeat {i}")
