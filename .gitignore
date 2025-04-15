@@ -51,6 +51,9 @@ coverage.xml
 .pytest_cache/
 cover/
 
+# MLflow runs directory
+mlruns/
+
 # Translations
 *.mo
 *.pot

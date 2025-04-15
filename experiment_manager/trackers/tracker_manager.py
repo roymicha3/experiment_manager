@@ -6,6 +6,8 @@ from experiment_manager.common.common import Level, Metric
 from experiment_manager.trackers.tracker_factory import TrackerFactory
 
 
+    
+
 class TrackerManager(Tracker):
     def __init__(self, workspace: str = None) -> None:
         super().__init__(workspace)
@@ -63,5 +65,19 @@ class TrackerManager(Tracker):
         return manager
 
 
+class TrackScope:
+    
+    def __init__(self, tracker_manager: TrackerManager, level: Level, *args, **kwargs):
+        self.tracker_manager = tracker_manager
+        self.level = level
+        self.args = args
+        self.kwargs = kwargs
+    
+    def __enter__(self):
+        self.tracker_manager.on_start(self.level, *self.args, **self.kwargs)
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.tracker_manager.on_end(self.level)
     
     
