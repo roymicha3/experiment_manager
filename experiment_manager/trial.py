@@ -5,6 +5,7 @@ from experiment_manager.common.common import Level
 from experiment_manager.environment import Environment
 from experiment_manager.common.serializable import YAMLSerializable
 from experiment_manager.common.common import ConfigPaths
+from experiment_manager.trackers.tracker_manager import TrackScope
 
 
 class Trial(YAMLSerializable):
@@ -31,36 +32,37 @@ class Trial(YAMLSerializable):
     
     def run(self) -> None:
         self.env.logger.info(f"Running trial '{self.name}'")
-        self.env.tracker_manager.on_start(level=Level.TRIAL)
+        with TrackScope(self.env.tracker_manager, level=Level.TRIAL, trial_name=self.name):
         
+            for i in range(self.repeat):
+                self.env.logger.info(f"Trial '{self.name}' repeat {i}")
+                self.run_single(i)
+                self.env.logger.info(f"Trial '{self.name}' repeat {i} completed")
         
-        for i in range(self.repeat):
-            self.env.logger.info(f"Trial '{self.name}' repeat {i}")
-            self.run_single(i)
-            self.env.logger.info(f"Trial '{self.name}' repeat {i} completed")
-            
+    
+    
     def run_single(self, repeat: int) -> None:
         trial_run_env = self.env.create_child(f"{self.name}-{repeat}")
         trial_run_env.tracker_manager.on_create(Level.TRIAL_RUN)
         self.env.logger.info(f"Trial Run'{self.name}' (repeat: {repeat}) running single")
         
-        trial_run_env.tracker_manager.on_start(Level.TRIAL_RUN)
+        with TrackScope(trial_run_env.tracker_manager, level = Level.TRIAL_RUN):
         
-        try:
-            if self.env.factory is None:
-                self.env.logger.error("Factory not initialized in environment")
-                return
+            try:
+                if self.env.factory is None:
+                    self.env.logger.error("Factory not initialized in environment")
+                    return
+                
+                pipeline = self.env.factory.create(
+                    name=self.config.pipeline.type,
+                    config=self.config,
+                    env=trial_run_env)
+                
+                pipeline.run(self.config)
             
-            pipeline = self.env.factory.create(
-                name=self.config.pipeline.type,
-                config=self.config,
-                env=trial_run_env)
-            
-            pipeline.run(self.config)
-        
-        except Exception as e:
-            self.env.logger.error(f"Error running trial: {e}")
-            raise e
+            except Exception as e:
+                self.env.logger.error(f"Error running trial: {e}")
+                raise e
     
     @classmethod
     def from_config(cls, config: DictConfig, env: Environment):

@@ -12,6 +12,5 @@ pipeline:
 
     - type: "EarlyStopping"
       metric: "val_loss"
-      patience: 3
+      patience: 100
       min_delta_percent: 5.0
-      verbose: True
