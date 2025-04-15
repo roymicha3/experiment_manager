@@ -26,6 +26,9 @@ class MLP(nn.Module):
 
     def forward(self, x):
         return self.layers(x)
+    
+    def save(self, file_path):
+        torch.save(self, open(file_path, 'wb'))
 
 @YAMLSerializable.register("SimpleClassifierPipeline")
 class SimpleClassifierPipeline(Pipeline, YAMLSerializable):
@@ -61,16 +64,13 @@ class SimpleClassifierPipeline(Pipeline, YAMLSerializable):
             self.X, self.y, test_size=self.test_size, random_state=self.random_state
         )
 
-        # Split train_val into train and val
+        # Split train_val into train and val (use tensor slicing, not random_split)
         train_size = int((1 - self.val_size) * len(X_train_val))
         val_size = len(X_train_val) - train_size
-        self.X_train, self.X_val = random_split(
-            X_train_val, [train_size, val_size], generator=torch.Generator().manual_seed(self.random_state)
-        )
-        
-        self.y_train, self.y_val = random_split(
-            y_train_val, [train_size, val_size], generator=torch.Generator().manual_seed(self.random_state)
-        )
+        self.X_train = X_train_val[:train_size]
+        self.X_val = X_train_val[train_size:]
+        self.y_train = y_train_val[:train_size]
+        self.y_val = y_train_val[train_size:]
         
         self.X_test = self.X_test.to(self.device) # Move test to device
         self.y_test = self.y_test.to(self.device)
@@ -167,6 +167,7 @@ class SimpleClassifierPipeline(Pipeline, YAMLSerializable):
         self.env.tracker_manager.track(Metric.TEST_ACC, test_acc)
         metrics = {
                 Metric.TEST_ACC: test_acc,
+                Metric.NETWORK: self.model
         }
         self.on_end(metrics)
         return {"test_acc": test_acc}

@@ -1,5 +1,7 @@
 # Experiment Manager
 
+A flexible, extensible framework for managing machine learning experiments, trials, and pipelines with advanced configuration, logging, and database tracking.
+
 A flexible and extensible framework for managing machine learning experiments and trials.
 
 ## Features
@@ -26,8 +28,16 @@ A flexible and extensible framework for managing machine learning experiments an
 
 ## Installation
 
+Clone the repository and install in editable mode:
+
 ```bash
 pip install -e .
+```
+
+Or install requirements directly:
+
+```bash
+pip install -r requirements.txt
 ```
 
 ## Quick Start
@@ -83,24 +93,17 @@ env_config = OmegaConf.create({
 env = Environment(workspace="outputs", config=env_config)
 env.setup_environment()
 
-# Create experiment
-experiment = Experiment(
-    name="my_experiment",
-    id=1,
-    desc="Training with different hyperparameters",
-    env=env,
-    config_dir_path="path/to/configs"
-)
+# Load configs (example)
+config_dir = "path/to/configs"
 
-# Set up pipeline with callbacks
-pipeline = Pipeline(env)
-pipeline.register_callback(EarlyStopping(env, patience=5, min_delta_percent=0.1))
-pipeline.register_callback(CheckpointCallback(interval=10, env=env))
-pipeline.register_callback(MetricsTracker(env))
+# Create experiment from configs
+experiment = Experiment.create(config_dir, pipeline_factory=YourPipelineFactory)
 
 # Run experiment
 experiment.run()
 ```
+
+_See examples directory for full configuration and pipeline examples._
 
 ## Project Structure
 

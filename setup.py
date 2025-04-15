@@ -10,11 +10,9 @@ setup(
         "torchvision>=0.15.0",
         "tqdm>=4.65.0",
         "numpy>=1.24.0",
-        "pytest>=7.0.0",
-        "pytest-cov>=4.1.0",
-        "pytest-xdist>=3.3.0",
-        "typing_extensions>=4.5.0",
+        "scikit-learn>=1.0.0",
         "mysql-connector-python>=8.0.26",
+        "typing_extensions>=4.5.0",
     ],
     extras_require={
         "dev": [
@@ -22,6 +20,11 @@ setup(
             "isort>=5.10.1",
             "flake8>=4.0.1",
             "mypy>=0.950",
+            "pytest>=7.0.0",
+            "pytest-cov>=4.1.0",
+            "pytest-xdist>=3.3.0",
+            "setuptools>=42.0.0",
+            "wheel>=0.37.0",
         ]
     },
     author="Roy Michaeli",

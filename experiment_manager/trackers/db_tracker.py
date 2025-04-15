@@ -149,9 +149,10 @@ class DBTracker(Tracker, YAMLSerializable):
     
 
     def on_add_artifact(self, level: Level, artifact_path:str, *args, **kwargs):
+        artifact_type = kwargs.get("artifact_type", "unknown")
         
         artifact = self.db_manager.record_artifact(
-            artifact_type=args[0],
+            artifact_type=artifact_type,
             location=artifact_path)
         
         if level == Level.EXPERIMENT:

@@ -19,7 +19,8 @@ class DummyPipelineFactory(PipelineFactory):
         pipeline_class = YAMLSerializable.get_by_name(name)
         pipeline = pipeline_class.from_config(config, env, id)
         
-        for callback in config.callbacks:
+        callbacks = config.get("callbacks", [])
+        for callback in callbacks:
             callback = CallbackFactory.create(callback.type, callback, env)
             pipeline.register_callback(callback)
             

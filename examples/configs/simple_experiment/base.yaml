@@ -1,6 +1,6 @@
 pipeline:
   type: SimpleClassifierPipeline
-  epochs: 3
+  epochs: 15
   batch_size: 32
 
   # Callbacks (Optional)

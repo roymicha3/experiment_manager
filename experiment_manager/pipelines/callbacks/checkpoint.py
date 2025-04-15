@@ -58,11 +58,10 @@ class CheckpointCallback(Callback, YAMLSerializable):
         metrics[Metric.NETWORK].save(file_path)
         self.env.tracker_manager.on_add_artifact(
             level=Level.TRIAL_RUN,
-            artifact_path=file_path)
+            artifact_path=file_path,
+            artifact_type="checkpoint")
+        
         self.env.logger.info(f"Final checkpoint saved to {file_path}")
-
-    def get_latest(self, key: str, default: Any = None) -> Any:
-        pass
     
     @classmethod
     def from_config(cls, config: DictConfig, env: Environment):
