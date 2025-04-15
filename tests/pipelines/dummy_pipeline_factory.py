@@ -12,16 +12,10 @@ from tests.pipelines.simple_classifier import SimpleClassifierPipeline
 
 
 class DummyPipelineFactory(PipelineFactory):
-    """Factory for creating dummy pipelines."""
+    """
+    Factory for creating dummy pipelines.
+    """
     
     @staticmethod
     def create(name: str, config: DictConfig, env: Environment, id: int = None) -> Pipeline:
-        pipeline_class = YAMLSerializable.get_by_name(name)
-        pipeline = pipeline_class.from_config(config, env, id)
-        
-        callbacks = config.get("callbacks", [])
-        for callback in callbacks:
-            callback = CallbackFactory.create(callback.type, callback, env)
-            pipeline.register_callback(callback)
-            
-        return pipeline
+        return PipelineFactory.create(name, config, env, id)

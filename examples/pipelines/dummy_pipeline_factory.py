@@ -16,11 +16,4 @@ class DummyPipelineFactory(PipelineFactory):
     
     @staticmethod
     def create(name: str, config: DictConfig, env: Environment, id: int = None) -> Pipeline:
-        pipeline_class = YAMLSerializable.get_by_name(name)
-        pipeline = pipeline_class.from_config(config, env, id)
-        
-        for callback in config.pipeline.callbacks:
-            callback = CallbackFactory.create(callback.type, callback, env)
-            pipeline.register_callback(callback)
-            
-        return pipeline
+        return PipelineFactory.create(name, config, env, id)
