@@ -65,8 +65,8 @@ class MetricsTracker(Callback, YAMLSerializable):
             self.env.logger.info(f"Saving metrics to {self.log_path}")
             with open(self.log_path, 'w', newline='', encoding="utf-8") as f:
                 writer = csv.writer(f)
-                # Write the header
-                header = list(self.metrics.keys())
+                # Write the header with a 'type' column
+                header = ["type"] + [h.name for h in self.metrics.keys()]
                 writer.writerow(header)
                 self.env.logger.debug(f"Wrote header: {', '.join(str(h) for h in header)}")
                 
@@ -74,12 +74,17 @@ class MetricsTracker(Callback, YAMLSerializable):
                 max_length = max(len(values) for values in self.metrics.values())
                 rows_written = 0
                 for i in range(max_length):
-                    row = [values[i] if i < len(values) else '' for values in self.metrics.values()]
+                    row = ["EPOCH"] + [values[i] if i < len(values) else 'nan' for values in self.metrics.values()]
                     writer.writerow(row)
                     rows_written += 1
                 
                 self.env.logger.info(f"Successfully wrote {rows_written} rows of metrics data")
             
+                # Write a final row with 'FINAL' marker and the latest value for each metric
+                final_row = ["FINAL"] + [values[-1] if values else 'nan' for values in self.metrics.values()]
+                writer.writerow(final_row)
+                self.env.logger.debug(f"Wrote FINAL row: {final_row}")
+
             self.env.tracker_manager.on_add_artifact(
                 level=Level.TRIAL_RUN,
                 artifact_path=self.log_path,

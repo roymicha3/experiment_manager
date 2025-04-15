@@ -247,6 +247,27 @@ def test_artifact_paths(test_db):
         assert path.startswith(experiment.env.workspace)
 
 
+def test_checkpoint_artifact_count_matches_files(test_db):
+    """Test that the number of checkpoint artifacts in the DB matches the number of checkpoint files on disk."""
+    db, experiment = test_db
+    cursor = db.cursor()
+    # Find all checkpoint artifacts in the DB
+    cursor.execute("SELECT loc FROM ARTIFACT WHERE type = 'checkpoint'")
+    db_checkpoints = set([row['loc'] for row in cursor.fetchall()])
+    # Find all checkpoint files on disk
+    checkpoint_files = set()
+    for root, dirs, files in os.walk(experiment.env.workspace):
+        for f in files:
+            if "checkpoint" in f:
+                checkpoint_files.add(os.path.join(root, f))
+    assert len(db_checkpoints) == len(checkpoint_files), (
+        f"Checkpoint artifact count mismatch: DB has {len(db_checkpoints)}, files found {len(checkpoint_files)}."
+    )
+    # Optionally, check that all DB artifact paths exist as files
+    for path in db_checkpoints:
+        assert os.path.exists(path), f"Checkpoint artifact in DB does not exist as file: {path}"
+
+
 def test_epoch_metrics(test_db):
     """Test that each trial run has the correct number of epoch metrics"""
     db, _ = test_db

@@ -20,7 +20,6 @@ def prepare_env(tmp_path, config_dir):
     OmegaConf.save(env, env_path)
     return env
 
-
 def test_experiment_creates_checkpoint(prepare_env, config_dir):
     """Test that experiment logs to the environment's log file"""
     print("\nStarting test_experiment_creates_log_file")
@@ -68,7 +67,7 @@ def test_experiment_creates_checkpoint(prepare_env, config_dir):
         print(f"- {checkpoint_file}")
     
     assert len(checkpoint_files) == 6, f"Expected 6 checkpoint files (experiment + 3 trial_1 checkpoints + 2 trial_2 checkpoints), found {len(checkpoint_files)}"
-    
+
     # Verify each checkpoint file exists and is readable
     for checkpoint_file in checkpoint_files:
         assert os.path.exists(checkpoint_file), f"Checkpoint file not found at {checkpoint_file}"
