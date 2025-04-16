@@ -13,6 +13,7 @@ setup(
         "scikit-learn>=1.0.0",
         "mysql-connector-python>=8.0.26",
         "typing_extensions>=4.5.0",
+        "mlflow>=2.0.0",
     ],
     extras_require={
         "dev": [
