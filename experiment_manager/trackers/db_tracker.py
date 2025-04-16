@@ -119,6 +119,9 @@ class DBTracker(Tracker, YAMLSerializable):
                 epoch_idx=self.epoch_idx,
                 trial_run_id=self.id)
             return
+        
+        elif level == Level.BATCH:
+            return
             
         if not res:
             raise ValueError("Invalid level")
@@ -135,6 +138,8 @@ class DBTracker(Tracker, YAMLSerializable):
             pass
         elif level == Level.EPOCH:
             pass
+        elif level == Level.BATCH:
+            pass
         
     
     def on_end(self, level: Level, *args, **kwargs):
@@ -146,6 +151,8 @@ class DBTracker(Tracker, YAMLSerializable):
             pass
         elif level == Level.EPOCH:
             self.epoch_idx += 1
+        elif level == Level.BATCH:
+            pass
     
 
     def on_add_artifact(self, level: Level, artifact_path:str, *args, **kwargs):

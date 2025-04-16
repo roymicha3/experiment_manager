@@ -14,9 +14,10 @@ class ConfigPaths(Enum):
 class Level(Enum):
     EXPERIMENT    = 0
     TRIAL         = 1
-    TRIAL_RUN      = 2
+    TRIAL_RUN     = 2
     PIPELINE      = 3
     EPOCH         = 4
+    BATCH         = 5
     
 
 class MetricCategory(Enum):

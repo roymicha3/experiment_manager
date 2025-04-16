@@ -1,6 +1,6 @@
 # Experiment Manager
 
-A flexible, extensible framework for managing machine learning experiments, trials, and pipelines with advanced configuration, logging, and database tracking.
+A flexible, extensible framework for managing machine learning experiments, trials, and pipelines with advanced configuration, logging, database, and MLflow tracking.
 
 A flexible and extensible framework for managing machine learning experiments and trials.
 
@@ -19,12 +19,14 @@ A flexible and extensible framework for managing machine learning experiments an
   - Checkpointing at specified intervals
   - Metric tracking and logging
   - Custom callback support
-- **Database Integration**: Comprehensive experiment tracking with:
-  - Support for both SQLite (development) and MySQL (production)
+- **Database & MLflow Integration**: Comprehensive experiment tracking with:
+  - Database: SQLite (dev) and MySQL (prod) support
+  - MLflow: Artifact, metric, and parameter logging, with experiment/trial/run hierarchy
   - Hierarchical tracking of experiments, trials, and runs
   - Metric storage with total and per-label values
-  - Artifact management at all levels
+  - Artifact management at all levels (including checkpoints, logs, and plots)
   - Relationship tracking between entities
+  - Automatic logging of model, config, and environment for reproducibility
 
 ## Installation
 
