@@ -44,14 +44,7 @@ class LogTracker(Tracker):
     
     def _get_indent(self, level: Level) -> str:
         """Get indentation based on level."""
-        indent_map = {
-            Level.EXPERIMENT: "",
-            Level.TRIAL: "  ",
-            Level.TRIAL_RUN: "    ",
-            Level.PIPELINE: "      ",
-            Level.EPOCH: "        "
-        }
-        return indent_map.get(level, "")
+        return '' + "  " * level.value
     
     def log(self, level: Level, message: str):
         indent = self._get_indent(level)

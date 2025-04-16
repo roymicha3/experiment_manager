@@ -19,6 +19,7 @@ class PipelineFactory(Factory):
         callbacks = config.pipeline.get("callbacks", [])
         if not callbacks:
             env.logger.error("No callbacks found in configuration")
+            return pipeline
         
         for callback in callbacks:
             callback = CallbackFactory.create(callback.type, callback, env)

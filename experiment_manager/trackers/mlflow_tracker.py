@@ -59,6 +59,9 @@ class MLflowTracker(Tracker, YAMLSerializable):
         
         elif level == Level.EPOCH:
             pass
+        
+        elif level == Level.BATCH:
+            pass
     
 
     def on_end(self, level: Level, *args, **kwargs):
@@ -92,6 +95,9 @@ class MLflowTracker(Tracker, YAMLSerializable):
         
         elif level == Level.EPOCH:
             self.epoch += 1
+            
+        elif level == Level.BATCH:
+            pass
         
         
     

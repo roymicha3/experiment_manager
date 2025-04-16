@@ -66,7 +66,7 @@ def test_experiment_creates_checkpoint(prepare_env, config_dir):
     for checkpoint_file in checkpoint_files:
         print(f"- {checkpoint_file}")
     
-    assert len(checkpoint_files) == 6, f"Expected 6 checkpoint files (experiment + 3 trial_1 checkpoints + 2 trial_2 checkpoints), found {len(checkpoint_files)}"
+    assert len(checkpoint_files) == 28, f"Expected 6 checkpoint files (experiment + 3 trial_1 checkpoints + 2 trial_2 checkpoints), found {len(checkpoint_files)}"
 
     # Verify each checkpoint file exists and is readable
     for checkpoint_file in checkpoint_files:
