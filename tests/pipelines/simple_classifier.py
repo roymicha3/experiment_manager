@@ -1,16 +1,16 @@
-from omegaconf import DictConfig
-import numpy as np
+import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader, TensorDataset, random_split
+from omegaconf import DictConfig
 from sklearn.datasets import make_classification
 from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader, TensorDataset
 
-from experiment_manager.common.common import Metric, Level
+from experiment_manager.common.common import Metric
+from experiment_manager.environment import Environment
 from experiment_manager.pipelines.pipeline import Pipeline
 from experiment_manager.common.serializable import YAMLSerializable
-from experiment_manager.environment import Environment
 
 # 1. Define the Model (MLP)
 class MLP(nn.Module):
@@ -154,6 +154,7 @@ class SimpleClassifierPipeline(Pipeline, YAMLSerializable):
             self.env.tracker_manager.track(Metric.VAL_LOSS, val_loss)
             self.env.tracker_manager.track(Metric.VAL_ACC, val_acc)
             self.env.tracker_manager.track(Metric.TEST_ACC, test_acc)
+            self.env.tracker_manager.track(Metric.TEST_LOSS, test_loss)
 
             metrics = {
                 Metric.TRAIN_LOSS: train_loss,
@@ -162,6 +163,11 @@ class SimpleClassifierPipeline(Pipeline, YAMLSerializable):
                 Metric.TEST_ACC: test_acc,
                 Metric.NETWORK: self.model
             }
+            
+            if epoch % 3 == 0:
+                checkpoint_path = os.path.join(self.env.artifact_dir, f"checkpoint_{epoch // 3}")
+                self.env.tracker_manager.on_checkpoint(self.model, checkpoint_path)
+            
             self.on_epoch_end(epoch, metrics)
 
         #final test

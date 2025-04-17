@@ -1,13 +1,14 @@
 import os
 import json
+import torch
 from typing import Dict, Any
 from datetime import datetime
 from omegaconf import DictConfig
 
 from experiment_manager.trackers.tracker import Tracker
 from experiment_manager.db.manager import DatabaseManager
-from experiment_manager.common.serializable import YAMLSerializable
 from experiment_manager.common.common import Metric, Level
+from experiment_manager.common.serializable import YAMLSerializable
 
 
 
@@ -77,6 +78,9 @@ class DBTracker(Tracker, YAMLSerializable):
             self.db_manager.link_results_metric(
                 trial_run_id=self.id,
                 metric_id=metric_record.id)
+            
+    def on_checkpoint(self, network: torch.nn.Module, checkpoint_path: str, *args, **kwargs):
+        self.on_add_artifact(Level.EPOCH, checkpoint_path)
     
     def log_params(self, params: Dict[str, Any]):
         params_path = os.path.join(self.workspace, "params.json")
@@ -169,7 +173,7 @@ class DBTracker(Tracker, YAMLSerializable):
         elif level == Level.TRIAL_RUN:
             self.db_manager.link_trial_run_artifact(self.id, artifact.id)
         elif level == Level.EPOCH:
-            if not self.epoch_idx:
+            if self.epoch_idx is None:
                 raise ValueError("Epoch must be created first")
             self.db_manager.link_epoch_artifact(self.epoch_idx, self.id, artifact.id)
         else:

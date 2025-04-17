@@ -1,5 +1,6 @@
-from abc import ABC, abstractmethod
+import torch
 from typing import Dict, Any
+from abc import ABC, abstractmethod
 from experiment_manager.common.common import Level, Metric
 
 from experiment_manager.common.serializable import YAMLSerializable
@@ -15,6 +16,10 @@ class Tracker(YAMLSerializable, ABC):
         
     @abstractmethod
     def track(self, metric: Metric, value, step: int, *args, **kwargs):
+        pass
+    
+    @abstractmethod
+    def on_checkpoint(self, network: torch.nn.Module, checkpoint_path: str, *args, **kwargs):
         pass
     
     @abstractmethod
@@ -36,6 +41,7 @@ class Tracker(YAMLSerializable, ABC):
     @abstractmethod
     def on_add_artifact(self, level: Level, artifact_path: str, *args, **kwargs):
         pass
+    
     
     @abstractmethod
     def create_child(self, workspace: str=None) -> "Tracker":

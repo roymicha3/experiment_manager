@@ -1,6 +1,6 @@
-from calendar import EPOCH
 import os
 import time
+import torch
 import mlflow
 from typing import Dict, Any
 from omegaconf import OmegaConf, DictConfig
@@ -25,6 +25,9 @@ class MLflowTracker(Tracker, YAMLSerializable):
         
     def track(self, metric: Metric, value, step: int, *args, **kwargs):
         mlflow.log_metric(metric.name, value, step = self.epoch)
+        
+    def on_checkpoint(self, network: torch.nn.Module, checkpoint_path: str, *args, **kwargs):
+        mlflow.pytorch.log_model(network, os.path.basename(checkpoint_path))
     
 
     def log_params(self, params: Dict[str, Any]):
