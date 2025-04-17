@@ -1,16 +1,16 @@
-from omegaconf import DictConfig
-import numpy as np
+import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader, TensorDataset, random_split
+from omegaconf import DictConfig
 from sklearn.datasets import make_classification
 from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader, TensorDataset
 
-from experiment_manager.common.common import Metric, Level
+from experiment_manager.common.common import Metric
+from experiment_manager.environment import Environment
 from experiment_manager.pipelines.pipeline import Pipeline
 from experiment_manager.common.serializable import YAMLSerializable
-from experiment_manager.environment import Environment
 
 # 1. Define the Model (MLP)
 class MLP(nn.Module):
@@ -132,14 +132,16 @@ class SimpleClassifierPipeline(Pipeline, YAMLSerializable):
 
     def run(self, config: DictConfig):
         """Run the pipeline."""
+        self.env.logger.info("Starting pipeline run")
         self.on_start()
-
+        
         # Create DataLoaders for training, validation, and testing
         train_loader = DataLoader(TensorDataset(self.X_train, self.y_train), batch_size=self.batch_size, shuffle=True)
         val_loader = DataLoader(TensorDataset(self.X_val, self.y_val), batch_size=self.batch_size, shuffle=False)
         test_loader = DataLoader(TensorDataset(self.X_test, self.y_test), batch_size=self.batch_size, shuffle=False)
         for epoch in range(self.epochs):
             self.on_epoch_start()
+            self.env.logger.info(f"Epoch {epoch+1}/{self.epochs}")
 
             # Train the model for one epoch
             train_loss = self.train_one_epoch(self.model, train_loader, self.criterion, self.optimizer, self.device)
@@ -152,6 +154,7 @@ class SimpleClassifierPipeline(Pipeline, YAMLSerializable):
             self.env.tracker_manager.track(Metric.VAL_LOSS, val_loss)
             self.env.tracker_manager.track(Metric.VAL_ACC, val_acc)
             self.env.tracker_manager.track(Metric.TEST_ACC, test_acc)
+            self.env.tracker_manager.track(Metric.TEST_LOSS, test_loss)
 
             metrics = {
                 Metric.TRAIN_LOSS: train_loss,
@@ -160,6 +163,12 @@ class SimpleClassifierPipeline(Pipeline, YAMLSerializable):
                 Metric.TEST_ACC: test_acc,
                 Metric.NETWORK: self.model
             }
+            
+            checkpoint_interval = 5
+            if epoch % checkpoint_interval == 0:
+                checkpoint_path = os.path.join(self.env.artifact_dir, f"checkpoint_{epoch // checkpoint_interval}")
+                self.env.tracker_manager.on_checkpoint(self.model, checkpoint_path)
+            
             self.on_epoch_end(epoch, metrics)
 
         #final test
