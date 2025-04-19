@@ -4,7 +4,7 @@ import pytest
 from pathlib import Path
 from omegaconf import OmegaConf
 
-from experiment_manager.trackers.db_tracker import DBTracker
+from experiment_manager.trackers.plugins.db_tracker import DBTracker
 from experiment_manager.common.common import Level, Metric
 
 @pytest.fixture

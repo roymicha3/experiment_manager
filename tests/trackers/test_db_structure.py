@@ -4,7 +4,6 @@ import sqlite3
 from omegaconf import OmegaConf
 
 from experiment_manager.experiment import Experiment, ConfigPaths
-from experiment_manager.environment import Environment
 from tests.pipelines.dummy_pipeline_factory import DummyPipelineFactory
 
 

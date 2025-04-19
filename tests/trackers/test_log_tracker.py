@@ -1,9 +1,8 @@
 """Tests for the LogTracker."""
 import os
 import pytest
-from pathlib import Path
 
-from experiment_manager.trackers.log_tracker import LogTracker
+from experiment_manager.trackers.plugins.log_tracker import LogTracker
 from experiment_manager.common.common import Level
 
 @pytest.fixture
