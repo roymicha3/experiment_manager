@@ -1,5 +1,5 @@
 import torch
-from typing import Dict, Any
+from typing import Dict, Any, List
 from omegaconf import DictConfig
 
 from experiment_manager.trackers.tracker import Tracker
@@ -12,7 +12,7 @@ from experiment_manager.trackers.tracker_factory import TrackerFactory
 class TrackerManager(Tracker):
     def __init__(self, workspace: str = None) -> None:
         super().__init__(workspace)
-        self.trackers = []
+        self.trackers: List[Tracker] = []
     
     def add_tracker(self, tracker: Tracker) -> None:
         self.trackers.append(tracker)

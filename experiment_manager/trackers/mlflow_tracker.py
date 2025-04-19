@@ -110,7 +110,7 @@ class MLflowTracker(Tracker, YAMLSerializable):
         pass
     
     def create_child(self, workspace: str=None) -> "Tracker":
-        return MLflowTracker(workspace, self.name, root=False, run_id=self.run_id)
+        return MLflowTracker(self.workspace, self.name, root=False, run_id=self.run_id)
     
     def save(self):
         OmegaConf.save(self, os.path.join(self.workspace, "mlflow_tracker.yaml"))
