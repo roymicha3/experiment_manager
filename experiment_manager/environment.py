@@ -122,22 +122,22 @@ class Environment(YAMLSerializable):
             factory=self.factory,
             verbose=self.verbose,
             debug=self.debug)
-
+    
         env.tracker_manager = self.tracker_manager
         return env
         
-    def create_child(self, name: str, root: bool = False) -> 'Environment':
+    def create_child(self, name: str) -> 'Environment':
         """
         Create a child environment with its own workspace.
         """
-        
+        child_workspace = os.path.join(self.workspace, name)
         child_env = self.__class__(
-            workspace=os.path.join(self.workspace, name),
+            workspace=child_workspace,
             config=self.config,
             factory=self.factory,
             verbose=self.verbose,
             debug=self.debug,
-            tracker_manager=self.tracker_manager.create_child())
+            tracker_manager=self.tracker_manager.create_child(child_workspace))
         
         self.logger.debug(f"Created child environment '{name}' at {child_env.workspace}")
         return child_env

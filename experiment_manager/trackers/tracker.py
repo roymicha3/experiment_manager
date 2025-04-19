@@ -1,6 +1,6 @@
 import torch
-from typing import Dict, Any
 from abc import ABC, abstractmethod
+from typing import Dict, Any, Optional
 from experiment_manager.common.common import Level, Metric
 
 from experiment_manager.common.serializable import YAMLSerializable
@@ -19,7 +19,12 @@ class Tracker(YAMLSerializable, ABC):
         pass
     
     @abstractmethod
-    def on_checkpoint(self, network: torch.nn.Module, checkpoint_path: str, *args, **kwargs):
+    def on_checkpoint(self, 
+                    network: torch.nn.Module, 
+                    checkpoint_path: str, 
+                    metrics: Optional[Dict[Metric, Any]] = {},
+                    *args,
+                    **kwargs):
         pass
     
     @abstractmethod

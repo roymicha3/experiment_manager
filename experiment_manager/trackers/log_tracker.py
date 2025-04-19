@@ -1,8 +1,8 @@
 import os
 import torch
 import logging
-from typing import Dict, Any
 from omegaconf import DictConfig
+from typing import Dict, Any, Optional
 
 from experiment_manager.trackers.tracker import Tracker
 from experiment_manager.common.common import Level, Metric
@@ -60,7 +60,12 @@ class LogTracker(Tracker):
         if kwargs:
             self.log(level, f"Kwargs: {kwargs}")
             
-    def on_checkpoint(self, network: torch.nn.Module, checkpoint_path: str, *args, **kwargs):
+    def on_checkpoint(self, 
+                      network: torch.nn.Module, 
+                      checkpoint_path: str, 
+                      metrics: Optional[Dict[Metric, Any]] = {},
+                      *args,
+                      **kwargs):
         self.log(level=Level.EPOCH,
                  message=f"Saving checkpoint of network {type(network)}, to {checkpoint_path}")
     

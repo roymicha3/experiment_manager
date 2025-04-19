@@ -1,6 +1,6 @@
 import torch
-from typing import Dict, Any
 from omegaconf import DictConfig
+from typing import Dict, Any, List, Optional
 
 from experiment_manager.trackers.tracker import Tracker
 from experiment_manager.common.common import Level, Metric
@@ -12,7 +12,7 @@ from experiment_manager.trackers.tracker_factory import TrackerFactory
 class TrackerManager(Tracker):
     def __init__(self, workspace: str = None) -> None:
         super().__init__(workspace)
-        self.trackers = []
+        self.trackers: List[Tracker] = []
     
     def add_tracker(self, tracker: Tracker) -> None:
         self.trackers.append(tracker)
@@ -21,9 +21,14 @@ class TrackerManager(Tracker):
         for tracker in self.trackers:
             tracker.track(metric, value, step, *args, **kwargs)
             
-    def on_checkpoint(self, network: torch.nn.Module, checkpoint_path: str, *args, **kwargs):
+    def on_checkpoint(self, 
+                    network: torch.nn.Module, 
+                    checkpoint_path: str, 
+                    metrics: Optional[Dict[Metric, Any]] = {},
+                    *args,
+                    **kwargs):
         for tracker in self.trackers:
-            tracker.on_checkpoint(network, checkpoint_path, *args, **kwargs)
+            tracker.on_checkpoint(network, checkpoint_path, metrics, *args, **kwargs)
     
     def log_params(self, params: Dict[str, Any]):
         for tracker in self.trackers:

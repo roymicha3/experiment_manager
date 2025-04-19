@@ -1,5 +1,6 @@
 import os
 import torch
+import itertools
 import torch.nn as nn
 import torch.optim as optim
 from omegaconf import DictConfig
@@ -156,18 +157,20 @@ class SimpleClassifierPipeline(Pipeline, YAMLSerializable):
             self.env.tracker_manager.track(Metric.TEST_ACC, test_acc)
             self.env.tracker_manager.track(Metric.TEST_LOSS, test_loss)
 
+            data, labels = next(iter(train_loader))
             metrics = {
                 Metric.TRAIN_LOSS: train_loss,
                 Metric.VAL_LOSS: val_loss,
                 Metric.VAL_ACC: val_acc,
                 Metric.TEST_ACC: test_acc,
-                Metric.NETWORK: self.model
+                Metric.NETWORK: self.model,
+                Metric.DATA: data,
             }
             
             checkpoint_interval = 5
             if epoch % checkpoint_interval == 0:
                 checkpoint_path = os.path.join(self.env.artifact_dir, f"checkpoint_{epoch // checkpoint_interval}")
-                self.env.tracker_manager.on_checkpoint(self.model, checkpoint_path)
+                self.env.tracker_manager.on_checkpoint(self.model, checkpoint_path, metrics = metrics)
             
             self.on_epoch_end(epoch, metrics)
 
