@@ -21,6 +21,7 @@ class MLflowTracker(Tracker, YAMLSerializable):
         self.run_id = run_id
         self.epoch = 0
         if root:
+            mlflow.set_tracking_uri(f"file:////{workspace}/mlruns")
             mlflow.set_experiment(self.name)
         
     def track(self, metric: Metric, value, step: int, *args, **kwargs):
