@@ -1,7 +1,7 @@
 import os
 import time
 import torch
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from omegaconf import OmegaConf, DictConfig
 from torch.utils.tensorboard import SummaryWriter
 
@@ -34,11 +34,16 @@ class TensorBoardTracker(Tracker, YAMLSerializable):
     def track(self, metric: Metric, value, step: int, *args, **kwargs):
         self.writer.add_scalar(metric.name, value, global_step=self.epoch)
 
-    def on_checkpoint(self, network: torch.nn.Module, checkpoint_path: str, *args, **kwargs):
-        # Optional: log model graph (if input is known)
-        # TODO: add an optional argument - metrics which is a dict of metrics and values
-        pass
-
+    def on_checkpoint(self, 
+                      network: torch.nn.Module, 
+                      checkpoint_path: str, 
+                      metrics: Optional[Dict[Metric, Any]] = {},
+                      *args,
+                      **kwargs):
+        
+        if Metric.DATA in metrics.keys():
+            self.writer.add_graph(network, metrics[Metric.DATA])
+        
     def log_params(self, params: Dict[str, Any]):
         for key, value in params.items():
             self.writer.add_text(f"param/{key}", str(value))

@@ -2,7 +2,7 @@ import os
 import time
 import torch
 import mlflow
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from omegaconf import OmegaConf, DictConfig
 
 from experiment_manager.trackers.tracker import Tracker
@@ -27,7 +27,12 @@ class MLflowTracker(Tracker, YAMLSerializable):
     def track(self, metric: Metric, value, step: int, *args, **kwargs):
         mlflow.log_metric(metric.name, value, step = self.epoch)
         
-    def on_checkpoint(self, network: torch.nn.Module, checkpoint_path: str, *args, **kwargs):
+    def on_checkpoint(self, 
+                      network: torch.nn.Module, 
+                      checkpoint_path: str, 
+                      metrics: Optional[Dict[Metric, Any]] = {},
+                      *args,
+                      **kwargs):
         mlflow.pytorch.log_model(network, os.path.basename(checkpoint_path))
     
 

@@ -1,9 +1,9 @@
 import os
 import json
 import torch
-from typing import Dict, Any
 from datetime import datetime
 from omegaconf import DictConfig
+from typing import Dict, Any, Optional
 
 from experiment_manager.trackers.tracker import Tracker
 from experiment_manager.db.manager import DatabaseManager
@@ -79,7 +79,12 @@ class DBTracker(Tracker, YAMLSerializable):
                 trial_run_id=self.id,
                 metric_id=metric_record.id)
             
-    def on_checkpoint(self, network: torch.nn.Module, checkpoint_path: str, *args, **kwargs):
+    def on_checkpoint(self, 
+                      network: torch.nn.Module, 
+                      checkpoint_path: str, 
+                      metrics: Optional[Dict[Metric, Any]] = {},
+                      *args,
+                      **kwargs):
         self.on_add_artifact(Level.EPOCH, checkpoint_path)
     
     def log_params(self, params: Dict[str, Any]):
