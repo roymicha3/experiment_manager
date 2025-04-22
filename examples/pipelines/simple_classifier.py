@@ -165,6 +165,8 @@ class SimpleClassifierPipeline(Pipeline, YAMLSerializable):
                 Metric.TEST_ACC: test_acc,
                 Metric.NETWORK: self.model,
                 Metric.DATA: data,
+                Metric.LABELS: labels,
+                Metric.CUSTOM: ("epoch", epoch)
             }
             
             checkpoint_interval = 5

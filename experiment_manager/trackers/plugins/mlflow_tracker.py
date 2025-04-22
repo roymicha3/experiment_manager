@@ -25,8 +25,13 @@ class MLflowTracker(Tracker, YAMLSerializable):
             mlflow.set_experiment(self.name)
         
     def track(self, metric: Metric, value, step: int, *args, **kwargs):
-        mlflow.log_metric(metric.name, value, step = self.epoch)
+        if metric == Metric.CUSTOM:
+            mlflow.log_metric(value[0], value[1], step = self.epoch)
         
+        else:
+            mlflow.log_metric(metric.name, value, step = self.epoch)
+        
+    
     def on_checkpoint(self, 
                       network: torch.nn.Module, 
                       checkpoint_path: str, 

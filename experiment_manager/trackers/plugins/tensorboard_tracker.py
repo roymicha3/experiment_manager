@@ -32,7 +32,10 @@ class TensorBoardTracker(Tracker, YAMLSerializable):
         self.start_times = {}
 
     def track(self, metric: Metric, value, step: int, *args, **kwargs):
-        self.writer.add_scalar(metric.name, value, global_step=self.epoch)
+        if metric == Metric.CUSTOM:
+            self.writer.add_scalar(value[0], value[1], global_step = self.epoch)
+        else:
+            self.writer.add_scalar(metric.name, value, global_step = self.epoch)
 
     def on_checkpoint(self, 
                       network: torch.nn.Module, 

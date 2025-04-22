@@ -39,8 +39,9 @@ class Metric(IntEnum):
     # Untracked metrics
     NETWORK = 10
     DATA = 11
-    STATUS = 12
-    CONFUSION = 13
+    LABELS = 12
+    STATUS = 13
+    CONFUSION = 14
     
     @property
     def name(self) -> str:
@@ -67,6 +68,7 @@ def _init_metric_categories():
         
     Metric.NETWORK: MetricCategory.UNTRACKED,
     Metric.DATA: MetricCategory.UNTRACKED,
+    Metric.LABELS: MetricCategory.UNTRACKED,
     Metric.STATUS: MetricCategory.UNTRACKED,
 }
 
