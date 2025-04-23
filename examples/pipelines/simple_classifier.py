@@ -150,12 +150,6 @@ class SimpleClassifierPipeline(Pipeline, YAMLSerializable):
             # Evaluate on validation set
             val_loss, val_acc = self.evaluate(self.model, val_loader, self.criterion, self.device)
             test_loss, test_acc = self.evaluate(self.model, test_loader, self.criterion, self.device)
-            # Track metrics
-            self.env.tracker_manager.track(Metric.TRAIN_LOSS, train_loss)
-            self.env.tracker_manager.track(Metric.VAL_LOSS, val_loss)
-            self.env.tracker_manager.track(Metric.VAL_ACC, val_acc)
-            self.env.tracker_manager.track(Metric.TEST_ACC, test_acc)
-            self.env.tracker_manager.track(Metric.TEST_LOSS, test_loss)
 
             data, labels = next(iter(train_loader))
             metrics = {
@@ -163,11 +157,14 @@ class SimpleClassifierPipeline(Pipeline, YAMLSerializable):
                 Metric.VAL_LOSS: val_loss,
                 Metric.VAL_ACC: val_acc,
                 Metric.TEST_ACC: test_acc,
+                Metric.TEST_LOSS: test_loss,
                 Metric.NETWORK: self.model,
                 Metric.DATA: data,
                 Metric.LABELS: labels,
                 Metric.CUSTOM: ("epoch", epoch)
             }
+            
+            self.env.tracker_manager.track_dict(metrics, epoch)
             
             checkpoint_interval = 5
             if epoch % checkpoint_interval == 0:

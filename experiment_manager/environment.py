@@ -53,8 +53,8 @@ class Environment(YAMLSerializable):
         
         self.tracker_manager = tracker_manager or \
                 TrackerManager.from_config(
-                                        self.config,
-            self.artifact_dir)
+                                    self.config,
+                                    self.workspace)
 
         self.save()
     

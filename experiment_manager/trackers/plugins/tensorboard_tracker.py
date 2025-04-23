@@ -17,16 +17,15 @@ class TensorBoardTracker(Tracker, YAMLSerializable):
     CONFIG_FILE = "tensorboard_tracker.yaml"
     
     def __init__(self, workspace: str, name: str, root: bool = False, run_id=None):
-        super(TensorBoardTracker, self).__init__()
+        super(TensorBoardTracker, self).__init__(workspace)
         super(YAMLSerializable, self).__init__()
         self.name = name
         self.run_id = run_id or str(time.time())
         self.epoch = 0
 
         if root:
-            workspace = os.path.join(workspace, TensorBoardTracker.LOG_DIR_NAME, name)
+            self.workspace = os.path.join(self.workspace, TensorBoardTracker.LOG_DIR_NAME, name)
         
-        self.workspace = workspace
         os.makedirs(self.workspace, exist_ok=True)
         self.writer = SummaryWriter(log_dir=self.workspace)
         self.start_times = {}
@@ -78,7 +77,7 @@ class TensorBoardTracker(Tracker, YAMLSerializable):
         if not workspace:
             raise FileNotFoundError
         
-        name = os.path.basename(workspace.replace("artifacts", ""))
+        name = os.path.basename(workspace)
         child_workspace = os.path.join(self.workspace, name)
         os.makedirs(child_workspace, exist_ok=True)
         return TensorBoardTracker(child_workspace, 

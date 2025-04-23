@@ -14,14 +14,13 @@ from experiment_manager.common.serializable import YAMLSerializable
 class MLflowTracker(Tracker, YAMLSerializable):
     
     def __init__(self, workspace: str, name: str, root: bool = False, run_id = None):
-        super(MLflowTracker, self).__init__()
+        super(MLflowTracker, self).__init__(workspace)
         super(YAMLSerializable, self).__init__()
-        self.workspace = workspace
         self.name = name
         self.run_id = run_id
         self.epoch = 0
         if root:
-            mlflow.set_tracking_uri(f"file:////{workspace}/mlruns")
+            mlflow.set_tracking_uri(f"file:////{self.workspace}/mlruns")
             mlflow.set_experiment(self.name)
         
     def track(self, metric: Metric, value, step: int, *args, **kwargs):

@@ -3,7 +3,7 @@ import csv
 from typing import Dict, List, Any
 from omegaconf import DictConfig
 
-from experiment_manager.common.common import Level
+from experiment_manager.common.common import Level, Metric
 from experiment_manager.environment import Environment
 from experiment_manager.common.serializable import YAMLSerializable
 from experiment_manager.pipelines.callbacks.callback import Callback
@@ -41,7 +41,10 @@ class MetricsTracker(Callback, YAMLSerializable):
                     self.metrics[key] = []
                     self.env.logger.debug(f"Started tracking metric: {key.value}")
                 self.metrics[key].append(value)
-                tracked_metrics.append(f"{key.value}: {value:.4f}")
+                if key == Metric.CUSTOM:
+                    tracked_metrics.append(f"{value[0]}: {value[1]:.4f}")
+                else:
+                    tracked_metrics.append(f"{key.value}: {value:.4f}")
         
         if tracked_metrics:
             self.env.logger.info(f"Epoch {epoch_idx} metrics - " + ", ".join(tracked_metrics))
