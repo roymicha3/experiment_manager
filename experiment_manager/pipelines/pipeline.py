@@ -1,6 +1,7 @@
 from abc import ABC
-from typing import Dict, Any, List
+from functools import wraps
 from omegaconf import DictConfig
+from typing import Dict, Any, List
 
 from experiment_manager.common.common import Level
 from experiment_manager.environment import Environment
@@ -13,6 +14,12 @@ class Pipeline(ABC):
         self.env = env
         self.callbacks: List[Callback] = []
         self.env.tracker_manager.on_create(level=Level.PIPELINE)
+        
+        self.run_metrics = {}
+        self.epoch_metrics = {}
+        self.run_status = False
+        
+        self.env.logger.info("Pipeline initialized")
         
     
     def register_callback(self, callback: Callback) -> None:
@@ -55,3 +62,50 @@ class Pipeline(ABC):
         Run the pipeline with the given configuration.
         """
         raise NotImplementedError("Pipeline.run() must be implemented by subclasses")
+    
+    def run_epoch(self, epoch_idx, model, train_loader, val_loader, criterion, optimizer, device):
+        """
+        Run one epoch of training.
+        """
+        raise NotImplementedError("Pipeline.run_epoch() must be implemented by subclasses")
+    
+    
+    @staticmethod
+    def run_wrapper(run_function):
+        """
+        Makes sure that on_start and on_end are called for the pipeline.
+        """
+        @wraps(run_function)
+        def wrapper(self, config: DictConfig):
+            self.on_start()
+            try:
+                run_function(self, config)
+                self.run_status = True
+            
+            finally:
+                if not self.run_status:
+                    self.env.logger.error("Pipeline run failed")
+                else:
+                    self.env.logger.info("Pipeline run completed successfully")
+                    self.on_end(self.run_metrics)
+        
+        return wrapper
+    
+    
+    @staticmethod
+    def epoch_wrapper(epoch_function):
+        """
+        Makes sure that on_epoch_start and on_epoch_end are called for the pipeline.
+        """
+        @wraps(epoch_function)
+        def wrapper(self, epoch_idx, model, train_loader, val_loader, criterion, optimizer, device):
+            self.on_epoch_start()
+            
+            try:
+                epoch_function(self, epoch_idx, model, train_loader, val_loader, criterion, optimizer, device)
+                self.env.tracker_manager.track_dict(self.epoch_metrics, epoch_idx)
+            
+            finally:
+                self.on_epoch_end(epoch_idx, self.epoch_metrics)
+        
+        return wrapper
