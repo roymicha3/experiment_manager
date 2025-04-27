@@ -44,7 +44,7 @@ class TensorBoardTracker(Tracker, YAMLSerializable):
                       **kwargs):
         
         if Metric.DATA in metrics.keys():
-            self.writer.add_graph(network, metrics[Metric.DATA])
+            self.writer.add_graph(network, metrics[Metric.DATA]) # TODO: might be redundant
         
     def log_params(self, params: Dict[str, Any]):
         for key, value in params.items():

@@ -4,7 +4,7 @@ from datetime import datetime
 from omegaconf import OmegaConf, DictConfig
 
 from experiment_manager.common.factory import Factory
-from experiment_manager.common.common import LOG_NAME, Level
+from experiment_manager.common.common import LOG_NAME
 from experiment_manager.common.serializable import YAMLSerializable
 from experiment_manager.trackers.tracker_manager import TrackerManager
 from experiment_manager.logger import FileLogger, ConsoleLogger, CompositeLogger, EmptyLogger
@@ -30,8 +30,10 @@ class Environment(YAMLSerializable):
                  factory: Factory = None,
                  verbose: bool = False, 
                  debug: bool = False,
+                 args: DictConfig = None,
                  tracker_manager: TrackerManager = None):
         super().__init__()
+        
         self.workspace = os.path.abspath(workspace)  # Convert to absolute path
         os.makedirs(self.workspace, exist_ok=True)
         
@@ -39,6 +41,7 @@ class Environment(YAMLSerializable):
         self.factory = factory
         self.verbose = verbose
         self.debug = debug
+        self.args: DictConfig = args or DictConfig({})
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         self.log_name = f"{LOG_NAME}-{timestamp}"
         
@@ -112,7 +115,15 @@ class Environment(YAMLSerializable):
         """Create environment from configuration."""
         verbose = config.get("verbose", False)
         debug = config.get("debug", False)
-        env = cls(workspace=config.workspace, config=config, verbose=verbose, debug=debug)
+        additional_args = config.get("args", None)
+        
+        env = cls(
+            workspace=config.workspace,
+            config=config,
+            verbose=verbose,
+            debug=debug,
+            args=additional_args)
+        
         return env
     
     def copy(self):
@@ -126,7 +137,7 @@ class Environment(YAMLSerializable):
         env.tracker_manager = self.tracker_manager
         return env
         
-    def create_child(self, name: str) -> 'Environment':
+    def create_child(self, name: str, args: DictConfig = None) -> 'Environment':
         """
         Create a child environment with its own workspace.
         """
@@ -137,7 +148,11 @@ class Environment(YAMLSerializable):
             factory=self.factory,
             verbose=self.verbose,
             debug=self.debug,
-            tracker_manager=self.tracker_manager.create_child(child_workspace))
+            tracker_manager=self.tracker_manager.create_child(child_workspace),
+            args=self.args)
+        
+        if args:
+            child_env.args = OmegaConf.merge(child_env.args, args)
         
         self.logger.debug(f"Created child environment '{name}' at {child_env.workspace}")
         return child_env

@@ -4,6 +4,7 @@ from omegaconf import DictConfig
 from typing import Dict, Any, List
 
 from experiment_manager.common.common import Level
+from experiment_manager.common.common import RunStatus
 from experiment_manager.environment import Environment
 from experiment_manager.pipelines.callbacks.callback import Callback
 
@@ -27,19 +28,19 @@ class Pipeline(ABC):
         self.env.logger.info(f"Registered callback: {callback.__class__.__name__}")
         
     
-    def on_start(self) -> None:
+    def _on_run_start(self) -> None:
         self.env.logger.info("Starting pipeline execution")
         self.env.tracker_manager.on_start(level=Level.PIPELINE)
         for callback in self.callbacks:
             self.env.logger.debug(f"Executing on_start for {callback.__class__.__name__}")
             callback.on_start()
             
-    def on_epoch_start(self) -> None:
+    def _on_epoch_start(self) -> None:
         self.env.tracker_manager.on_create(Level.EPOCH)
         self.env.tracker_manager.on_start(Level.EPOCH)
             
     
-    def on_epoch_end(self, epoch_idx: int, metrics: Dict[str, Any]) -> bool:
+    def _on_epoch_end(self, epoch_idx: int, metrics: Dict[str, Any]) -> bool:
         self.env.tracker_manager.on_end(Level.EPOCH)
         
         stop_flag = False
@@ -50,20 +51,20 @@ class Pipeline(ABC):
                 stop_flag = True
         return stop_flag
     
-    def on_end(self, metrics: Dict[str, Any]) -> None:
+    def _on_run_end(self, metrics: Dict[str, Any]) -> None:
         self.env.logger.info("Pipeline execution completed")
         self.env.tracker_manager.on_end(Level.PIPELINE)
         for callback in self.callbacks:
             self.env.logger.debug(f"Executing on_end for {callback.__class__.__name__}")
             callback.on_end(metrics)
             
-    def run(self, config: DictConfig) -> None:
+    def run(self, config: DictConfig) -> RunStatus:
         """
         Run the pipeline with the given configuration.
         """
         raise NotImplementedError("Pipeline.run() must be implemented by subclasses")
     
-    def run_epoch(self, epoch_idx, model, train_loader, val_loader, criterion, optimizer, device):
+    def run_epoch(self, epoch_idx, model, train_loader, val_loader, criterion, optimizer, device) -> RunStatus:
         """
         Run one epoch of training.
         """
@@ -77,17 +78,22 @@ class Pipeline(ABC):
         """
         @wraps(run_function)
         def wrapper(self, config: DictConfig):
-            self.on_start()
+            status = RunStatus.SKIPPED
+            self._on_run_start()
             try:
-                run_function(self, config)
-                self.run_status = True
+                status = RunStatus.RUNNING
+                status = run_function(self, config)
+                self.run_status = status # TODO: might be redundant
             
             finally:
                 if not self.run_status:
                     self.env.logger.error("Pipeline run failed")
+                    status = RunStatus.FAILED
                 else:
                     self.env.logger.info("Pipeline run completed successfully")
-                    self.on_end(self.run_metrics)
+                    self._on_run_end(self.run_metrics)
+                
+                return status
         
         return wrapper
     
@@ -99,13 +105,18 @@ class Pipeline(ABC):
         """
         @wraps(epoch_function)
         def wrapper(self, epoch_idx, model, train_loader, val_loader, criterion, optimizer, device):
-            self.on_epoch_start()
+            self._on_epoch_start()
             
             try:
-                epoch_function(self, epoch_idx, model, train_loader, val_loader, criterion, optimizer, device)
+                status = epoch_function(self, epoch_idx, model, train_loader, val_loader, criterion, optimizer, device)
                 self.env.tracker_manager.track_dict(self.epoch_metrics, epoch_idx)
             
             finally:
-                self.on_epoch_end(epoch_idx, self.epoch_metrics)
-        
+                should_stop = self._on_epoch_end(epoch_idx, self.epoch_metrics)
+                if should_stop:
+                    self.env.logger.info("Stopping pipeline execution")
+                    raise StopIteration("Stopping pipeline execution")
+                
+                return status
+                    
         return wrapper

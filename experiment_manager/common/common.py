@@ -1,9 +1,15 @@
-from enum import Enum, IntEnum
-from typing import Dict
+from enum import Enum, IntEnum, auto
 
 LOG_NAME = "log"
 
-
+class RunStatus(Enum):
+    RUNNING = 0
+    SUCCESS = auto()
+    FINISHED = auto()
+    FAILED = auto()
+    ABORTED = auto()
+    STOPPED = auto()
+    SKIPPED = auto()
 class ConfigPaths(Enum):
     ENV_CONFIG     = "env.yaml"
     CONFIG_FILE    = "experiment.yaml"
