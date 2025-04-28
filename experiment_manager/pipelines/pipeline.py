@@ -64,7 +64,7 @@ class Pipeline(ABC):
         """
         raise NotImplementedError("Pipeline.run() must be implemented by subclasses")
     
-    def run_epoch(self, epoch_idx, model, train_loader, val_loader, criterion, optimizer, device) -> RunStatus:
+    def run_epoch(self, epoch_idx, model, *args, **Kwargs) -> RunStatus:
         """
         Run one epoch of training.
         """
@@ -104,11 +104,11 @@ class Pipeline(ABC):
         Makes sure that on_epoch_start and on_epoch_end are called for the pipeline.
         """
         @wraps(epoch_function)
-        def wrapper(self, epoch_idx, model, train_loader, val_loader, criterion, optimizer, device):
+        def wrapper(self, epoch_idx, model, *args, **kwargs):
             self._on_epoch_start()
             
             try:
-                status = epoch_function(self, epoch_idx, model, train_loader, val_loader, criterion, optimizer, device)
+                status = epoch_function(self, epoch_idx, model, *args, **kwargs)
                 self.env.tracker_manager.track_dict(self.epoch_metrics, epoch_idx)
             
             finally:
