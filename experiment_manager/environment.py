@@ -32,6 +32,7 @@ class Environment(YAMLSerializable):
                  verbose: bool = False, 
                  debug: bool = False,
                  args: DictConfig = None,
+                 device: str = "cpu",
                  tracker_manager: TrackerManager = None):
         super().__init__()
         
@@ -42,7 +43,6 @@ class Environment(YAMLSerializable):
         self.factory = factory
         self.verbose = verbose
         self.debug = debug
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.args: DictConfig = args or DictConfig({})
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         self.log_name = f"{LOG_NAME}-{timestamp}"
@@ -60,7 +60,11 @@ class Environment(YAMLSerializable):
                 TrackerManager.from_config(
                                     self.config,
                                     self.workspace)
-
+        
+        
+        self.device = device
+        self.logger.info(f"Using device: {self.device}")
+        
         self.save()
     
         
@@ -119,11 +123,15 @@ class Environment(YAMLSerializable):
         debug = config.get("debug", False)
         additional_args = config.get("args", None)
         
+        default_device = "cuda" if torch.cuda.is_available() else "cpu"
+        device = config.get("device", default_device)
+        
         env = cls(
             workspace=config.workspace,
             config=config,
             verbose=verbose,
             debug=debug,
+            device=device,
             args=additional_args)
         
         return env
@@ -134,7 +142,9 @@ class Environment(YAMLSerializable):
             config=self.config,
             factory=self.factory,
             verbose=self.verbose,
-            debug=self.debug)
+            debug=self.debug,
+            device=self.device,
+            args=self.args)
     
         env.tracker_manager = self.tracker_manager
         return env
@@ -151,6 +161,7 @@ class Environment(YAMLSerializable):
             verbose=self.verbose,
             debug=self.debug,
             tracker_manager=self.tracker_manager.create_child(child_workspace),
+            device=self.device,
             args=self.args)
         
         if args:
