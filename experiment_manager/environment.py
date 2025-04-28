@@ -1,4 +1,5 @@
 import os
+import torch
 from enum import Enum
 from datetime import datetime
 from omegaconf import OmegaConf, DictConfig
@@ -41,6 +42,7 @@ class Environment(YAMLSerializable):
         self.factory = factory
         self.verbose = verbose
         self.debug = debug
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.args: DictConfig = args or DictConfig({})
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         self.log_name = f"{LOG_NAME}-{timestamp}"
