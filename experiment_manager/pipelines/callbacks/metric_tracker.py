@@ -3,7 +3,7 @@ import csv
 from typing import Dict, List, Any
 from omegaconf import DictConfig
 
-from experiment_manager.common.common import Level
+from experiment_manager.common.common import Level, Metric
 from experiment_manager.environment import Environment
 from experiment_manager.common.serializable import YAMLSerializable
 from experiment_manager.pipelines.callbacks.callback import Callback
@@ -38,10 +38,21 @@ class MetricsTracker(Callback, YAMLSerializable):
             if get_metric_category(key) == MetricCategory.TRACKED:
                 # save it to the metrics dictionary
                 if key not in self.metrics:
-                    self.metrics[key] = []
+                    if key == Metric.CUSTOM:
+                        if value[0] not in self.metrics:
+                            self.metrics[value[0]] = []
+                            self.env.logger.debug(f"Started tracking custom metric: {value[0]}")
+                    else:
+                        self.metrics[key] = []
+                    
                     self.env.logger.debug(f"Started tracking metric: {key.value}")
-                self.metrics[key].append(value)
-                tracked_metrics.append(f"{key.value}: {value:.4f}")
+                
+                if key == Metric.CUSTOM:
+                    self.metrics[value[0]].append(value[1])
+                    tracked_metrics.append(f"{value[0]}: {value[1]:.4f}")
+                else:
+                    self.metrics[key].append(value)
+                    tracked_metrics.append(f"{key.value}: {value:.4f}")
         
         if tracked_metrics:
             self.env.logger.info(f"Epoch {epoch_idx} metrics - " + ", ".join(tracked_metrics))
@@ -65,8 +76,8 @@ class MetricsTracker(Callback, YAMLSerializable):
             self.env.logger.info(f"Saving metrics to {self.log_path}")
             with open(self.log_path, 'w', newline='', encoding="utf-8") as f:
                 writer = csv.writer(f)
-                # Write the header with a 'type' column
-                header = ["type"] + [h.name for h in self.metrics.keys()]
+                # Write the header with a 'type' columnsss
+                header = ["type"] + [h.name if isinstance(h, Metric) else h for h in self.metrics.keys()]
                 writer.writerow(header)
                 self.env.logger.debug(f"Wrote header: {', '.join(str(h) for h in header)}")
                 

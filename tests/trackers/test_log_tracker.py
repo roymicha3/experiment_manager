@@ -41,7 +41,7 @@ def test_log_indentation(log_tracker, workspace):
     log_tracker.on_end(Level.EXPERIMENT)
     
     # Read log file
-    log_path = workspace / LogTracker.LOG_NAME
+    log_path = workspace / "artifacts" / LogTracker.LOG_NAME
     assert log_path.exists()
     
     log_content = log_path.read_text()
@@ -95,7 +95,7 @@ def test_metric_formatting(log_tracker, workspace):
     log_tracker.on_create(Level.EXPERIMENT, "Test")
     log_tracker.on_metric(Level.EXPERIMENT, metrics)
     
-    log_path = workspace / LogTracker.LOG_NAME
+    log_path = workspace / "artifacts" / LogTracker.LOG_NAME
     lines = log_path.read_text().splitlines()
     
     # Extract content after timestamps
@@ -118,7 +118,7 @@ def test_artifact_logging(log_tracker, workspace):
         description="Configuration file"
     )
     
-    log_path = workspace / LogTracker.LOG_NAME
+    log_path = workspace / "artifacts" / LogTracker.LOG_NAME
     log_content = log_path.read_text()
     
     # Extract content after timestamps

@@ -14,19 +14,23 @@ from experiment_manager.common.serializable import YAMLSerializable
 class MLflowTracker(Tracker, YAMLSerializable):
     
     def __init__(self, workspace: str, name: str, root: bool = False, run_id = None):
-        super(MLflowTracker, self).__init__()
+        super(MLflowTracker, self).__init__(workspace)
         super(YAMLSerializable, self).__init__()
-        self.workspace = workspace
         self.name = name
         self.run_id = run_id
         self.epoch = 0
         if root:
-            mlflow.set_tracking_uri(f"file:////{workspace}/mlruns")
+            mlflow.set_tracking_uri(f"file:////{self.workspace}/mlruns")
             mlflow.set_experiment(self.name)
         
     def track(self, metric: Metric, value, step: int, *args, **kwargs):
-        mlflow.log_metric(metric.name, value, step = self.epoch)
+        if metric == Metric.CUSTOM:
+            mlflow.log_metric(value[0], value[1], step = self.epoch)
         
+        else:
+            mlflow.log_metric(metric.name, value, step = self.epoch)
+        
+    
     def on_checkpoint(self, 
                       network: torch.nn.Module, 
                       checkpoint_path: str, 

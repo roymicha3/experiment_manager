@@ -17,22 +17,24 @@ class TensorBoardTracker(Tracker, YAMLSerializable):
     CONFIG_FILE = "tensorboard_tracker.yaml"
     
     def __init__(self, workspace: str, name: str, root: bool = False, run_id=None):
-        super(TensorBoardTracker, self).__init__()
+        super(TensorBoardTracker, self).__init__(workspace)
         super(YAMLSerializable, self).__init__()
         self.name = name
         self.run_id = run_id or str(time.time())
         self.epoch = 0
 
         if root:
-            workspace = os.path.join(workspace, TensorBoardTracker.LOG_DIR_NAME, name)
+            self.workspace = os.path.join(self.workspace, TensorBoardTracker.LOG_DIR_NAME, name)
         
-        self.workspace = workspace
         os.makedirs(self.workspace, exist_ok=True)
         self.writer = SummaryWriter(log_dir=self.workspace)
         self.start_times = {}
 
     def track(self, metric: Metric, value, step: int, *args, **kwargs):
-        self.writer.add_scalar(metric.name, value, global_step=self.epoch)
+        if metric == Metric.CUSTOM:
+            self.writer.add_scalar(value[0], value[1], global_step = self.epoch)
+        else:
+            self.writer.add_scalar(metric.name, value, global_step = self.epoch)
 
     def on_checkpoint(self, 
                       network: torch.nn.Module, 
@@ -42,7 +44,7 @@ class TensorBoardTracker(Tracker, YAMLSerializable):
                       **kwargs):
         
         if Metric.DATA in metrics.keys():
-            self.writer.add_graph(network, metrics[Metric.DATA])
+            self.writer.add_graph(network, metrics[Metric.DATA]) # TODO: might be redundant
         
     def log_params(self, params: Dict[str, Any]):
         for key, value in params.items():
@@ -75,7 +77,7 @@ class TensorBoardTracker(Tracker, YAMLSerializable):
         if not workspace:
             raise FileNotFoundError
         
-        name = os.path.basename(workspace.replace("artifacts", ""))
+        name = os.path.basename(workspace)
         child_workspace = os.path.join(self.workspace, name)
         os.makedirs(child_workspace, exist_ok=True)
         return TensorBoardTracker(child_workspace, 
