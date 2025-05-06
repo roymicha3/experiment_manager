@@ -1,3 +1,4 @@
+import os
 import torch
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
@@ -9,6 +10,9 @@ from experiment_manager.common.serializable import YAMLSerializable
 class Tracker(YAMLSerializable, ABC):
     def __init__(self, workspace: str = None):
         super().__init__()
+        if not os.path.basename(workspace) == "artifacts":
+            workspace = os.path.join(workspace, "artifacts")
+        
         self.workspace = workspace
 
     def set_workspace(self, workspace: str):

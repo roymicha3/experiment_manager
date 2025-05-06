@@ -3,8 +3,8 @@ from omegaconf import DictConfig
 from typing import Dict, Any, List, Optional
 
 from experiment_manager.trackers.tracker import Tracker
-from experiment_manager.common.common import Level, Metric
 from experiment_manager.trackers.tracker_factory import TrackerFactory
+from experiment_manager.common.common import Level, Metric, MetricCategory, get_metric_category
 
 
     
@@ -20,6 +20,12 @@ class TrackerManager(Tracker):
     def track(self, metric: Metric, value, step: int = None, *args, **kwargs):
         for tracker in self.trackers:
             tracker.track(metric, value, step, *args, **kwargs)
+            
+    def track_dict(self, metrics: Dict[Metric, Any], step: int = None, *args, **kwargs):
+        for metric, value in metrics.items():
+            if get_metric_category(metric) == MetricCategory.TRACKED:
+                for tracker in self.trackers:
+                    tracker.track(metric, value, step, *args, **kwargs)
             
     def on_checkpoint(self, 
                     network: torch.nn.Module, 

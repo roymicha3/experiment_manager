@@ -10,7 +10,11 @@ from experiment_manager.trackers.tracker_manager import TrackScope
 
 class Trial(YAMLSerializable):
     
-    def __init__(self, name: str, repeat: int, config: DictConfig, env: Environment):
+    def __init__(self, name: str,
+                 repeat: int,
+                 config: DictConfig,
+                 env: Environment,
+                 env_args: DictConfig = None) -> None:
         super().__init__()
         
         # basic properties
@@ -18,7 +22,7 @@ class Trial(YAMLSerializable):
         self.repeat = repeat
         
         # environment
-        self.env = env.create_child(self.name)
+        self.env = env.create_child(self.name, args=env_args)
         self.env.tracker_manager.on_create(Level.TRIAL, self.name)
         
         # configurations of the trial
@@ -66,7 +70,10 @@ class Trial(YAMLSerializable):
     
     @classmethod
     def from_config(cls, config: DictConfig, env: Environment):
+        
+        env_args = config.get("args", None)
         return cls(name=config.name,
                   repeat=config.repeat,
                   config=config.settings,
-                  env=env)
+                  env=env,
+                  env_args=env_args)

@@ -1,9 +1,15 @@
-from enum import Enum, IntEnum
-from typing import Dict
+from enum import Enum, IntEnum, auto
 
 LOG_NAME = "log"
 
-
+class RunStatus(Enum):
+    RUNNING = 0
+    SUCCESS = auto()
+    FINISHED = auto()
+    FAILED = auto()
+    ABORTED = auto()
+    STOPPED = auto()
+    SKIPPED = auto()
 class ConfigPaths(Enum):
     ENV_CONFIG     = "env.yaml"
     CONFIG_FILE    = "experiment.yaml"
@@ -34,12 +40,14 @@ class Metric(IntEnum):
     TRAIN_ACC = 6
     TRAIN_LOSS = 7
     LEARNING_RATE = 8
+    CUSTOM = 9 # custom metric (name, value)
 
     # Untracked metrics
-    NETWORK = 9
-    DATA = 10
-    STATUS = 11
-    CONFUSION = 12
+    NETWORK = 10
+    DATA = 11
+    LABELS = 12
+    STATUS = 13
+    CONFUSION = 14
     
     @property
     def name(self) -> str:
@@ -62,9 +70,11 @@ def _init_metric_categories():
     Metric.TRAIN_LOSS: MetricCategory.TRACKED,
     Metric.CONFUSION: MetricCategory.TRACKED,
     Metric.LEARNING_RATE: MetricCategory.TRACKED,
-    
+    Metric.CUSTOM: MetricCategory.TRACKED,
+        
     Metric.NETWORK: MetricCategory.UNTRACKED,
     Metric.DATA: MetricCategory.UNTRACKED,
+    Metric.LABELS: MetricCategory.UNTRACKED,
     Metric.STATUS: MetricCategory.UNTRACKED,
 }
 
