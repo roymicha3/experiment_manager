@@ -83,13 +83,13 @@ class Pipeline(ABC):
             try:
                 status = RunStatus.RUNNING
                 status = run_function(self, config)
-                self.run_status = status # TODO: might be redundant
+            
+            except Exception as e:
+                self.env.logger.error(f"Pipeline run failed: {e}")
+                status = RunStatus.FAILED
             
             finally:
-                if not self.run_status:
-                    self.env.logger.error("Pipeline run failed")
-                    status = RunStatus.FAILED
-                else:
+                if status != RunStatus.FAILED:
                     self.env.logger.info("Pipeline run completed successfully")
                     self._on_run_end(self.run_metrics)
                 

@@ -25,21 +25,27 @@ class CheckpointCallback(Callback, YAMLSerializable):
         self.interval = interval
         self.env = env
         
+        self.env.logger.info(f"Checkpoint callback initialized with interval={interval}")
+        
         self.checkpoint_path = os.path.join(self.env.artifact_dir, CheckpointCallback.CHECKPOINT_NAME)
         
     def on_epoch_end(self, epoch_idx, metrics: Dict[str, Any]) -> bool:
         """Called at the end of each epoch."""
         self.index += 1
+        
         if self.index % self.interval == 0:
             file_path = f"{self.checkpoint_path}-{self.current_checkpoint}"
             self.env.logger.info(f"Saving checkpoint {self.current_checkpoint} to {file_path}")
+            
             if not Metric.NETWORK in metrics.keys():
                 self.env.logger.error(f"Metric {Metric.NETWORK.name} is not in metrics, cant save checkpoint...")
                 raise ValueError(f"Metric {Metric.NETWORK.name} is not in metrics, cant save checkpoint...")
+            
             metrics[Metric.NETWORK].save(file_path)
             self.env.tracker_manager.on_add_artifact(
                 level=Level.TRIAL_RUN,
                 artifact_path=file_path)
+            
             self.current_checkpoint += 1
             self.env.logger.info(f"Checkpoint {self.current_checkpoint-1} saved successfully")
         

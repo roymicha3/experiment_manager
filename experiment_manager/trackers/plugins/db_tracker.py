@@ -34,6 +34,7 @@ class DBTracker(Tracker, YAMLSerializable):
                 recreate=recreate)
             
         self.epoch_idx = None
+        
     
     @classmethod
     def from_config(cls, config: DictConfig, workspace: str) -> "DBTracker":
