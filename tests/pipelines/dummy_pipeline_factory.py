@@ -9,6 +9,7 @@ from experiment_manager.pipelines.callbacks.callback_factory import CallbackFact
 # import pipelines
 from tests.pipelines.dummy_pipeline import DummyPipeline
 from tests.pipelines.simple_classifier import SimpleClassifierPipeline
+from tests.pipelines.env_args_check_pipeline import EnvArgsCheckPipeline
 
 
 class DummyPipelineFactory(PipelineFactory):

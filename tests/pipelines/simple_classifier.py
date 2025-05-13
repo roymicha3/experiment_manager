@@ -1,5 +1,6 @@
 import os
 import torch
+import itertools
 import torch.nn as nn
 import torch.optim as optim
 from omegaconf import DictConfig
@@ -79,7 +80,9 @@ class SimpleClassifierPipeline(Pipeline, YAMLSerializable):
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
 
-    def train_one_epoch(self, model, train_loader, criterion, optimizer, device):
+
+    @Pipeline.epoch_wrapper
+    def run_epoch(self, epoch_idx, model, train_loader, val_loader, criterion, optimizer, device):
         """
         Trains the model for one epoch.
 
@@ -103,7 +106,24 @@ class SimpleClassifierPipeline(Pipeline, YAMLSerializable):
             loss.backward()
             optimizer.step()
             running_loss += loss.item() * data.size(0)
+        
         epoch_loss = running_loss / len(train_loader.dataset)
+        data, labels = next(iter(train_loader))
+        
+        # Evaluate on validation set
+        val_loss, val_acc = self.evaluate(self.model, val_loader, criterion, device)
+        
+        self.epoch_metrics = \
+            {
+                Metric.TRAIN_LOSS: epoch_loss,
+                Metric.VAL_LOSS: val_loss,
+                Metric.VAL_ACC: val_acc,
+                Metric.NETWORK: self.model,
+                Metric.DATA: data,
+                Metric.LABELS: labels,
+                Metric.CUSTOM: ("epoch", epoch_idx)
+            }
+        
         return epoch_loss
     
     def evaluate(self, model, data_loader, criterion, device):
@@ -130,55 +150,39 @@ class SimpleClassifierPipeline(Pipeline, YAMLSerializable):
         epoch_acc = correct / len(data_loader.dataset)
         return epoch_loss, epoch_acc
 
+    @Pipeline.run_wrapper
     def run(self, config: DictConfig):
         """Run the pipeline."""
+        
         self.env.logger.info("Starting pipeline run")
-        self.on_start()
         
         # Create DataLoaders for training, validation, and testing
         train_loader = DataLoader(TensorDataset(self.X_train, self.y_train), batch_size=self.batch_size, shuffle=True)
         val_loader = DataLoader(TensorDataset(self.X_val, self.y_val), batch_size=self.batch_size, shuffle=False)
         test_loader = DataLoader(TensorDataset(self.X_test, self.y_test), batch_size=self.batch_size, shuffle=False)
         for epoch in range(self.epochs):
-            self.on_epoch_start()
             self.env.logger.info(f"Epoch {epoch+1}/{self.epochs}")
 
             # Train the model for one epoch
-            train_loss = self.train_one_epoch(self.model, train_loader, self.criterion, self.optimizer, self.device)
-
-            # Evaluate on validation set
-            val_loss, val_acc = self.evaluate(self.model, val_loader, self.criterion, self.device)
-            test_loss, test_acc = self.evaluate(self.model, test_loader, self.criterion, self.device)
-            # Track metrics
-            self.env.tracker_manager.track(Metric.TRAIN_LOSS, train_loss)
-            self.env.tracker_manager.track(Metric.VAL_LOSS, val_loss)
-            self.env.tracker_manager.track(Metric.VAL_ACC, val_acc)
-            self.env.tracker_manager.track(Metric.TEST_ACC, test_acc)
-            self.env.tracker_manager.track(Metric.TEST_LOSS, test_loss)
-
-            metrics = {
-                Metric.TRAIN_LOSS: train_loss,
-                Metric.VAL_LOSS: val_loss,
-                Metric.VAL_ACC: val_acc,
-                Metric.TEST_ACC: test_acc,
-                Metric.NETWORK: self.model
-            }
+            self.run_epoch(epoch, self.model, train_loader, val_loader, self.criterion, self.optimizer, self.device)
             
-            if epoch % 3 == 0:
-                checkpoint_path = os.path.join(self.env.artifact_dir, f"checkpoint_{epoch // 3}")
-                self.env.tracker_manager.on_checkpoint(self.model, checkpoint_path)
-            
-            self.on_epoch_end(epoch, metrics)
+            checkpoint_interval = 5
+            if epoch % checkpoint_interval == 0:
+                checkpoint_path = os.path.join(self.env.artifact_dir, f"checkpoint_{epoch // checkpoint_interval}")
+                self.env.tracker_manager.on_checkpoint(self.model, checkpoint_path, metrics = self.epoch_metrics)
 
         #final test
         test_loss, test_acc = self.evaluate(self.model, test_loader, self.criterion, self.device)
         self.env.tracker_manager.track(Metric.TEST_ACC, test_acc)
-        metrics = {
+        self.run_metrics = \
+            {
                 Metric.TEST_ACC: test_acc,
+                Metric.TEST_LOSS: test_loss,
                 Metric.NETWORK: self.model
-        }
-        self.on_end(metrics)
+            }
+        
         return {"test_acc": test_acc}
+
 
     def save(self):
         pass

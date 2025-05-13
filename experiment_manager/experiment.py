@@ -83,7 +83,7 @@ class Experiment:
             
         
     @staticmethod
-    def create(config_dir: str, factory: Factory) -> "Experiment":
+    def create(config_dir: str, factory: Factory, workdir: str = None) -> "Experiment":
         """
         Create a new environment from a configuration directory - you should always use this method to create a new experiment.
         """
@@ -94,6 +94,9 @@ class Experiment:
             raise ValueError(f"Missing configuration files in directory {config_dir}.")
         
         env_config = OmegaConf.load(os.path.join(config_dir, ConfigPaths.ENV_CONFIG.value))
+        if workdir:
+            env_config.workspace = workdir
+        
         experiment_config = OmegaConf.load(os.path.join(config_dir, ConfigPaths.CONFIG_FILE.value))
         base_config = OmegaConf.load(os.path.join(config_dir, ConfigPaths.BASE_CONFIG.value))
         trials_config = OmegaConf.load(os.path.join(config_dir, ConfigPaths.TRIALS_CONFIG.value))

@@ -34,6 +34,7 @@ class DBTracker(Tracker, YAMLSerializable):
                 recreate=recreate)
             
         self.epoch_idx = None
+        
     
     @classmethod
     def from_config(cls, config: DictConfig, workspace: str) -> "DBTracker":
@@ -48,18 +49,24 @@ class DBTracker(Tracker, YAMLSerializable):
             step: Optional step number
             *args: Additional args treated as per_label_val
         """
+        metric_name = metric.name
+        metric_value = value
+        if metric == Metric.CUSTOM:
+            metric_name = value[0]
+            metric_value = value[1]
+        
         if not self.id:
             raise ValueError("Tracker must be created first")
         
-        if isinstance(value, dict):
+        if isinstance(metric_value, dict):
             metric_record = self.db_manager.record_metric(
-                metric_type=metric.name,
+                metric_type=metric_name,
                 total_val=None,
-                per_label_val=value)
+                per_label_val=metric_value)
         else:
             metric_record = self.db_manager.record_metric(
-                metric_type=metric.name,
-                total_val=value,
+                metric_type=metric_name,
+                total_val=metric_value,
                 per_label_val=kwargs.get("per_label_val", None))
         
         # Link metric to current trial run if we're in an epoch
