@@ -8,6 +8,16 @@ from datetime import datetime
 
 # SQL statements for creating tables
 MYSQL_TABLES = {
+    "SCHEMA_VERSION": """
+    CREATE TABLE IF NOT EXISTS SCHEMA_VERSION (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        version VARCHAR(20) NOT NULL UNIQUE,
+        migration_name VARCHAR(255) NOT NULL,
+        description TEXT,
+        applied_at DATETIME NOT NULL,
+        rollback_script TEXT
+    )
+    """,
     "EXPERIMENT": """
     CREATE TABLE IF NOT EXISTS EXPERIMENT (
         id INT PRIMARY KEY AUTO_INCREMENT,

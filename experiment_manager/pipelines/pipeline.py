@@ -111,6 +111,10 @@ class Pipeline(ABC):
                 status = epoch_function(self, epoch_idx, model, *args, **kwargs)
                 self.env.tracker_manager.track_dict(self.epoch_metrics, epoch_idx)
             
+            except Exception as e:
+                self.env.logger.error(f"Pipeline epoch failed: {e}")
+                status = RunStatus.FAILED
+            
             finally:
                 should_stop = self._on_epoch_end(epoch_idx, self.epoch_metrics)
                 if should_stop:
