@@ -4,6 +4,18 @@ Performance Tracker for Experiment Manager
 This module provides comprehensive performance monitoring during experiment execution,
 tracking CPU, memory, GPU utilization, disk I/O, and other system metrics with
 cross-platform support and bottleneck detection.
+
+PERFORMANCE OPTIMIZATIONS:
+- Uses non-blocking CPU measurement (psutil.cpu_percent(interval=None)) to avoid 0.1s delays
+- Implements lightweight_mode for faster initialization (default in from_config)
+- Lazy GPU monitoring initialization to avoid driver detection delays
+- Lazy baseline establishment to prevent blocking during tracker creation
+- Graceful error handling to prevent hangs when hardware monitoring fails
+
+LIGHTWEIGHT MODE:
+- When lightweight_mode=True, GPU monitoring and baseline capture are skipped during init
+- Monitoring can be upgraded to full mode with enable_full_monitoring() when needed
+- Default mode from YAML configuration for optimal performance in factory creation
 """
 import os
 import json
@@ -108,7 +120,9 @@ class PerformanceTracker(Tracker, YAMLSerializable):
                  cpu_threshold: float = 90.0,
                  memory_threshold: float = 90.0,
                  gpu_threshold: float = 95.0,
-                 history_size: int = 1000):
+                 history_size: int = 1000,
+                 lightweight_mode: bool = False,
+                 test_mode: bool = False):
         """
         Initialize PerformanceTracker.
         
@@ -121,8 +135,13 @@ class PerformanceTracker(Tracker, YAMLSerializable):
             memory_threshold: Memory usage alert threshold (%)
             gpu_threshold: GPU usage alert threshold (%)
             history_size: Number of snapshots to keep in memory
+            lightweight_mode: If True, skip expensive initialization for faster startup
+            test_mode: If True, disable all monitoring threads for testing
         """
         super().__init__(workspace)
+        
+        # Ensure workspace directory exists
+        os.makedirs(self.workspace, exist_ok=True)
         
         # Configuration
         self.monitoring_interval = monitoring_interval
@@ -132,6 +151,8 @@ class PerformanceTracker(Tracker, YAMLSerializable):
         self.memory_threshold = memory_threshold
         self.gpu_threshold = gpu_threshold
         self.history_size = history_size
+        self.lightweight_mode = lightweight_mode
+        self.test_mode = test_mode
         
         # State
         self.id = None
@@ -146,18 +167,19 @@ class PerformanceTracker(Tracker, YAMLSerializable):
         self.bottlenecks = []
         self.level_metrics = defaultdict(list)  # Metrics per hierarchy level
         
-        # GPU setup
+        # GPU setup - skip in lightweight mode
         self.gpu_count = 0
-        self._init_gpu_monitoring()
+        if not lightweight_mode:
+            self._init_gpu_monitoring()
         
-        # Baseline measurements
+        # Baseline measurements - lazy in all modes
         self.baseline_snapshot = None
         self._establish_baseline()
         
-        # File paths
-        self.performance_file = os.path.join(workspace, "performance_data.json")
-        self.alerts_file = os.path.join(workspace, "performance_alerts.json")
-        self.bottlenecks_file = os.path.join(workspace, "bottleneck_analysis.json")
+        # File paths - use self.workspace which has been processed by base Tracker class
+        self.performance_file = os.path.join(self.workspace, "performance_data.json")
+        self.alerts_file = os.path.join(self.workspace, "performance_alerts.json")
+        self.bottlenecks_file = os.path.join(self.workspace, "bottleneck_analysis.json")
         
     @classmethod
     def from_config(cls, config, workspace: str) -> "PerformanceTracker":
@@ -170,31 +192,55 @@ class PerformanceTracker(Tracker, YAMLSerializable):
             cpu_threshold=config.get("cpu_threshold", 90.0),
             memory_threshold=config.get("memory_threshold", 90.0),
             gpu_threshold=config.get("gpu_threshold", 95.0),
-            history_size=config.get("history_size", 1000)
+            history_size=config.get("history_size", 1000),
+            lightweight_mode=config.get("lightweight_mode", True),  # Default to lightweight for better performance
+            test_mode=config.get("test_mode", False)
         )
     
     def _init_gpu_monitoring(self):
         """Initialize GPU monitoring capabilities."""
         self.gpu_count = 0
         
+        # Try NVML first (fastest and most reliable)
         if HAS_NVML:
             try:
                 nvml.nvmlInit()
                 self.gpu_count = nvml.nvmlDeviceGetCount()
+                return  # Success, no need to try GPUtil
             except Exception:
-                pass
+                pass  # Silently fail and try next method
         
+        # Fallback to GPUtil
         if self.gpu_count == 0 and HAS_GPUTIL:
             try:
                 gpus = GPUtil.getGPUs()
                 self.gpu_count = len(gpus)
             except Exception:
-                pass
+                pass  # Silently fail, no GPU monitoring available
     
     def _establish_baseline(self):
         """Establish baseline performance measurements."""
-        if HAS_PSUTIL:
-            self.baseline_snapshot = self._capture_snapshot()
+        # Make baseline establishment lazy - only when actually needed
+        self.baseline_snapshot = None
+        
+    def _get_or_establish_baseline(self):
+        """Lazy initialization of baseline snapshot."""
+        if self.baseline_snapshot is None and HAS_PSUTIL:
+            try:
+                self.baseline_snapshot = self._capture_snapshot()
+            except Exception:
+                pass  # Silently fail if baseline can't be established
+        return self.baseline_snapshot
+    
+    def enable_full_monitoring(self):
+        """Upgrade from lightweight mode to full monitoring."""
+        if self.lightweight_mode:
+            self.lightweight_mode = False
+            # Initialize GPU monitoring if not already done
+            if self.gpu_count == 0:
+                self._init_gpu_monitoring()
+            # Establish baseline if not already done
+            self._get_or_establish_baseline()
     
     def _capture_snapshot(self) -> PerformanceSnapshot:
         """Capture current system performance snapshot."""
@@ -204,8 +250,8 @@ class PerformanceTracker(Tracker, YAMLSerializable):
             return snapshot
         
         try:
-            # CPU and memory
-            snapshot.cpu_percent = psutil.cpu_percent(interval=0.1)
+            # CPU and memory - use non-blocking CPU measurement
+            snapshot.cpu_percent = psutil.cpu_percent(interval=None)  # Non-blocking
             memory = psutil.virtual_memory()
             snapshot.memory_percent = memory.percent
             snapshot.memory_used_gb = memory.used / (1024**3)
@@ -213,7 +259,7 @@ class PerformanceTracker(Tracker, YAMLSerializable):
             
             # Disk I/O
             disk_io = psutil.disk_io_counters()
-            if disk_io and hasattr(self, '_prev_disk_io'):
+            if disk_io and hasattr(self, '_prev_disk_io') and self._prev_disk_io:
                 time_delta = time.time() - self._prev_disk_time
                 if time_delta > 0:
                     snapshot.disk_read_mb_s = (disk_io.read_bytes - self._prev_disk_io.read_bytes) / (1024**2) / time_delta
@@ -224,7 +270,7 @@ class PerformanceTracker(Tracker, YAMLSerializable):
             
             # Network I/O
             net_io = psutil.net_io_counters()
-            if net_io and hasattr(self, '_prev_net_io'):
+            if net_io and hasattr(self, '_prev_net_io') and self._prev_net_io:
                 time_delta = time.time() - self._prev_net_time
                 if time_delta > 0:
                     snapshot.network_sent_mb_s = (net_io.bytes_sent - self._prev_net_io.bytes_sent) / (1024**2) / time_delta
@@ -243,7 +289,7 @@ class PerformanceTracker(Tracker, YAMLSerializable):
         except Exception as e:
             warnings.warn(f"Error capturing system metrics: {e}")
         
-        # GPU monitoring
+        # GPU monitoring - only if successfully initialized
         snapshot.gpu_utilization = []
         snapshot.gpu_memory_used = []
         snapshot.gpu_memory_total = []
@@ -416,12 +462,13 @@ class PerformanceTracker(Tracker, YAMLSerializable):
     
     def start_monitoring(self):
         """Start performance monitoring."""
-        if self.is_monitoring:
+        if self.is_monitoring or self.test_mode:
             return
         
         self.is_monitoring = True
-        self.monitor_thread = threading.Thread(target=self._monitoring_loop, daemon=True)
-        self.monitor_thread.start()
+        if not self.test_mode:
+            self.monitor_thread = threading.Thread(target=self._monitoring_loop, daemon=True)
+            self.monitor_thread.start()
     
     def stop_monitoring(self):
         """Stop performance monitoring."""
@@ -658,8 +705,8 @@ class PerformanceTracker(Tracker, YAMLSerializable):
         if level in [Level.EXPERIMENT, Level.TRIAL_RUN, Level.EPOCH]:
             self.start_monitoring()
         
-        # Capture baseline for this level
-        if HAS_PSUTIL:
+        # Capture baseline for this level - but only if not in lightweight mode
+        if HAS_PSUTIL and not self.lightweight_mode:
             baseline = self._capture_snapshot()
             baseline_file = os.path.join(self.workspace, f"baseline_{level.name.lower()}.json")
             
@@ -685,8 +732,8 @@ class PerformanceTracker(Tracker, YAMLSerializable):
         with open(summary_file, 'w') as f:
             json.dump(summary, f, indent=2, default=str)
         
-        # Generate plot for this level
-        if HAS_MATPLOTLIB:
+        # Generate plot for this level - skip in test mode to prevent hanging
+        if HAS_MATPLOTLIB and not self.test_mode:
             plot_file = os.path.join(self.workspace, f"performance_plot_{level.name.lower()}.png")
             self.generate_performance_plot(plot_file, level)
         
@@ -736,7 +783,9 @@ class PerformanceTracker(Tracker, YAMLSerializable):
             cpu_threshold=self.cpu_threshold,
             memory_threshold=self.memory_threshold,
             gpu_threshold=self.gpu_threshold,
-            history_size=self.history_size
+            history_size=self.history_size,
+            lightweight_mode=self.lightweight_mode,
+            test_mode=self.test_mode
         )
         child.parent = self
         return child
@@ -808,8 +857,8 @@ class PerformanceTracker(Tracker, YAMLSerializable):
         with open(summary_file, 'w') as f:
             json.dump(overall_summary, f, indent=2, default=str)
         
-        # Generate final plot
-        if HAS_MATPLOTLIB and self.performance_history:
+        # Generate final plot - skip in test mode to prevent hanging
+        if HAS_MATPLOTLIB and not self.test_mode and self.performance_history:
             plot_file = os.path.join(self.workspace, "overall_performance_plot.png")
             self.generate_performance_plot(plot_file)
     
