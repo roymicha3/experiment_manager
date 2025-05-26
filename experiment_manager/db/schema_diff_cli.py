@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 def create_db_manager(database_path: str, use_sqlite: bool = True, 
                      host: str = "localhost", user: str = "root", 
-                     password: str = "", port: int = 3306) -> DatabaseManager:
+                     password: str = "") -> DatabaseManager:
     """Create and return a database manager instance.
     
     Args:
@@ -40,6 +40,7 @@ def create_db_manager(database_path: str, use_sqlite: bool = True,
             use_sqlite=False,
             host=host,
             user=user,
+            password=password
             password=password
         )
 
@@ -88,8 +89,7 @@ def extract_schema(database, mysql, host, user, password, port, output, include_
             use_sqlite=not mysql,
             host=host,
             user=user,
-            password=password,
-            port=port
+            password=password
         )
         
         # Extract schema
