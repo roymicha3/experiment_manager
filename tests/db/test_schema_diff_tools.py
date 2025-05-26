@@ -16,64 +16,127 @@ from experiment_manager.db.schema_comparator import (
 )
 
 
+@pytest.fixture
+def sqlite_db_manager():
+    """Create a test SQLite database manager with sample schema."""
+    with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
+        db_path = f.name
+    
+    manager = DatabaseManager(database_path=db_path, use_sqlite=True)
+    
+    # Create sample schema
+    manager._execute_query("""
+        CREATE TABLE users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
+            email TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            is_active BOOLEAN DEFAULT 1
+        )
+    """)
+    
+    manager._execute_query("""
+        CREATE TABLE posts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            content TEXT,
+            published_at DATETIME,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    """)
+    
+    manager._execute_query("""
+        CREATE INDEX idx_posts_user_id ON posts (user_id)
+    """)
+    
+    manager._execute_query("""
+        CREATE UNIQUE INDEX idx_users_username ON users (username)
+    """)
+    
+    # Insert some test data
+    manager._execute_query("INSERT INTO users (username, email) VALUES ('test1', 'test1@example.com')")
+    manager._execute_query("INSERT INTO users (username, email) VALUES ('test2', 'test2@example.com')")
+    manager._execute_query("INSERT INTO posts (user_id, title, content) VALUES (1, 'Test Post', 'Content')")
+    
+    yield manager
+    
+    # Cleanup
+    try:
+        manager.connection.close()
+        Path(db_path).unlink()
+    except:
+        pass
+
+
+@pytest.fixture
+def clean_sqlite_db_manager():
+    """Create a clean test SQLite database manager with only test schema."""
+    with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
+        db_path = f.name
+    
+    # Create a raw SQLite connection without the experiment manager schema
+    import sqlite3
+    connection = sqlite3.connect(db_path)
+    cursor = connection.cursor()
+    
+    # Create sample schema
+    cursor.execute("""
+        CREATE TABLE users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL UNIQUE,
+            email TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            is_active BOOLEAN DEFAULT 1
+        )
+    """)
+    
+    cursor.execute("""
+        CREATE TABLE posts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            content TEXT,
+            published_at DATETIME,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    """)
+    
+    cursor.execute("""
+        CREATE INDEX idx_posts_user_id ON posts (user_id)
+    """)
+    
+    cursor.execute("""
+        CREATE UNIQUE INDEX idx_users_username ON users (username)
+    """)
+    
+    # Insert some test data
+    cursor.execute("INSERT INTO users (username, email) VALUES ('test1', 'test1@example.com')")
+    cursor.execute("INSERT INTO users (username, email) VALUES ('test2', 'test2@example.com')")
+    cursor.execute("INSERT INTO posts (user_id, title, content) VALUES (1, 'Test Post', 'Content')")
+    
+    connection.commit()
+    connection.close()
+    
+    # Now create the DatabaseManager with the existing database
+    manager = DatabaseManager(database_path=db_path, use_sqlite=True)
+    
+    yield manager
+    
+    # Cleanup
+    try:
+        manager.connection.close()
+        Path(db_path).unlink()
+    except:
+        pass
+
+
 class TestSchemaInspector:
     """Test cases for SchemaInspector functionality."""
     
-    @pytest.fixture
-    def sqlite_db_manager(self):
-        """Create a test SQLite database manager with sample schema."""
-        with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
-            db_path = f.name
-        
-        manager = DatabaseManager(database_path=db_path, use_sqlite=True)
-        
-        # Create sample schema
-        manager._execute_query("""
-            CREATE TABLE users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT NOT NULL UNIQUE,
-                email TEXT NOT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                is_active BOOLEAN DEFAULT 1
-            )
-        """)
-        
-        manager._execute_query("""
-            CREATE TABLE posts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                title TEXT NOT NULL,
-                content TEXT,
-                published_at DATETIME,
-                FOREIGN KEY (user_id) REFERENCES users (id)
-            )
-        """)
-        
-        manager._execute_query("""
-            CREATE INDEX idx_posts_user_id ON posts (user_id)
-        """)
-        
-        manager._execute_query("""
-            CREATE UNIQUE INDEX idx_users_username ON users (username)
-        """)
-        
-        # Insert some test data
-        manager._execute_query("INSERT INTO users (username, email) VALUES ('test1', 'test1@example.com')")
-        manager._execute_query("INSERT INTO users (username, email) VALUES ('test2', 'test2@example.com')")
-        manager._execute_query("INSERT INTO posts (user_id, title, content) VALUES (1, 'Test Post', 'Content')")
-        
-        yield manager
-        
-        # Cleanup
-        try:
-            manager.connection.close()
-            Path(db_path).unlink()
-        except:
-            pass
-    
-    def test_extract_full_schema(self, sqlite_db_manager):
+    def test_extract_full_schema(self, clean_sqlite_db_manager):
         """Test extracting complete schema from database."""
-        inspector = SchemaInspector(sqlite_db_manager)
+        inspector = SchemaInspector(clean_sqlite_db_manager)
         schema = inspector.extract_full_schema()
         
         assert isinstance(schema, DatabaseSchema)
@@ -556,7 +619,7 @@ class TestSchemaComparator:
             assert 'overall_impact' in data
             assert 'summary' in data
             
-            # Check content
+            # Check content - now expecting enum names instead of values
             assert data['overall_impact'] in ['BREAKING', 'MAJOR']
             assert len(data['table_diffs']) == 2
             
@@ -669,7 +732,8 @@ class TestSchemaAnalysis:
             plan = _generate_migration_plan_from_diff(diff_data, strategy)
             
             assert isinstance(plan, str)
-            assert strategy.upper() in plan
+            # Check for strategy in the plan (it appears as "Strategy: {strategy}")
+            assert f"Strategy: {strategy}" in plan
             assert 'BREAKING' in plan
             assert 'BEGIN TRANSACTION' in plan
             assert 'COMMIT' in plan

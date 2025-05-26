@@ -24,10 +24,30 @@ class ChangeType(Enum):
 
 class ImpactLevel(Enum):
     """Impact levels for schema changes."""
-    BREAKING = "BREAKING"      # Requires data migration or breaks compatibility
-    MAJOR = "MAJOR"           # Significant change that may affect operations
-    MINOR = "MINOR"           # Minor change with minimal impact
-    COSMETIC = "COSMETIC"     # Non-functional changes (comments, etc.)
+    COSMETIC = 0      # Non-functional changes (comments, etc.)
+    MINOR = 1         # Minor change with minimal impact
+    MAJOR = 2         # Significant change that may affect operations
+    BREAKING = 3      # Requires data migration or breaks compatibility
+    
+    def __lt__(self, other):
+        if self.__class__ is other.__class__:
+            return self.value < other.value
+        return NotImplemented
+    
+    def __le__(self, other):
+        if self.__class__ is other.__class__:
+            return self.value <= other.value
+        return NotImplemented
+    
+    def __gt__(self, other):
+        if self.__class__ is other.__class__:
+            return self.value > other.value
+        return NotImplemented
+    
+    def __ge__(self, other):
+        if self.__class__ is other.__class__:
+            return self.value >= other.value
+        return NotImplemented
 
 @dataclass
 class ColumnDiff:
@@ -128,12 +148,18 @@ class SchemaDiff:
         for table_diff in self.table_diffs:
             if table_diff.change_type == ChangeType.ADDED:
                 summary["added_tables"] += 1
+                # Count all columns in new table as added
+                if table_diff.new_table:
+                    summary["added_columns"] += len(table_diff.new_table.columns)
             elif table_diff.change_type == ChangeType.REMOVED:
                 summary["removed_tables"] += 1
+                # Count all columns in removed table as removed
+                if table_diff.old_table:
+                    summary["removed_columns"] += len(table_diff.old_table.columns)
             elif table_diff.change_type == ChangeType.MODIFIED:
                 summary["modified_tables"] += 1
             
-            # Count column changes
+            # Count column changes (for modified tables)
             for col_diff in table_diff.column_diffs:
                 summary["total_columns"] += 1
                 if col_diff.change_type == ChangeType.ADDED:
@@ -172,6 +198,16 @@ class SchemaDiff:
                     summary["modified_foreign_keys"] += 1
         
         return summary
+
+class EnumEncoder(json.JSONEncoder):
+    """Custom JSON encoder for handling Enum objects."""
+    
+    def default(self, obj):
+        if isinstance(obj, Enum):
+            return obj.name  # Use enum name instead of value for consistency
+        elif isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
 
 class SchemaComparator:
     """Compares database schemas and generates comprehensive diff reports."""
@@ -889,6 +925,6 @@ class SchemaComparator:
         diff_dict = asdict(schema_diff)
         
         with open(output_file, 'w', encoding='utf-8') as f:
-            json.dump(diff_dict, f, indent=2, default=str)
+            json.dump(diff_dict, f, indent=2, cls=EnumEncoder)
         
         logger.info(f"Schema diff saved to {output_path}") 

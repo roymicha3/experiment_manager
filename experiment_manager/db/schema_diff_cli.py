@@ -23,7 +23,7 @@ def create_db_manager(database_path: str, use_sqlite: bool = True,
         host: MySQL host (ignored for SQLite)
         user: MySQL username (ignored for SQLite)
         password: MySQL password (ignored for SQLite)
-        port: MySQL port (ignored for SQLite)
+        port: MySQL port (ignored for SQLite, not supported by DatabaseManager)
         
     Returns:
         DatabaseManager: Configured database manager
@@ -34,13 +34,13 @@ def create_db_manager(database_path: str, use_sqlite: bool = True,
     if use_sqlite:
         return DatabaseManager(database_path=database_path, use_sqlite=True)
     else:
+        # Note: DatabaseManager doesn't support port parameter
         return DatabaseManager(
             database_path=database_path,
             use_sqlite=False,
             host=host,
             user=user,
-            password=password,
-            port=port
+            password=password
         )
 
 @click.group()
