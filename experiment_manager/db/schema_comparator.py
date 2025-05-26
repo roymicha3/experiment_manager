@@ -28,6 +28,20 @@ class ImpactLevel(Enum):
     MAJOR = "MAJOR"           # Significant change that may affect operations
     MINOR = "MINOR"           # Minor change with minimal impact
     COSMETIC = "COSMETIC"     # Non-functional changes (comments, etc.)
+    
+    def __lt__(self, other):
+        order = {"BREAKING": 4, "MAJOR": 3, "MINOR": 2, "COSMETIC": 1}
+        return order[self.value] < order[other.value]
+    
+    def __gt__(self, other):
+        order = {"BREAKING": 4, "MAJOR": 3, "MINOR": 2, "COSMETIC": 1}
+        return order[self.value] > order[other.value]
+    
+    def __eq__(self, other):
+        return self.value == other.value
+        
+    def __str__(self):
+        return self.value
 
 @dataclass
 class ColumnDiff:

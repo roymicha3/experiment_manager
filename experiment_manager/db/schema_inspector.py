@@ -623,44 +623,143 @@ class SchemaInspector:
         
         return metadata
     
-    def save_schema_to_file(self, schema: DatabaseSchema, output_path: str) -> None:
-        """Save schema to JSON file.
+    def save_schema_to_file(self, schema: DatabaseSchema, file_path: str):
+        """Save schema to a JSON file."""
+        schema_dict = {
+            'database_name': schema.database_name,
+            'database_type': schema.database_type,
+            'version': schema.version,
+            'schema_version': schema.schema_version,
+            'extracted_at': schema.extracted_at.isoformat(),
+            'metadata': schema.metadata,
+            'tables': [
+                {
+                    'name': table.name,
+                    'columns': [
+                        {
+                            'name': col.name,
+                            'data_type': col.data_type,
+                            'normalized_type': col.normalized_type.value,
+                            'is_nullable': col.is_nullable,
+                            'default_value': col.default_value,
+                            'is_primary_key': col.is_primary_key,
+                            'is_auto_increment': col.is_auto_increment,
+                            'character_maximum_length': col.character_maximum_length,
+                            'numeric_precision': col.numeric_precision,
+                            'numeric_scale': col.numeric_scale,
+                            'collation_name': col.collation_name,
+                            'comment': col.comment
+                        }
+                        for col in table.columns
+                    ],
+                    'indexes': [
+                        {
+                            'name': idx.name,
+                            'table_name': idx.table_name,
+                            'columns': idx.columns,
+                            'is_unique': idx.is_unique,
+                            'is_primary': idx.is_primary,
+                            'comment': idx.comment
+                        }
+                        for idx in table.indexes
+                    ],
+                    'foreign_keys': [
+                        {
+                            'name': fk.name,
+                            'table_name': fk.table_name,
+                            'column_name': fk.column_name,
+                            'referenced_table': fk.referenced_table,
+                            'referenced_column': fk.referenced_column,
+                            'on_update': fk.on_update,
+                            'on_delete': fk.on_delete
+                        }
+                        for fk in table.foreign_keys
+                    ],
+                    'check_constraints': table.check_constraints,
+                    'engine': table.engine,
+                    'charset': table.charset,
+                    'collation': table.collation,
+                    'comment': table.comment,
+                    'row_count': table.row_count,
+                    'data_size_bytes': table.data_size_bytes
+                }
+                for table in schema.tables
+            ]
+        }
         
-        Args:
-            schema: Database schema to save
-            output_path: Path to output file
-        """
-        from pathlib import Path
-        
-        output_file = Path(output_path)
-        output_file.parent.mkdir(parents=True, exist_ok=True)
-        
-        # Convert to dictionary for JSON serialization
-        schema_dict = asdict(schema)
-        
-        with open(output_file, 'w', encoding='utf-8') as f:
-            json.dump(schema_dict, f, indent=2, default=str)
-        
-        logger.info(f"Schema saved to {output_path}")
-    
-    def load_schema_from_file(self, input_path: str) -> DatabaseSchema:
-        """Load schema from JSON file.
-        
-        Args:
-            input_path: Path to input file
-            
-        Returns:
-            DatabaseSchema: Loaded schema
-        """
-        from pathlib import Path
-        
-        input_file = Path(input_path)
-        if not input_file.exists():
-            raise FileNotFoundError(f"Schema file not found: {input_path}")
-        
-        with open(input_file, 'r', encoding='utf-8') as f:
+        with open(file_path, 'w') as f:
+            json.dump(schema_dict, f, indent=2)
+
+    def load_schema_from_file(self, file_path: str) -> DatabaseSchema:
+        """Load schema from a JSON file."""
+        with open(file_path, 'r') as f:
             data = json.load(f)
         
-        # Convert back to dataclass instances
-        # This is a simplified approach - in production you might want more robust deserialization
-        return DatabaseSchema(**data) 
+        tables = []
+        for table_data in data['tables']:
+            columns = [
+                ColumnInfo(
+                    name=col['name'],
+                    data_type=col['data_type'],
+                    normalized_type=ColumnType(col['normalized_type']),
+                    is_nullable=col['is_nullable'],
+                    default_value=col['default_value'],
+                    is_primary_key=col['is_primary_key'],
+                    is_auto_increment=col['is_auto_increment'],
+                    character_maximum_length=col['character_maximum_length'],
+                    numeric_precision=col['numeric_precision'],
+                    numeric_scale=col['numeric_scale'],
+                    collation_name=col['collation_name'],
+                    comment=col['comment']
+                )
+                for col in table_data['columns']
+            ]
+            
+            indexes = [
+                IndexInfo(
+                    name=idx['name'],
+                    table_name=idx['table_name'],
+                    columns=idx['columns'],
+                    is_unique=idx['is_unique'],
+                    is_primary=idx['is_primary'],
+                    comment=idx['comment']
+                )
+                for idx in table_data['indexes']
+            ]
+            
+            foreign_keys = [
+                ForeignKeyInfo(
+                    name=fk['name'],
+                    table_name=fk['table_name'],
+                    column_name=fk['column_name'],
+                    referenced_table=fk['referenced_table'],
+                    referenced_column=fk['referenced_column'],
+                    on_update=fk['on_update'],
+                    on_delete=fk['on_delete']
+                )
+                for fk in table_data['foreign_keys']
+            ]
+            
+            tables.append(TableInfo(
+                name=table_data['name'],
+                columns=columns,
+                indexes=indexes,
+                foreign_keys=foreign_keys,
+                check_constraints=table_data['check_constraints'],
+                engine=table_data['engine'],
+                charset=table_data['charset'],
+                collation=table_data['collation'],
+                comment=table_data['comment'],
+                row_count=table_data['row_count'],
+                data_size_bytes=table_data['data_size_bytes']
+            ))
+        
+        return DatabaseSchema(
+            database_name=data['database_name'],
+            database_type=data['database_type'],
+            version=data['version'],
+            tables=tables,
+            schema_version=data['schema_version'],
+            extracted_at=datetime.fromisoformat(data['extracted_at']),
+            metadata=data['metadata']
+        ) 

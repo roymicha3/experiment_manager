@@ -438,7 +438,7 @@ class DatabaseManager:
         query = f"""
         SELECT id, version, migration_name, description, applied_at, rollback_script
         FROM SCHEMA_VERSION
-        ORDER BY applied_at DESC
+        ORDER BY id DESC
         LIMIT 1
         """
         
