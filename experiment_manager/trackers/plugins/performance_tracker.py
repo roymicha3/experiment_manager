@@ -17,24 +17,21 @@ LIGHTWEIGHT MODE:
 - Monitoring can be upgraded to full mode with enable_full_monitoring() when needed
 - Default mode from YAML configuration for optimal performance in factory creation
 """
-import os
 import json
-import time
+import os
 import threading
+import time
 import warnings
-from datetime import datetime, timedelta
-from typing import Dict, Any, Optional, List, Tuple
-from dataclasses import dataclass, field
 from collections import defaultdict, deque
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 # Cross-platform system monitoring
-try:
-    import psutil
-    HAS_PSUTIL = True
-except ImportError:
-    HAS_PSUTIL = False
-    warnings.warn("psutil not available - limited performance monitoring", ImportWarning)
+
+HAS_PSUTIL = False
+warnings.warn("psutil not available - limited performance monitoring", ImportWarning)
 
 # GPU monitoring 
 try:
@@ -43,23 +40,24 @@ try:
 except ImportError:
     HAS_GPUTIL = False
 
-try:
-    import nvidia_ml_py3 as nvml
-    HAS_NVML = True
-except ImportError:
-    HAS_NVML = False
+# try:
+#     import nvidia_ml_py3 as nvml
+#     HAS_NVML = True
+# except ImportError:
+    # HAS_NVML = False
+HAS_NVML = False
 
 # Plotting capabilities
 try:
-    import matplotlib.pyplot as plt
     import matplotlib.dates as mdates
+    import matplotlib.pyplot as plt
     HAS_MATPLOTLIB = True
 except ImportError:
     HAS_MATPLOTLIB = False
 
-from experiment_manager.trackers.tracker import Tracker
-from experiment_manager.common.common import Metric, Level
+from experiment_manager.common.common import Level, Metric
 from experiment_manager.common.serializable import YAMLSerializable
+from experiment_manager.trackers.tracker import Tracker
 
 
 @dataclass

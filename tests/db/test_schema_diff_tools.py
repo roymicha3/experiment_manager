@@ -432,7 +432,7 @@ class TestSchemaComparator:
         summary = diff.summary
         assert summary['added_tables'] == 1  # posts table
         assert summary['modified_tables'] == 1  # users table
-        assert summary['added_columns'] == 2  # Actual number of added columns
+        assert summary['added_columns'] == 5  # 2 columns added to users + 3 columns in new posts table
     
     def test_compare_table_modifications(self, sample_schemas):
         """Test detection of table modifications."""
@@ -745,6 +745,12 @@ class TestIntegration:
     
     def test_complete_schema_diff_workflow(self, sqlite_db_manager):
         """Test complete workflow from extraction to diff generation."""
+        # Drop table if it exists to avoid conflicts
+        try:
+            sqlite_db_manager._execute_query("DROP TABLE IF EXISTS users")
+        except:
+            pass
+        
         # Create test tables
         sqlite_db_manager._execute_query("""
             CREATE TABLE users (

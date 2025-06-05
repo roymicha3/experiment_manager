@@ -816,7 +816,7 @@ class SchemaComparator:
         <p><strong>Source:</strong> {schema_diff.source_schema.database_name} (v{schema_diff.source_schema.schema_version or 'unknown'})</p>
         <p><strong>Target:</strong> {schema_diff.target_schema.database_name} (v{schema_diff.target_schema.schema_version or 'unknown'})</p>
         <p><strong>Generated:</strong> {schema_diff.generated_at.strftime('%Y-%m-%d %H:%M:%S')}</p>
-        <p><strong>Overall Impact:</strong> <span class="impact-{schema_diff.overall_impact.value.lower()}">{schema_diff.overall_impact.value}</span></p>
+        <p><strong>Overall Impact:</strong> <span class="impact-{schema_diff.overall_impact.name.lower()}">{schema_diff.overall_impact.name}</span></p>
     </div>
     
     <div class="summary">
@@ -837,14 +837,14 @@ class SchemaComparator:
             if table_diff.change_type == ChangeType.UNCHANGED:
                 continue
                 
-            change_class = f"change-{table_diff.change_type.value.lower()}"
-            impact_class = f"impact-{table_diff.impact_level.value.lower()}"
+            change_class = f"change-{table_diff.change_type.name.lower()}"
+            impact_class = f"impact-{table_diff.impact_level.name.lower()}"
             
             html += f"""
     <div class="table-diff">
         <div class="table-header {change_class}">
-            <h3>Table: {table_diff.table_name} ({table_diff.change_type.value})</h3>
-            <span class="{impact_class}">Impact: {table_diff.impact_level.value}</span>
+            <h3>Table: {table_diff.table_name} ({table_diff.change_type.name})</h3>
+            <span class="{impact_class}">Impact: {table_diff.impact_level.name}</span>
         </div>
         <div class="details">
 """
@@ -859,13 +859,13 @@ class SchemaComparator:
             if table_diff.column_diffs:
                 html += "<h4>Column Changes</h4><table><tr><th>Column</th><th>Change</th><th>Impact</th><th>Description</th></tr>"
                 for col_diff in table_diff.column_diffs:
-                    change_class = f"change-{col_diff.change_type.value.lower()}"
-                    impact_class = f"impact-{col_diff.impact_level.value.lower()}"
+                    change_class = f"change-{col_diff.change_type.name.lower()}"
+                    impact_class = f"impact-{col_diff.impact_level.name.lower()}"
                     html += f"""
                     <tr class="{change_class}">
                         <td>{col_diff.column_name}</td>
-                        <td>{col_diff.change_type.value}</td>
-                        <td class="{impact_class}">{col_diff.impact_level.value}</td>
+                        <td>{col_diff.change_type.name}</td>
+                        <td class="{impact_class}">{col_diff.impact_level.name}</td>
                         <td>{col_diff.impact_description}</td>
                     </tr>
 """
@@ -875,13 +875,13 @@ class SchemaComparator:
             if table_diff.index_diffs:
                 html += "<h4>Index Changes</h4><table><tr><th>Index</th><th>Change</th><th>Impact</th><th>Description</th></tr>"
                 for idx_diff in table_diff.index_diffs:
-                    change_class = f"change-{idx_diff.change_type.value.lower()}"
-                    impact_class = f"impact-{idx_diff.impact_level.value.lower()}"
+                    change_class = f"change-{idx_diff.change_type.name.lower()}"
+                    impact_class = f"impact-{idx_diff.impact_level.name.lower()}"
                     html += f"""
                     <tr class="{change_class}">
                         <td>{idx_diff.index_name}</td>
-                        <td>{idx_diff.change_type.value}</td>
-                        <td class="{impact_class}">{idx_diff.impact_level.value}</td>
+                        <td>{idx_diff.change_type.name}</td>
+                        <td class="{impact_class}">{idx_diff.impact_level.name}</td>
                         <td>{idx_diff.impact_description}</td>
                     </tr>
 """
@@ -891,13 +891,13 @@ class SchemaComparator:
             if table_diff.foreign_key_diffs:
                 html += "<h4>Foreign Key Changes</h4><table><tr><th>Foreign Key</th><th>Change</th><th>Impact</th><th>Description</th></tr>"
                 for fk_diff in table_diff.foreign_key_diffs:
-                    change_class = f"change-{fk_diff.change_type.value.lower()}"
-                    impact_class = f"impact-{fk_diff.impact_level.value.lower()}"
+                    change_class = f"change-{fk_diff.change_type.name.lower()}"
+                    impact_class = f"impact-{fk_diff.impact_level.name.lower()}"
                     html += f"""
                     <tr class="{change_class}">
                         <td>{fk_diff.fk_name}</td>
-                        <td>{fk_diff.change_type.value}</td>
-                        <td class="{impact_class}">{fk_diff.impact_level.value}</td>
+                        <td>{fk_diff.change_type.name}</td>
+                        <td class="{impact_class}">{fk_diff.impact_level.name}</td>
                         <td>{fk_diff.impact_description}</td>
                     </tr>
 """

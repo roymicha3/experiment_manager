@@ -41,7 +41,6 @@ def create_db_manager(database_path: str, use_sqlite: bool = True,
             host=host,
             user=user,
             password=password
-            password=password
         )
 
 @click.group()
