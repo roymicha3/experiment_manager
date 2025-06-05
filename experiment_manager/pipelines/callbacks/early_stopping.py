@@ -11,11 +11,13 @@ class EarlyStopping(Callback, YAMLSerializable):
     """
     Early stops the training if validation metric doesn't improve after a given patience.
     """
-    def __init__(self, env: Environment, metric: str = Metric.VAL_LOSS, patience: int = 5, min_delta_percent: float = 0.0):
+    def __init__(self, env: Environment, metric: str = Metric.VAL_LOSS, patience: int = 5, min_delta_percent: float = 0.0, mode: str = "min"):
         """
         Args:
             patience (int): How many epochs to wait after last improvement.
             min_delta_percent (float): Minimum percentage change to qualify as an improvement.
+            mode (str): One of "min" or "max". In "min" mode, training stops when metric stops decreasing. 
+                       In "max" mode, training stops when metric stops increasing.
         """
         super(EarlyStopping, self).__init__()
         super(YAMLSerializable, self).__init__()
@@ -24,21 +26,32 @@ class EarlyStopping(Callback, YAMLSerializable):
         self.metric = metric
         self.patience = patience
         self.min_delta_percent = min_delta_percent
+        self.mode = mode.lower()
         self.counter = 0
         self.best_metric = None
         self.early_stop = False
-        self.env.logger.info(f"Early stopping initialized with patience={patience}, min_delta_percent={min_delta_percent}%")
+        
+        if self.mode not in ["min", "max"]:
+            raise ValueError(f"Mode must be 'min' or 'max', got '{mode}'")
+        
+        self.env.logger.info(f"Early stopping initialized with patience={patience}, min_delta_percent={min_delta_percent}%, mode={self.mode}")
 
     @classmethod
     def from_config(cls, config: DictConfig, env: Environment):
         """
         Create an instance from a DictConfig.
         """
+        if type(config.metric) == str:
+            metric = Metric(config.metric)
+        else:
+            metric = config.metric
+        
         return cls(
             env=env,
-            metric=config.metric,
+            metric=metric,
             patience=config.patience,
-            min_delta_percent=config.min_delta_percent
+            min_delta_percent=config.min_delta_percent,
+            mode=getattr(config, 'mode', 'min')  # Default to 'min' if not specified
         )
 
     def on_start(self) -> None:
@@ -62,9 +75,11 @@ class EarlyStopping(Callback, YAMLSerializable):
             self.best_metric = current_metric
             return True
             
-        # For loss metrics, lower is better; for others, higher is better
-        is_loss = 'loss' in self.metric.lower()
-        delta = self.best_metric - current_metric if is_loss else current_metric - self.best_metric
+        # Calculate improvement based on mode: 'min' means lower is better, 'max' means higher is better
+        if self.mode == "min":
+            delta = self.best_metric - current_metric  # Positive delta means improvement (metric decreased)
+        else:  # mode == "max"
+            delta = current_metric - self.best_metric  # Positive delta means improvement (metric increased)
         delta_percent = 100 * delta / abs(self.best_metric)
         
         if delta_percent > self.min_delta_percent:
