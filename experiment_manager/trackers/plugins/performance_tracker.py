@@ -194,7 +194,7 @@ class PerformanceTracker(Tracker, YAMLSerializable):
             memory_threshold=config.get("memory_threshold", 90.0),
             gpu_threshold=config.get("gpu_threshold", 95.0),
             history_size=config.get("history_size", 1000),
-            lightweight_mode=config.get("lightweight_mode", True),  # Default to lightweight for better performance
+            lightweight_mode=config.get("lightweight_mode", False),  # Default to full monitoring
             test_mode=config.get("test_mode", False)
         )
     

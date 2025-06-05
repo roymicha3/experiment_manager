@@ -18,7 +18,7 @@ class BaseLogger(ABC):
         self.logger = logging.getLogger(name)
         self.logger.propagate = False
         self.logger.setLevel(self.level)
-        self.formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        self.formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
         self._setup_handler()
     
     @abstractmethod
