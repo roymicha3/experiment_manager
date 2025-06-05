@@ -42,7 +42,15 @@ class EarlyStopping(Callback, YAMLSerializable):
         Create an instance from a DictConfig.
         """
         if type(config.metric) == str:
-            metric = Metric(config.metric)
+            # Convert string name to enum by finding the matching enum member
+            metric_name = config.metric.upper()
+            try:
+                metric = getattr(Metric, metric_name)
+            except AttributeError:
+                # Try to find by name property (lowercase)
+                metric = next((m for m in Metric if m.name == config.metric), None)
+                if metric is None:
+                    raise ValueError(f"Invalid metric name: {config.metric}. Valid options: {[m.name for m in Metric]}")
         else:
             metric = config.metric
         
