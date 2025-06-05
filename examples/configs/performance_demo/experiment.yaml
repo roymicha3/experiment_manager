@@ -1,0 +1,11 @@
+name: performance_monitoring_demo
+desc: A comprehensive demonstration of performance monitoring during ML workloads with real-time alerting and bottleneck detection
+id: 2
+
+settings:
+  debug: false
+  verbose: true
+  save_artifacts: true
+  generate_performance_plots: true
+
+trials: 

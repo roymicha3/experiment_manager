@@ -29,9 +29,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 # Cross-platform system monitoring
-
-HAS_PSUTIL = False
-warnings.warn("psutil not available - limited performance monitoring", ImportWarning)
+try:
+    import psutil
+    HAS_PSUTIL = True
+except ImportError:
+    HAS_PSUTIL = False
+    warnings.warn("psutil not available - limited performance monitoring", ImportWarning)
 
 # GPU monitoring 
 try:
@@ -549,6 +552,16 @@ class PerformanceTracker(Tracker, YAMLSerializable):
         if not snapshots:
             return
         
+        # Intelligent data decimation to prevent matplotlib tick issues
+        max_points = 1000  # Limit to 1000 data points for plotting
+        if len(snapshots) > max_points:
+            # Decimate data while preserving start, end, and key points
+            step = len(snapshots) // max_points
+            indices = list(range(0, len(snapshots), step))
+            if indices[-1] != len(snapshots) - 1:
+                indices.append(len(snapshots) - 1)  # Always include the last point
+            snapshots = [snapshots[i] for i in indices]
+        
         timestamps = [s.timestamp for s in snapshots]
         cpu_values = [s.cpu_percent for s in snapshots]
         memory_values = [s.memory_percent for s in snapshots]
@@ -556,7 +569,7 @@ class PerformanceTracker(Tracker, YAMLSerializable):
         fig, axes = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
         
         # CPU usage
-        axes[0].plot(timestamps, cpu_values, 'b-', label='CPU Usage %')
+        axes[0].plot(timestamps, cpu_values, 'b-', label='CPU Usage %', linewidth=1.5)
         axes[0].axhline(y=self.cpu_threshold, color='r', linestyle='--', alpha=0.7, label='CPU Threshold')
         axes[0].set_ylabel('CPU Usage (%)')
         axes[0].set_title('System Performance During Experiment')
@@ -564,17 +577,33 @@ class PerformanceTracker(Tracker, YAMLSerializable):
         axes[0].grid(True, alpha=0.3)
         
         # Memory usage
-        axes[1].plot(timestamps, memory_values, 'g-', label='Memory Usage %')
+        axes[1].plot(timestamps, memory_values, 'g-', label='Memory Usage %', linewidth=1.5)
         axes[1].axhline(y=self.memory_threshold, color='r', linestyle='--', alpha=0.7, label='Memory Threshold')
         axes[1].set_ylabel('Memory Usage (%)')
         axes[1].set_xlabel('Time')
         axes[1].legend()
         axes[1].grid(True, alpha=0.3)
         
-        # Format x-axis
+        # Smart x-axis formatting based on data duration
+        duration = timestamps[-1] - timestamps[0] if len(timestamps) > 1 else timedelta(0)
+        
         for ax in axes:
-            ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
-            ax.xaxis.set_major_locator(mdates.MinuteLocator(interval=1))
+            if duration.total_seconds() < 3600:  # Less than 1 hour
+                # Show time in MM:SS format with minute intervals
+                ax.xaxis.set_major_formatter(mdates.DateFormatter('%M:%S'))
+                ax.xaxis.set_major_locator(mdates.MinuteLocator(interval=max(1, int(duration.total_seconds() / 300))))
+            elif duration.total_seconds() < 86400:  # Less than 1 day
+                # Show time in HH:MM format with appropriate intervals
+                ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+                interval = max(1, int(duration.total_seconds() / 3600 / 6))  # Aim for ~6 ticks
+                ax.xaxis.set_major_locator(mdates.HourLocator(interval=interval))
+            else:  # More than 1 day
+                # Show date and time with day intervals
+                ax.xaxis.set_major_formatter(mdates.DateFormatter('%m/%d %H:%M'))
+                ax.xaxis.set_major_locator(mdates.DayLocator(interval=1))
+            
+            # Limit the maximum number of ticks to prevent overflow
+            ax.xaxis.set_major_locator(plt.MaxNLocator(nbins=10))
         
         plt.tight_layout()
         plt.savefig(output_path, dpi=150, bbox_inches='tight')

@@ -117,6 +117,8 @@ class Pipeline(ABC):
             
             finally:
                 should_stop = self._on_epoch_end(epoch_idx, self.epoch_metrics)
+                self.epoch_metrics.clear()
+                
                 if should_stop:
                     self.env.logger.info("Stopping pipeline execution")
                     raise StopIteration("Stopping pipeline execution")
