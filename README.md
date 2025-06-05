@@ -94,6 +94,17 @@ Experiment Manager is particularly valuable for:
   - Comprehensive metric tracking and visualization
   - Custom callback support via base class
 
+- **Experiment Analytics Module**
+  - Sophisticated data analysis capabilities for experiment results
+  - Statistical aggregations and failure analysis
+  - Fluent query builder API for complex analytics queries
+  - Outlier detection and exclusion with multiple methods
+  - Cross-experiment comparative analysis and ranking
+  - Training curve analysis and convergence detection
+  - Comprehensive export capabilities (CSV, JSON, Excel, DataFrame)
+  - Visualization support for analytics results
+  - Performance optimization for large dataset analytics
+
 ## Installation
 
 ### From Source (Development)
@@ -656,6 +667,10 @@ workspace/
 │   ├── logs/              # Experiment-level logs
 │   │   └── metrics.log
 │   ├── artifacts/         # Experiment-level artifacts
+│   ├── analytics/         # Analytics Module workspace
+│   │   ├── reports/       # Generated analytics reports
+│   │   ├── exports/       # CSV/JSON/Excel exports
+│   │   └── comparisons/   # Cross-experiment comparisons
 │   └── trials/            # Trial directories
 │       ├── trial_1/
 │       │   ├── configs/   # Trial-specific configs
@@ -943,6 +958,273 @@ for i, model_type in enumerate(model_types):
 
 # Save and run as above
 ```
+
+## Experiment Analytics Module
+
+The Analytics Module provides sophisticated data analysis capabilities for experiment results, enabling researchers to extract insights from their experimental data through statistical analysis, outlier detection, failure analysis, and cross-experiment comparisons.
+
+### Core Features
+
+- **Fluent Query Builder API**: Construct complex analytics queries with chainable methods
+- **Statistical Analysis**: Comprehensive statistical aggregations and distributions
+- **Outlier Detection**: Multiple methods for identifying and excluding outliers
+- **Failure Analysis**: Pattern analysis and correlation detection for failed experiments
+- **Comparative Analytics**: Cross-experiment comparisons and ranking
+- **Training Curve Analysis**: Convergence detection and learning progress visualization
+- **Export Capabilities**: Multiple format support (CSV, JSON, Excel, DataFrame)
+- **Performance Optimization**: Database-level aggregations and query caching for large datasets
+
+### Quick Start with Analytics
+
+```python
+from experiment_manager.analytics.api import ExperimentAnalytics
+from experiment_manager.database.database_manager import DatabaseManager
+
+# Initialize analytics with your database
+db = DatabaseManager(database_path="experiments.db", use_sqlite=True)
+analytics = ExperimentAnalytics(db)
+
+# Extract results from an experiment
+results = analytics.extract_results("cifar10_experiment", include_failed=False)
+
+# Calculate statistics for specific metrics
+stats = analytics.calculate_statistics(
+    experiment_id=1, 
+    metric_types=["accuracy", "loss"],
+    group_by="trial"
+)
+
+# Analyze failures and patterns
+failure_analysis = analytics.analyze_failures(
+    experiment_id=1, 
+    correlation_analysis=True
+)
+
+# Compare multiple experiments
+comparison = analytics.compare_experiments(
+    experiment_ids=[1, 2, 3],
+    metric_type="accuracy"
+)
+```
+
+### Fluent Query Builder
+
+The QueryBuilder provides a powerful, chainable interface for constructing complex analytics queries:
+
+```python
+from experiment_manager.analytics.query_builder import AnalyticsQuery
+
+# Complex query with multiple filters and processing
+result = (AnalyticsQuery(db)
+          .experiments(names=["transformer_exp", "lstm_exp"])
+          .trials(status="completed")
+          .runs(exclude_failed=True, exclude_timeouts=True)
+          .metrics(types=["accuracy", "f1_score"], context="results")
+          .exclude_outliers(metric_type="accuracy", method="iqr", threshold=1.5)
+          .group_by("experiment")
+          .aggregate(["mean", "std", "max", "min"])
+          .execute())
+
+# Access structured results
+print(f"Mean accuracy: {result.aggregations['accuracy']['mean']}")
+print(f"Results shape: {result.raw_data.shape}")
+
+# Export to different formats
+result.export_csv("experiment_comparison.csv")
+result.export_json("experiment_comparison.json")
+result.to_dataframe()  # Returns pandas DataFrame
+```
+
+### Statistical Analysis and Outlier Detection
+
+```python
+# Detect outliers using different methods
+outliers_iqr = analytics.detect_outliers(
+    experiment_id=1,
+    metric_type="accuracy", 
+    method="iqr",
+    threshold=1.5
+)
+
+outliers_zscore = analytics.detect_outliers(
+    experiment_id=1,
+    metric_type="accuracy",
+    method="zscore",
+    threshold=2.0
+)
+
+# Advanced query with outlier exclusion
+clean_results = (AnalyticsQuery(db)
+                .experiments(ids=[1])
+                .trials(status="completed")
+                .exclude_outliers(metric_type="accuracy", method="iqr")
+                .exclude_outliers(metric_type="loss", method="modified_zscore")
+                .aggregate(["mean", "std", "confidence_interval"])
+                .execute())
+```
+
+### Training Curve Analysis
+
+```python
+# Analyze training curves for convergence patterns
+curve_analysis = analytics.analyze_training_curves(
+    trial_run_ids=[1, 2, 3, 4, 5],
+    metric_types=["train_loss", "val_loss", "val_accuracy"]
+)
+
+# Query epoch-level data for detailed analysis
+epoch_data = (AnalyticsQuery(db)
+             .experiments(ids=[1])
+             .trials(names=["trial_1", "trial_2"])
+             .runs(status="completed")
+             .metrics(types=["loss", "accuracy"], context="epoch")
+             .group_by("epoch")
+             .aggregate(["mean", "std"])
+             .execute())
+
+# Export training curves for visualization
+curve_analysis.export_csv("training_curves.csv", include_metadata=True)
+```
+
+### Failure Analysis and Pattern Detection
+
+```python
+# Comprehensive failure analysis
+failure_report = analytics.analyze_failures(
+    experiment_id=1,
+    correlation_analysis=True,
+    include_configurations=True
+)
+
+# Query specific failure patterns
+failed_runs = (AnalyticsQuery(db)
+              .experiments(ids=[1, 2, 3])
+              .trials(status=["failed", "timeout"])
+              .runs(status=["failed", "timeout"])
+              .include_configurations()
+              .execute())
+
+# Analyze configuration correlations with failures
+correlation_data = analytics.analyze_configuration_correlation(
+    experiment_ids=[1, 2, 3],
+    include_failure_rates=True
+)
+```
+
+### Cross-Experiment Comparison
+
+```python
+# Compare experiments across different architectures
+model_comparison = analytics.compare_experiments(
+    experiment_ids=[1, 2, 3],  # ResNet, VGG, Transformer experiments
+    metric_type="accuracy",
+    include_statistical_tests=True
+)
+
+# Advanced comparison with custom grouping
+comparison_results = (AnalyticsQuery(db)
+                     .experiments(names=["resnet_exp", "vgg_exp", "transformer_exp"])
+                     .trials(status="completed")
+                     .runs(exclude_failed=True)
+                     .metrics(types=["accuracy", "f1_score"])
+                     .group_by(["experiment", "trial"])
+                     .aggregate(["mean", "std", "max"])
+                     .execute())
+
+# Generate summary report
+summary_report = analytics.generate_summary_report(experiment_id=1)
+print(summary_report)
+```
+
+### Export and Visualization
+
+```python
+# Export analytics results in various formats
+result = analytics.extract_results("my_experiment")
+
+# CSV export with customizable options
+result.export_csv(
+    "results.csv",
+    include_metadata=True,
+    include_aggregations=True,
+    flatten_nested=True
+)
+
+# JSON export preserving full structure
+result.export_json(
+    "results.json",
+    include_raw_data=True,
+    pretty_print=True
+)
+
+# Excel export with multiple sheets
+result.export_excel(
+    "results.xlsx",
+    sheets=["raw_data", "aggregations", "metadata"],
+    include_charts=True
+)
+
+# DataFrame for further analysis
+df = result.to_dataframe()
+# Now you can use pandas/matplotlib/seaborn for custom analysis
+```
+
+### Configuration and Customization
+
+Analytics behavior can be configured through YAML configuration:
+
+```yaml
+# analytics_config.yaml
+analytics:
+  default_processors:
+    - statistics
+    - outliers
+    - failures
+  
+  outlier_detection:
+    default_method: "iqr"
+    iqr_threshold: 1.5
+    zscore_threshold: 2.0
+    
+  export_formats:
+    csv:
+      include_metadata: true
+      datetime_format: "%Y-%m-%d %H:%M:%S"
+    json:
+      pretty_print: true
+      
+  aggregation_functions:
+    - mean
+    - std
+    - min
+    - max
+    - median
+    - quantile_25
+    - quantile_75
+```
+
+### Performance Optimization
+
+For large datasets, the analytics module includes several performance optimizations:
+
+```python
+# Use database-level aggregations for better performance
+large_dataset_results = (AnalyticsQuery(db)
+                         .experiments(ids=list(range(1, 101)))  # 100 experiments
+                         .use_database_aggregation()  # Compute aggregations in DB
+                         .batch_size(1000)  # Process in chunks
+                         .cache_results()  # Cache intermediate results
+                         .aggregate(["mean", "std"])
+                         .execute())
+
+# Stream results for memory efficiency
+for batch in analytics.stream_results(experiment_ids=range(1, 1001), batch_size=100):
+    # Process each batch individually
+    batch_stats = batch.calculate_statistics()
+    batch.export_csv(f"batch_{batch.id}.csv")
+```
+
+The Analytics Module integrates seamlessly with the existing experiment hierarchy and database schema, providing a powerful tool for extracting insights from your experimental data.
 
 ## Contributing
 

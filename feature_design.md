@@ -1,5 +1,14 @@
 # Experiment Analytics Module - Integration Design Document
 
+> **Note**: This feature design document has been integrated into the main project documentation. The analytics module architecture and implementation details are now documented in:
+> - **README.md** - User-facing features and usage examples
+> - **COMPREHENSIVE_DOCUMENTATION.md** - Technical architecture and integration details  
+> - **scripts/DESIGN.md** - Core design patterns and component integration
+> 
+> This file is maintained for historical reference and initial specification details.
+
+---
+
 ## Executive Summary
 
 The **Experiment Analytics Module** will be integrated as a core feature within the existing Experiment Manager, providing sophisticated data analysis capabilities for experiment results, statistical aggregations, failure analysis, and comparative analytics. This module will directly leverage the existing database schema and follow established architectural patterns.
