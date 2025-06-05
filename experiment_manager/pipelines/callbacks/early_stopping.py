@@ -31,6 +31,22 @@ class EarlyStopping(Callback, YAMLSerializable):
         self.best_metric = None
         self.early_stop = False
         
+        # Additional attributes expected by tests
+        self.stopped_early = False
+        self.best_epoch = None
+        
+    @property
+    def wait_count(self):
+        """Alias for counter to match test expectations."""
+        return self.counter
+    
+    @property 
+    def metric_name(self):
+        """Return the string name of the metric for backward compatibility."""
+        if hasattr(self.metric, 'name'):
+            return self.metric.name.lower()
+        return str(self.metric)
+        
         if self.mode not in ["min", "max"]:
             raise ValueError(f"Mode must be 'min' or 'max', got '{mode}'")
         
@@ -67,6 +83,8 @@ class EarlyStopping(Callback, YAMLSerializable):
         self.env.logger.info(f"Starting training with {self.metric} monitoring")
         self.counter = 0
         self.best_metric = None
+        self.stopped_early = False
+        self.best_epoch = None
 
     def on_epoch_end(self, epoch_idx, metrics: Dict[str, Any]) -> bool:
         """
@@ -81,6 +99,7 @@ class EarlyStopping(Callback, YAMLSerializable):
         
         if self.best_metric is None:
             self.best_metric = current_metric
+            self.best_epoch = epoch_idx  # Set initial best epoch
             return True
             
         # Calculate improvement based on mode: 'min' means lower is better, 'max' means higher is better
@@ -92,6 +111,7 @@ class EarlyStopping(Callback, YAMLSerializable):
         
         if delta_percent > self.min_delta_percent:
             self.best_metric = current_metric
+            self.best_epoch = epoch_idx  # Track the epoch with the best metric
             self.counter = 0
             self.env.logger.info(f"Metric improved by {delta_percent:.2f}%")
         else:
@@ -99,6 +119,7 @@ class EarlyStopping(Callback, YAMLSerializable):
             self.env.logger.info(f"No improvement in {self.counter} epochs")
             
         if self.counter >= self.patience:
+            self.stopped_early = True  # Set flag when early stopping triggers
             self.env.logger.info(f"Early stopping triggered after {self.counter} epochs without improvement")
             return False
             

@@ -108,6 +108,8 @@ def test_env():
     with tempfile.TemporaryDirectory() as tmp_dir:
         env = Environment(workspace=tmp_dir)
         yield env
+        # Clean up all resources properly
+        env.close()
 
 
 @pytest.fixture

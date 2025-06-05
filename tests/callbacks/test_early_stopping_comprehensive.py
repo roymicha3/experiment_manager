@@ -36,19 +36,16 @@ class TestPipelineForEarlyStopping(Pipeline, YAMLSerializable):
         """Run the test pipeline with early stopping."""
         self.env.logger.info("Starting test pipeline for early stopping")
         
-        try:
-            for epoch in range(self.epochs):
-                self.current_epoch = epoch
-                self.run_epoch(epoch)
+        # The @Pipeline.run_wrapper will catch StopIteration and return RunStatus.STOPPED
+        # When early stopping triggers, the epoch_wrapper will raise StopIteration  
+        for epoch in range(self.epochs):
+            self.current_epoch = epoch
+            self.run_epoch(epoch, model=None)  # Pass None as model placeholder
                 
-        except StopIteration as e:
-            self.env.logger.info(f"Pipeline stopped early: {e}")
-            return {"status": "early_stopped", "epochs_completed": epoch + 1}
-        
         return {"status": "completed", "epochs_completed": self.epochs}
     
     @Pipeline.epoch_wrapper
-    def run_epoch(self, epoch_idx):
+    def run_epoch(self, epoch_idx: int, model, *args, **kwargs):
         """Run a single epoch with different loss patterns for testing."""
         
         if self.patience_test_mode == "improve":
@@ -84,13 +81,8 @@ def test_env():
         config = OmegaConf.create({"workspace": tmp_dir, "verbose": False})
         env = Environment(workspace=tmp_dir, config=config)
         yield env
-        # Clean up file handles to avoid Windows file lock issues
-        if hasattr(env.logger, 'close'):
-            env.logger.close()
-        elif hasattr(env.logger, 'handlers'):
-            for handler in env.logger.handlers[:]:
-                handler.close()
-                env.logger.removeHandler(handler)
+        # Clean up all resources properly
+        env.close()
 
 
 @pytest.fixture
@@ -106,13 +98,8 @@ def early_stopping_callback():
             min_delta_percent=1.0
         )
         yield callback
-        # Clean up file handles
-        if hasattr(env.logger, 'close'):
-            env.logger.close()
-        elif hasattr(env.logger, 'handlers'):
-            for handler in env.logger.handlers[:]:
-                handler.close()
-                env.logger.removeHandler(handler)
+        # Clean up all resources properly
+        env.close()
 
 
 class TestEarlyStopping:
@@ -144,7 +131,7 @@ class TestEarlyStopping:
         
         callback = EarlyStopping.from_config(config, test_env)
         
-        assert callback.metric == "val_acc"
+        assert callback.metric == Metric.VAL_ACC
         assert callback.patience == 10
         assert callback.min_delta_percent == 5.0
     
@@ -187,7 +174,8 @@ class TestEarlyStopping:
             env=test_env,
             metric=Metric.VAL_ACC,
             patience=3,
-            min_delta_percent=1.0
+            min_delta_percent=1.0,
+            mode="max"  # Higher accuracy is better
         )
         
         # First epoch - baseline
@@ -292,8 +280,7 @@ class TestEarlyStopping:
         result = pipeline.run(config)
         
         # Should have stopped early
-        assert result["status"] == "early_stopped"
-        assert result["epochs_completed"] < 10
+        assert result == RunStatus.STOPPED
     
     def test_early_stopping_with_improving_metrics(self, test_env):
         """Test that early stopping doesn't trigger when metrics keep improving."""
@@ -321,7 +308,8 @@ class TestEarlyStopping:
         
         result = pipeline.run(config)
         
-        # Should complete all epochs
+        # Should complete all epochs - pipeline returns what the run function returns
+        assert isinstance(result, dict)
         assert result["status"] == "completed"
         assert result["epochs_completed"] == 8
     
@@ -352,8 +340,7 @@ class TestEarlyStopping:
         result = pipeline.run(config)
         
         # Should stop early due to plateau
-        assert result["status"] == "early_stopped"
-        assert result["epochs_completed"] < 10
+        assert result == RunStatus.STOPPED
     
     def test_early_stopping_logs_analysis(self, test_env):
         """Test that early stopping events are properly logged for analysis."""
@@ -397,7 +384,7 @@ class TestEarlyStopping:
                     break
         
         assert found_early_stopping, "Early stopping should be logged"
-        assert result["status"] == "early_stopped"
+        assert result == RunStatus.STOPPED
 
 
 if __name__ == "__main__":

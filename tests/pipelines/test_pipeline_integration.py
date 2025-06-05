@@ -3,7 +3,7 @@ import pytest
 import tempfile
 import time
 from unittest.mock import Mock, patch
-from omegaconf import OmegaConf
+from omegaconf import OmegaConf, DictConfig
 
 from experiment_manager.environment import Environment
 from experiment_manager.pipelines.pipeline import Pipeline
@@ -18,12 +18,13 @@ class TestIntegrationPipeline(Pipeline, YAMLSerializable):
     """Test pipeline for integration testing with early stopping and analytics."""
     
     def __init__(self, env: Environment, epochs: int = 5, scenario: str = "normal"):
-        super().__init__(env, epochs)
+        super().__init__(env)
+        self.epochs = epochs
         self.scenario = scenario
         self.epoch_count = 0
         
     @Pipeline.run_wrapper
-    def run(self):
+    def run(self, config: DictConfig):
         """Main run method with proper pipeline wrapper."""
         self.env.logger.info(f"Starting integration test pipeline with scenario: {self.scenario}")
         
@@ -44,7 +45,7 @@ class TestIntegrationPipeline(Pipeline, YAMLSerializable):
         
         try:
             for epoch in range(self.epochs):
-                metrics = self._run_epoch(epoch)
+                metrics = self._run_epoch(epoch, model=None)  # Pass a model placeholder
                 
                 # Call callbacks
                 should_continue = True
@@ -65,38 +66,38 @@ class TestIntegrationPipeline(Pipeline, YAMLSerializable):
                 callback.on_end(final_metrics)
     
     @Pipeline.epoch_wrapper
-    def _run_epoch(self, epoch: int) -> dict:
+    def _run_epoch(self, epoch_idx: int, model, *args, **kwargs) -> dict:
         """Run a single epoch and return metrics."""
         self.epoch_count += 1
         
         # Simulate different scenarios
         if self.scenario == "improving":
             # Metrics improve consistently
-            train_loss = 1.0 - (epoch * 0.2)
-            val_loss = 1.0 - (epoch * 0.18)
-            val_acc = 0.5 + (epoch * 0.1)
+            train_loss = 1.0 - (epoch_idx * 0.2)
+            val_loss = 1.0 - (epoch_idx * 0.18)
+            val_acc = 0.5 + (epoch_idx * 0.1)
         elif self.scenario == "overfitting":
             # Training improves but validation gets worse after epoch 2
-            train_loss = 1.0 - (epoch * 0.15)
-            if epoch <= 2:
-                val_loss = 1.0 - (epoch * 0.1)
+            train_loss = 1.0 - (epoch_idx * 0.15)
+            if epoch_idx <= 2:
+                val_loss = 1.0 - (epoch_idx * 0.1)
             else:
-                val_loss = 0.8 + ((epoch - 2) * 0.1)  # Gets worse
-            val_acc = max(0.5 + (2 - abs(epoch - 2)) * 0.1, 0.3)
+                val_loss = 0.8 + ((epoch_idx - 2) * 0.1)  # Gets worse
+            val_acc = max(0.5 + (2 - abs(epoch_idx - 2)) * 0.1, 0.3)
         elif self.scenario == "plateauing":
             # Metrics improve then plateau
-            if epoch <= 2:
-                train_loss = 1.0 - (epoch * 0.2)
-                val_loss = 1.0 - (epoch * 0.18)
+            if epoch_idx <= 2:
+                train_loss = 1.0 - (epoch_idx * 0.2)
+                val_loss = 1.0 - (epoch_idx * 0.18)
             else:
                 train_loss = 0.6  # Plateaus
                 val_loss = 0.64  # Plateaus
-            val_acc = min(0.5 + (epoch * 0.1), 0.7)
+            val_acc = min(0.5 + (epoch_idx * 0.1), 0.7)
         else:  # normal
             # Standard improving metrics
-            train_loss = 1.0 - (epoch * 0.15)
-            val_loss = 1.0 - (epoch * 0.12)
-            val_acc = 0.5 + (epoch * 0.08)
+            train_loss = 1.0 - (epoch_idx * 0.15)
+            val_loss = 1.0 - (epoch_idx * 0.12)
+            val_acc = 0.5 + (epoch_idx * 0.08)
         
         # Add some small random noise
         import random
@@ -115,7 +116,7 @@ class TestIntegrationPipeline(Pipeline, YAMLSerializable):
             Metric.VAL_ACC: val_acc
         }
         
-        self.env.logger.info(f"Epoch {epoch}: {metrics}")
+        self.env.logger.info(f"Epoch {epoch_idx}: {metrics}")
         
         # Short delay to simulate work
         time.sleep(0.05)
@@ -141,13 +142,8 @@ def test_env():
         })
         env = Environment(workspace=tmp_dir, config=config)
         yield env
-        # Clean up file handles
-        if hasattr(env.logger, 'close'):
-            env.logger.close()
-        elif hasattr(env.logger, 'handlers'):
-            for handler in env.logger.handlers[:]:
-                handler.close()
-                env.logger.removeHandler(handler)
+        # Clean up all resources properly
+        env.close()
 
 
 class TestPipelineIntegration:
@@ -161,8 +157,11 @@ class TestPipelineIntegration:
             scenario="normal"
         )
         
+        # Create a simple config for the test
+        config = OmegaConf.create({"pipeline": {"epochs": 3}})
+        
         # Run pipeline
-        pipeline.run()
+        pipeline.run(config)
         
         # Should complete all epochs
         assert pipeline.epoch_count == 3
@@ -184,8 +183,11 @@ class TestPipelineIntegration:
             scenario="overfitting"
         )
         
+        # Create a simple config for the test
+        config = OmegaConf.create({"pipeline": {"epochs": 6}})
+        
         # Run pipeline
-        pipeline.run()
+        pipeline.run(config)
         
         # Should stop early (before epoch 6)
         assert pipeline.epoch_count < 6
@@ -204,7 +206,10 @@ class TestPipelineIntegration:
             scenario="improving"
         )
         
-        pipeline.run()
+        # Create a simple config for the test
+        config = OmegaConf.create({"pipeline": {"epochs": 4}})
+        
+        pipeline.run(config)
         
         # Get metrics from tracker
         metrics_tracker = pipeline.callbacks[1]
@@ -229,7 +234,10 @@ class TestPipelineIntegration:
             scenario="plateauing"
         )
         
-        pipeline.run()
+        # Create a simple config for the test
+        config = OmegaConf.create({"pipeline": {"epochs": 8}})
+        
+        pipeline.run(config)
         
         early_stopping = pipeline.callbacks[0]
         
@@ -246,7 +254,10 @@ class TestPipelineIntegration:
             scenario="normal"
         )
         
-        pipeline.run()
+        # Create a simple config for the test
+        config = OmegaConf.create({"pipeline": {"epochs": 3}})
+        
+        pipeline.run(config)
         
         # Both callbacks should be present
         assert len(pipeline.callbacks) == 2
@@ -272,7 +283,10 @@ class TestPipelineIntegration:
             scenario="normal"
         )
         
-        pipeline.run()
+        # Create a simple config for the test
+        config = OmegaConf.create({"pipeline": {"epochs": 1}})
+        
+        pipeline.run(config)
         
         # Should complete the single epoch
         assert pipeline.epoch_count == 1
@@ -293,7 +307,10 @@ class TestPipelineIntegration:
             scenario="normal"
         )
         
-        pipeline.run()
+        # Create a simple config for the test
+        config = OmegaConf.create({"pipeline": {"epochs": 2}})
+        
+        pipeline.run(config)
         
         metrics_tracker = pipeline.callbacks[1]
         
@@ -318,7 +335,10 @@ class TestPipelineIntegration:
             scenario="improving"
         )
         
-        pipeline.run()
+        # Create a simple config for the test
+        config = OmegaConf.create({"pipeline": {"epochs": 4}})
+        
+        pipeline.run(config)
         
         early_stopping = pipeline.callbacks[0]
         metrics_tracker = pipeline.callbacks[1]
@@ -350,9 +370,12 @@ class TestPipelineIntegration:
         
         pipeline._run_epoch = error_epoch
         
+        # Create a simple config for the test
+        config = OmegaConf.create({"pipeline": {"epochs": 3}})
+        
         # Should handle error gracefully
         with pytest.raises(RuntimeError, match="Simulated training error"):
-            pipeline.run()
+            pipeline.run(config)
         
         # But callbacks should still be properly cleaned up
         # (This would depend on implementation details)

@@ -23,13 +23,8 @@ def test_env():
         })
         env = Environment(workspace=tmp_dir, config=config)
         yield env
-        # Clean up file handles
-        if hasattr(env.logger, 'close'):
-            env.logger.close()
-        elif hasattr(env.logger, 'handlers'):
-            for handler in env.logger.handlers[:]:
-                handler.close()
-                env.logger.removeHandler(handler)
+        # Clean up all resources properly
+        env.close()
 
 
 @pytest.fixture
