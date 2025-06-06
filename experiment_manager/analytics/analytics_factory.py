@@ -251,7 +251,22 @@ class AnalyticsFactory(Factory):
         """
         processor_type = processor_type.lower().strip()
         
-        # Define default configurations for each processor type
+        # Use the comprehensive defaults from DefaultConfigurationManager
+        try:
+            from experiment_manager.analytics.defaults import DefaultConfigurationManager
+            
+            # Get standard configuration and extract processor config
+            standard_config = DefaultConfigurationManager.get_standard_config()
+            processors_config = standard_config.get('processors', {})
+            
+            if processor_type in processors_config:
+                return DictConfig(processors_config[processor_type])
+        
+        except ImportError:
+            # Fallback to basic defaults if defaults module is not available
+            pass
+        
+        # Fallback default configurations
         default_configs = {
             'statistics': DictConfig({
                 'confidence_level': 0.95,
@@ -260,23 +275,23 @@ class AnalyticsFactory(Factory):
                 'include_advanced': True
             }),
             'outliers': DictConfig({
-                'method': 'iqr',
+                'default_method': 'iqr',
                 'iqr_factor': 1.5,
                 'zscore_threshold': 3.0,
                 'modified_zscore_threshold': 3.5,
                 'action': 'exclude'
             }),
             'failures': DictConfig({
-                'analysis_type': 'all',
                 'failure_threshold': 0.1,
                 'min_samples': 10,
-                'time_window': 'day'
+                'time_window': 'day',
+                'analysis_types': ['rates', 'correlations']
             }),
             'comparisons': DictConfig({
-                'comparison_type': 'pairwise',
                 'confidence_level': 0.95,
                 'significance_threshold': 0.05,
-                'min_samples': 5
+                'min_samples': 5,
+                'comparison_types': ['pairwise', 'ranking']
             })
         }
         
@@ -287,4 +302,63 @@ class AnalyticsFactory(Factory):
                 f"Available types: {available_types}"
             )
         
-        return default_configs[processor_type] 
+        return default_configs[processor_type]
+    
+    @staticmethod
+    def get_complete_default_config(level: str = 'standard') -> DictConfig:
+        """
+        Get a complete default analytics configuration.
+        
+        Args:
+            level: Configuration level ('minimal', 'standard', 'advanced', 'research')
+            
+        Returns:
+            DictConfig: Complete analytics configuration
+        """
+        try:
+            from experiment_manager.analytics.defaults import DefaultConfigurationManager
+            return DefaultConfigurationManager.get_config_by_level(level)
+        except ImportError:
+            # Fallback to basic configuration
+            return DictConfig({
+                'processors': {
+                    'statistics': AnalyticsFactory.get_default_config('statistics'),
+                    'outliers': AnalyticsFactory.get_default_config('outliers')
+                },
+                'aggregation': {
+                    'default_functions': ['mean', 'std', 'count'],
+                    'group_by_defaults': ['experiment_name'],
+                    'metric_columns': ['loss', 'accuracy']
+                },
+                'export': {
+                    'default_format': 'csv',
+                    'output_directory': 'analytics_outputs'
+                }
+            })
+    
+    @staticmethod
+    def create_with_defaults(processor_type: str, level: str = 'standard', **kwargs) -> DataProcessor:
+        """
+        Create a processor with default configuration for the specified level.
+        
+        Args:
+            processor_type: Type of processor to create
+            level: Configuration level to use for defaults
+            **kwargs: Additional processor arguments that override defaults
+            
+        Returns:
+            DataProcessor: Configured processor instance
+        """
+        # Get complete default configuration for the level
+        complete_config = AnalyticsFactory.get_complete_default_config(level)
+        
+        # Extract processor-specific configuration
+        processors_config = complete_config.get('processors', {})
+        processor_config = processors_config.get(processor_type, DictConfig({}))
+        
+        # Override with any provided kwargs
+        for key, value in kwargs.items():
+            processor_config[key] = value
+        
+        # Create processor with the configuration
+        return AnalyticsFactory.create(processor_type, DictConfig({processor_type: processor_config})) 

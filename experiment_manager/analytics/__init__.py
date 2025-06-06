@@ -10,9 +10,18 @@ This module provides comprehensive analytics capabilities including:
 """
 
 from experiment_manager.analytics.analytics_factory import AnalyticsFactory
+from experiment_manager.analytics.defaults import DefaultConfigurationManager, ConfigurationLevel
+from experiment_manager.analytics.query import AnalyticsQuery, ValidationError
+from experiment_manager.analytics.results import AnalyticsResult, QueryMetadata
 
 __all__ = [
-    'AnalyticsFactory'
+    'AnalyticsFactory',
+    'DefaultConfigurationManager',
+    'ConfigurationLevel',
+    'AnalyticsQuery',
+    'ValidationError',
+    'AnalyticsResult',
+    'QueryMetadata'
 ]
 
 __version__ = '1.0.0' 

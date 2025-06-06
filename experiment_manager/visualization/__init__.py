@@ -36,6 +36,24 @@ from experiment_manager.visualization.core.plugin_registry import PluginRegistry
 from experiment_manager.visualization.core.event_bus import EventBus, Event, EventType, EventPriority, EventFilter
 from experiment_manager.visualization.core.config_manager import ConfigManager, VisualizationConfig, ConfigFormat
 
+# Data processing pipeline
+from experiment_manager.visualization.data import (
+    DataPipeline,
+    DataProcessor,
+    ProcessingContext,
+    ProcessingResult,
+    CacheStrategy,
+    PipelineExecutionError,
+    ProcessorValidationError,
+    ProcessorRegistrationError,
+    # Built-in processors
+    FilterProcessor,
+    AggregationProcessor,
+    NormalizationProcessor,
+    get_builtin_processors,
+    register_builtin_processors,
+)
+
 # Plugin interfaces
 from experiment_manager.visualization.plugins import (
     BasePlugin,
@@ -59,6 +77,21 @@ __all__ = [
     "ConfigManager",
     "VisualizationConfig",
     "ConfigFormat",
+    # Data processing pipeline
+    "DataPipeline",
+    "DataProcessor",
+    "ProcessingContext",
+    "ProcessingResult",
+    "CacheStrategy",
+    "PipelineExecutionError",
+    "ProcessorValidationError",
+    "ProcessorRegistrationError",
+    # Built-in processors
+    "FilterProcessor",
+    "AggregationProcessor",
+    "NormalizationProcessor",
+    "get_builtin_processors",
+    "register_builtin_processors",
     # Plugin interfaces
     "BasePlugin",
     "PlotPlugin",

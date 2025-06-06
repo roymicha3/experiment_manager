@@ -255,7 +255,54 @@ class VisualizationConfig(BaseModel):
     @field_validator('analytics')
     @classmethod
     def validate_analytics_config(cls, v):
-        """Validate analytics configuration."""
+        """
+        Validate analytics configuration using the comprehensive validation system.
+        
+        This method integrates with the new AnalyticsConfigValidator to provide
+        enhanced validation with clear error messages and suggestions.
+        """
+        # Import here to avoid circular imports
+        try:
+            from experiment_manager.analytics.validation import validate_analytics_config
+            
+            # Use the comprehensive validator
+            validation_result = validate_analytics_config(v)
+            
+            # If there are errors, raise with detailed messages
+            if not validation_result.is_valid:
+                error_messages = []
+                for error in validation_result.errors:
+                    error_msg = f"{error.path}: {error.message}"
+                    if error.suggestion:
+                        error_msg += f" (Suggestion: {error.suggestion})"
+                    error_messages.append(error_msg)
+                
+                raise ValueError("Analytics configuration validation failed:\n" + "\n".join(error_messages))
+            
+            # Log warnings if any
+            if validation_result.warnings:
+                import logging
+                logger = logging.getLogger(__name__)
+                for warning in validation_result.warnings:
+                    warning_msg = f"{warning.path}: {warning.message}"
+                    if warning.suggestion:
+                        warning_msg += f" (Suggestion: {warning.suggestion})"
+                    logger.warning(f"Analytics config warning: {warning_msg}")
+            
+        except ImportError:
+            # Fallback to basic validation if advanced validator is not available
+            logger.warning("Advanced analytics validation not available, using basic validation")
+            cls._basic_analytics_validation(v)
+        
+        return v
+    
+    @classmethod
+    def _basic_analytics_validation(cls, v):
+        """
+        Basic analytics configuration validation as fallback.
+        
+        This is used when the advanced validation system is not available.
+        """
         # Validate processor configurations
         if 'processors' in v:
             processors = v['processors']
@@ -327,8 +374,6 @@ class VisualizationConfig(BaseModel):
             
             if 'export_timeout' in export and export['export_timeout'] < 1:
                 raise ValueError("export_timeout must be at least 1 second")
-        
-        return v
 
 
 class ConfigFileWatcher(FileSystemEventHandler):
@@ -663,6 +708,174 @@ class ConfigManager:
             return True
         except ValidationError as e:
             raise ConfigValidationError(f"Configuration validation failed: {e}")
+    
+    def validate_analytics_inheritance(self, parent_config: Dict[str, Any], 
+                                     child_config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Validate analytics configuration inheritance.
+        
+        Args:
+            parent_config: Parent analytics configuration
+            child_config: Child analytics configuration that inherits from parent
+            
+        Returns:
+            Dict containing validation results with issues and suggestions
+            
+        Raises:
+            ConfigValidationError: If inheritance validation fails
+        """
+        try:
+            from experiment_manager.analytics.validation import validate_config_inheritance
+            
+            validation_result = validate_config_inheritance(parent_config, child_config)
+            
+            result = {
+                'is_valid': validation_result.is_valid,
+                'errors': [
+                    {
+                        'path': error.path,
+                        'message': error.message,
+                        'code': error.code,
+                        'suggestion': error.suggestion
+                    }
+                    for error in validation_result.errors
+                ],
+                'warnings': [
+                    {
+                        'path': warning.path,
+                        'message': warning.message,
+                        'code': warning.code,
+                        'suggestion': warning.suggestion
+                    }
+                    for warning in validation_result.warnings
+                ],
+                'merged_config': validation_result.issues[0].context.get('merged_config') if validation_result.issues else None
+            }
+            
+            if not validation_result.is_valid:
+                error_messages = [f"{error['path']}: {error['message']}" for error in result['errors']]
+                raise ConfigValidationError(
+                    f"Analytics configuration inheritance validation failed:\n" + 
+                    "\n".join(error_messages)
+                )
+            
+            # Log warnings
+            for warning in result['warnings']:
+                logger.warning(f"Analytics inheritance warning - {warning['path']}: {warning['message']}")
+            
+            return result
+            
+        except ImportError:
+            logger.warning("Advanced analytics validation not available for inheritance validation")
+            raise ConfigValidationError("Advanced validation system required for inheritance validation")
+    
+    def validate_analytics_section(self, analytics_config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Validate a specific analytics configuration section.
+        
+        Args:
+            analytics_config: Analytics configuration to validate
+            
+        Returns:
+            Dict containing validation results with detailed issues and suggestions
+        """
+        try:
+            from experiment_manager.analytics.validation import validate_analytics_config
+            
+            validation_result = validate_analytics_config(analytics_config)
+            
+            result = {
+                'is_valid': validation_result.is_valid,
+                'errors': [
+                    {
+                        'path': error.path,
+                        'message': error.message,
+                        'code': error.code,
+                        'suggestion': error.suggestion,
+                        'severity': error.severity.value
+                    }
+                    for error in validation_result.errors
+                ],
+                'warnings': [
+                    {
+                        'path': warning.path,
+                        'message': warning.message,
+                        'code': warning.code,
+                        'suggestion': warning.suggestion,
+                        'severity': warning.severity.value
+                    }
+                    for warning in validation_result.warnings
+                ],
+                'all_issues': [
+                    {
+                        'path': issue.path,
+                        'message': issue.message,
+                        'code': issue.code,
+                        'suggestion': issue.suggestion,
+                        'severity': issue.severity.value
+                    }
+                    for issue in validation_result.issues
+                ]
+            }
+            
+            return result
+            
+        except ImportError:
+            logger.warning("Advanced analytics validation not available")
+            return {
+                'is_valid': True,
+                'errors': [],
+                'warnings': [{'message': 'Advanced validation system not available', 'path': 'system', 'code': 'NO_ADVANCED_VALIDATION'}],
+                'all_issues': []
+            }
+    
+    def validate_processor_config(self, processor_type: str, config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Validate a specific processor configuration.
+        
+        Args:
+            processor_type: Type of processor ('statistics', 'outliers', etc.)
+            config: Processor configuration to validate
+            
+        Returns:
+            Dict containing validation results
+        """
+        try:
+            from experiment_manager.analytics.validation import validate_processor_config
+            
+            validation_result = validate_processor_config(processor_type, config)
+            
+            return {
+                'is_valid': validation_result.is_valid,
+                'processor_type': processor_type,
+                'errors': [
+                    {
+                        'path': error.path,
+                        'message': error.message,
+                        'code': error.code,
+                        'suggestion': error.suggestion
+                    }
+                    for error in validation_result.errors
+                ],
+                'warnings': [
+                    {
+                        'path': warning.path,
+                        'message': warning.message,
+                        'code': warning.code,
+                        'suggestion': warning.suggestion
+                    }
+                    for warning in validation_result.warnings
+                ]
+            }
+            
+        except ImportError:
+            logger.warning("Advanced analytics validation not available for processor validation")
+            return {
+                'is_valid': True,
+                'processor_type': processor_type,
+                'errors': [],
+                'warnings': [{'message': 'Advanced validation system not available', 'path': 'system', 'code': 'NO_ADVANCED_VALIDATION'}]
+            }
     
     def export_to_file(self, file_path: Union[str, Path], 
                       format: Optional[ConfigFormat] = None) -> None:
