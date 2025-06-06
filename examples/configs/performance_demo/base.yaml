@@ -1,0 +1,38 @@
+#####################################################################################
+#   Performance Demo Configuration - ML workload with comprehensive monitoring     #
+#####################################################################################
+
+# Pipeline Configuration (Optimized for faster execution)
+pipeline:
+  type: "PerformanceDemoPipeline"
+  epochs: 3
+  batches_per_epoch: 5                 # Reduced from 8 to 5
+  work_duration_seconds: 0.2           # Reduced from 1.2 to 0.2
+  cpu_intensity: 0.5                   # Reduced from 1.5 to 0.5
+  memory_usage_mb: 100                 # Reduced from 300 to 100
+
+  # Callbacks (Optional)
+  callbacks:
+    - type: "MetricsTracker"
+    - type: "EarlyStopping"
+      metric: "val_loss"
+      patience: 5
+      min_delta_percent: 1.0
+      verbose: True
+
+# Trackers - Performance monitoring setup (Optimized)
+trackers:
+  - type: "PerformanceTracker"
+    monitoring_interval: 1.0            # Reduced from 0.5s to 1.0s for less overhead
+    enable_alerts: true               # Enable resource alerts
+    enable_bottleneck_detection: true # Enable bottleneck analysis
+    cpu_threshold: 80.0               # Alert at 80% CPU (lower for demo)
+    memory_threshold: 75.0            # Alert at 75% memory
+    gpu_threshold: 90.0               # Alert at 90% GPU
+    history_size: 1000                # Reduced from 2000 to 1000 snapshots
+    lightweight_mode: false           # Full monitoring mode for demo
+    test_mode: false                  # Enable actual monitoring
+
+  - type: "LogTracker"
+    name: "performance_demo.log"
+    verbose: true 

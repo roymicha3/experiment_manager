@@ -38,16 +38,19 @@ class CheckpointCallback(Callback, YAMLSerializable):
             self.env.logger.info(f"Saving checkpoint {self.current_checkpoint} to {file_path}")
             
             if not Metric.NETWORK in metrics.keys():
-                self.env.logger.error(f"Metric {Metric.NETWORK.name} is not in metrics, cant save checkpoint...")
-                raise ValueError(f"Metric {Metric.NETWORK.name} is not in metrics, cant save checkpoint...")
+                self.env.logger.warning(f"Metric {Metric.NETWORK.name} is not in metrics, skipping checkpoint save")
+                return True
             
-            metrics[Metric.NETWORK].save(file_path)
-            self.env.tracker_manager.on_add_artifact(
-                level=Level.TRIAL_RUN,
-                artifact_path=file_path)
-            
-            self.current_checkpoint += 1
-            self.env.logger.info(f"Checkpoint {self.current_checkpoint-1} saved successfully")
+            try:
+                metrics[Metric.NETWORK].save(file_path)
+                self.env.tracker_manager.on_add_artifact(
+                    level=Level.TRIAL_RUN,
+                    artifact_path=file_path)
+                
+                self.current_checkpoint += 1
+                self.env.logger.info(f"Checkpoint {self.current_checkpoint-1} saved successfully")
+            except Exception as e:
+                self.env.logger.error(f"Failed to save checkpoint {self.current_checkpoint}: {e}")
         
         return True
     
@@ -59,15 +62,19 @@ class CheckpointCallback(Callback, YAMLSerializable):
         self.env.logger.info("Saving final checkpoint")
         file_path = f"{self.checkpoint_path}-final"
         if not Metric.NETWORK in metrics.keys():
-                self.env.logger.error(f"Metric {Metric.NETWORK.name} is not in metrics, cant save checkpoint...")
-                raise ValueError(f"Metric {Metric.NETWORK.name} is not in metrics, cant save checkpoint...")
-        metrics[Metric.NETWORK].save(file_path)
-        self.env.tracker_manager.on_add_artifact(
-            level=Level.TRIAL_RUN,
-            artifact_path=file_path,
-            artifact_type="checkpoint")
+                self.env.logger.warning(f"Metric {Metric.NETWORK.name} is not in metrics, skipping final checkpoint save")
+                return
         
-        self.env.logger.info(f"Final checkpoint saved to {file_path}")
+        try:
+            metrics[Metric.NETWORK].save(file_path)
+            self.env.tracker_manager.on_add_artifact(
+                level=Level.TRIAL_RUN,
+                artifact_path=file_path,
+                artifact_type="checkpoint")
+            
+            self.env.logger.info(f"Final checkpoint saved to {file_path}")
+        except Exception as e:
+            self.env.logger.error(f"Failed to save final checkpoint: {e}")
     
     @classmethod
     def from_config(cls, config: DictConfig, env: Environment):

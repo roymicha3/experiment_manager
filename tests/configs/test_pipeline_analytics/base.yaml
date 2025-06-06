@@ -1,0 +1,18 @@
+#####################################################################################
+#   Analytics Test Configuration - for testing analytics with pipelines           #
+#####################################################################################
+
+# Pipeline Configuration
+pipeline:
+  type: "TestPipelineForAnalytics"
+  epochs: 5
+  analytics_pattern: "standard"
+
+  # Callbacks (for analytics testing)
+  callbacks:
+    - type: "MetricsTracker"
+    
+    - type: "EarlyStopping"
+      metric: "val_loss"
+      patience: 10
+      min_delta_percent: 1.0 

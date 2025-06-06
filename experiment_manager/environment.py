@@ -169,3 +169,18 @@ class Environment(YAMLSerializable):
         
         self.logger.debug(f"Created child environment '{name}' at {child_env.workspace}")
         return child_env
+    
+    def close(self) -> None:
+        """Close and cleanup all resources."""
+        try:
+            if hasattr(self, 'logger') and self.logger:
+                self.logger.close()
+        except Exception:
+            pass  # Ignore errors during cleanup
+        
+        try:
+            if hasattr(self, 'tracker_manager') and self.tracker_manager:
+                if hasattr(self.tracker_manager, 'close'):
+                    self.tracker_manager.close()
+        except Exception:
+            pass  # Ignore errors during cleanup

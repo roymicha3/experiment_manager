@@ -18,13 +18,23 @@ class BaseLogger(ABC):
         self.logger = logging.getLogger(name)
         self.logger.propagate = False
         self.logger.setLevel(self.level)
-        self.formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        self.formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
         self._setup_handler()
     
     @abstractmethod
     def _setup_handler(self) -> None:
         """Setup the specific handler for the logger implementation."""
         pass
+
+    def close(self) -> None:
+        """Close and cleanup all handlers."""
+        if hasattr(self, 'logger') and self.logger:
+            for handler in self.logger.handlers[:]:
+                try:
+                    handler.close()
+                    self.logger.removeHandler(handler)
+                except Exception:
+                    pass  # Ignore errors during cleanup
 
     def debug(self, msg: Any, *args: Any, **kwargs: Any) -> None:
         """Log a debug message."""
@@ -183,6 +193,10 @@ class EmptyLogger(BaseLogger):
         """Setup the specific handler for the logger implementation."""
         pass
     
+    def close(self) -> None:
+        """EmptyLogger has nothing to close."""
+        pass
+    
     @override
     def debug(self, msg: Any, *args: Any, **kwargs: Any) -> None:
         pass
@@ -198,7 +212,7 @@ class EmptyLogger(BaseLogger):
     @override
     def error(self, msg: Any, *args: Any, **kwargs: Any) -> None:
         pass
-    
+
     @override
     def critical(self, msg: Any, *args: Any, **kwargs: Any) -> None:
         pass
