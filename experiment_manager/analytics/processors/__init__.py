@@ -15,9 +15,18 @@ Processor Types:
 - ComparisonProcessor: Cross-experiment comparative analysis
 """
 
-from .base import DataProcessor, ProcessorManager
+from .base import DataProcessor, ProcessorManager, ProcessedData
+from .statistics import StatisticsProcessor
+from .outliers import OutlierProcessor
+from .failures import FailureAnalyzer
+from .comparisons import ComparisonProcessor
 
 __all__ = [
     'DataProcessor',
-    'ProcessorManager'
+    'ProcessorManager',
+    'ProcessedData',
+    'StatisticsProcessor',
+    'OutlierProcessor',
+    'FailureAnalyzer',
+    'ComparisonProcessor'
 ] 
