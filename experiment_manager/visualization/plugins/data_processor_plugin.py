@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 
-from .base import BasePlugin, PluginType
+from experiment_manager.visualization.plugins.base import BasePlugin, PluginType
 
 
 class ProcessingContext:

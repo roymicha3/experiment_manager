@@ -12,7 +12,7 @@ from pathlib import Path
 from datetime import datetime
 import json
 
-from .base import BasePlugin, PluginType
+from experiment_manager.visualization.plugins.base import BasePlugin, PluginType
 
 
 class ExportData:

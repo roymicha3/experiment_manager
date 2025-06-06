@@ -32,12 +32,12 @@ Example:
     ```
 """
 
-from .core.plugin_registry import PluginRegistry, PluginType
-from .core.event_bus import EventBus, Event, EventType, EventPriority, EventFilter
-from .core.config_manager import ConfigManager, VisualizationConfig, ConfigFormat
+from experiment_manager.visualization.core.plugin_registry import PluginRegistry, PluginType
+from experiment_manager.visualization.core.event_bus import EventBus, Event, EventType, EventPriority, EventFilter
+from experiment_manager.visualization.core.config_manager import ConfigManager, VisualizationConfig, ConfigFormat
 
 # Plugin interfaces
-from .plugins import (
+from experiment_manager.visualization.plugins import (
     BasePlugin,
     PlotPlugin,
     RendererPlugin,

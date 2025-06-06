@@ -17,12 +17,16 @@ class ProductPaths(Enum):
     LOG_DIR = "logs"
     ARTIFACT_DIR = "artifacts"
     CONFIG_DIR = "configs"
+    ANALYTICS_DIR = "analytics"
 
 
 class Environment(YAMLSerializable):
     """
     Environment class for managing the environment.
     All experiment outputs will be written to the workspace directory.
+    
+    The Environment manages both standard workspace directories (logs, artifacts, configs)
+    and analytics workspace directories (analytics, reports, cache, analytics artifacts).
     """
     
     def __init__(self, 
@@ -82,6 +86,7 @@ class Environment(YAMLSerializable):
         os.makedirs(self.log_dir, exist_ok=True)
         os.makedirs(self.artifact_dir, exist_ok=True)
         os.makedirs(self.config_dir, exist_ok=True)
+        os.makedirs(self.analytics_dir, exist_ok=True)
         
         # Update the logger
         if not isinstance(self.logger, EmptyLogger) and not isinstance(self.logger, ConsoleLogger):
@@ -109,6 +114,82 @@ class Environment(YAMLSerializable):
         if not os.path.exists(config_dir_path):
             os.mkdir(config_dir_path)
         return config_dir_path
+    
+    @property
+    def analytics_dir(self):
+        """Analytics workspace directory for analysis results and configurations."""
+        analytics_dir_path = os.path.join(self.workspace, ProductPaths.ANALYTICS_DIR.value)
+        if not os.path.exists(analytics_dir_path):
+            os.mkdir(analytics_dir_path)
+        return analytics_dir_path
+    
+    @property
+    def analytics_reports_dir(self):
+        """Directory for analytics reports and analysis results."""
+        reports_dir_path = os.path.join(self.analytics_dir, "reports")
+        if not os.path.exists(reports_dir_path):
+            os.mkdir(reports_dir_path)
+        return reports_dir_path
+    
+    @property
+    def analytics_cache_dir(self):
+        """Directory for analytics caching to improve performance."""
+        cache_dir_path = os.path.join(self.analytics_dir, "cache")
+        if not os.path.exists(cache_dir_path):
+            os.mkdir(cache_dir_path)
+        return cache_dir_path
+    
+    @property
+    def analytics_artifacts_dir(self):
+        """Directory for analytics-specific artifacts (plots, data exports, etc.)."""
+        artifacts_dir_path = os.path.join(self.analytics_dir, "artifacts")
+        if not os.path.exists(artifacts_dir_path):
+            os.mkdir(artifacts_dir_path)
+        return artifacts_dir_path
+    
+    def create_analytics_artifact_path(self, filename: str) -> str:
+        """
+        Create a path for an analytics artifact within the analytics artifacts directory.
+        
+        Args:
+            filename: Name of the artifact file
+            
+        Returns:
+            Full path to the artifact location
+        """
+        return os.path.join(self.analytics_artifacts_dir, filename)
+    
+    def create_analytics_report_path(self, filename: str) -> str:
+        """
+        Create a path for an analytics report within the analytics reports directory.
+        
+        Args:
+            filename: Name of the report file
+            
+        Returns:
+            Full path to the report location
+        """
+        return os.path.join(self.analytics_reports_dir, filename)
+    
+    def get_analytics_workspace_info(self) -> dict:
+        """
+        Get information about the analytics workspace structure.
+        
+        Returns:
+            Dictionary containing analytics workspace paths and status
+        """
+        return {
+            "analytics_dir": self.analytics_dir,
+            "reports_dir": self.analytics_reports_dir,
+            "cache_dir": self.analytics_cache_dir,
+            "artifacts_dir": self.analytics_artifacts_dir,
+            "directories_exist": {
+                "analytics": os.path.exists(self.analytics_dir),
+                "reports": os.path.exists(self.analytics_reports_dir),
+                "cache": os.path.exists(self.analytics_cache_dir),
+                "artifacts": os.path.exists(self.analytics_artifacts_dir)
+            }
+        }
     
     def save(self) -> None:
         """Save environment configuration to file."""

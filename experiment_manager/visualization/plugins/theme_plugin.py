@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Any, Union, Tuple
 from pathlib import Path
 import json
 
-from .base import BasePlugin, PluginType
+from experiment_manager.visualization.plugins.base import BasePlugin, PluginType
 
 
 class ColorPalette:

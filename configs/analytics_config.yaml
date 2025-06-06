@@ -1,0 +1,105 @@
+#####################################################################################
+#   Analytics Configuration - for analytics module components and processing     #
+#####################################################################################
+
+# Database and query settings
+database_connection: null  # Optional: specific connection string for analytics
+query_timeout: 300        # Timeout in seconds for database queries
+result_caching: true      # Enable caching of query results
+batch_size: 1000          # Batch size for processing large datasets
+
+# Processor configurations
+processors:
+  # Statistical analysis processor
+  statistics:
+    confidence_level: 0.95              # Confidence level for confidence intervals
+    percentiles: [25, 50, 75, 90, 95]   # Percentiles to calculate
+    missing_strategy: "drop"            # How to handle missing data: drop, fill_mean, fill_median, keep
+    include_advanced: true              # Include advanced statistics like skewness, kurtosis
+
+  # Outlier detection processor
+  outliers:
+    default_method: "iqr"               # Default outlier detection method: iqr, zscore, modified_zscore, custom
+    iqr_factor: 1.5                     # Factor for IQR method (typically 1.5 or 3.0)
+    zscore_threshold: 3.0               # Z-score threshold for outlier detection
+    modified_zscore_threshold: 3.5      # Modified Z-score threshold
+    custom_thresholds: {}               # Custom thresholds for specific metrics
+    action: "exclude"                   # What to do with outliers: exclude, flag, keep
+
+  # Failure analysis processor
+  failures:
+    failure_threshold: 0.1              # Minimum failure rate to consider significant (0.0-1.0)
+    min_samples: 10                     # Minimum samples needed for reliable analysis
+    time_window: "day"                  # Time window for temporal analysis: hour, day, week, month
+    analysis_types:                     # Types of failure analysis to perform
+      - "rates"                         # Calculate failure rates
+      - "correlations"                  # Find configuration correlations
+      - "temporal"                      # Temporal pattern detection
+      - "root_cause"                    # Root cause suggestion
+    config_columns:                     # Configuration columns to analyze for correlations
+      - "optimizer"
+      - "model"
+      - "dataset"
+
+  # Comparison analysis processor
+  comparisons:
+    confidence_level: 0.95              # Statistical confidence level
+    significance_threshold: 0.05        # P-value threshold for significance
+    min_samples: 5                      # Minimum samples per group for comparisons
+    comparison_types:                   # Types of comparisons to perform
+      - "pairwise"                      # Pairwise comparisons between groups
+      - "ranking"                       # Performance ranking
+      - "ab_test"                       # A/B test analysis
+      - "trend"                         # Trend analysis over time
+    baseline_selection: "auto"          # How to select baseline: auto, first, largest, custom
+
+# Aggregation function configurations
+aggregation:
+  default_functions:                    # Default aggregation functions to apply
+    - "mean"
+    - "median"
+    - "std"
+    - "min"
+    - "max"
+    - "count"
+  custom_functions: {}                  # Custom aggregation functions (name: function_definition)
+  group_by_defaults:                    # Default columns to group by
+    - "experiment_name"
+    - "trial_name"
+  metric_columns:                       # Default metric columns to analyze
+    - "metric_total_val"
+    - "loss"
+    - "accuracy"
+
+# Export configuration
+export:
+  default_format: "csv"                 # Default export format: csv, json, parquet, excel
+  output_directory: "analytics_outputs" # Directory for analytics outputs
+  include_metadata: true               # Include metadata in exports
+  include_timestamps: true             # Include timestamp information
+  compression: false                   # Enable compression for exports
+  export_timeout: 120                  # Timeout in seconds for export operations
+
+# Failure analysis specific parameters
+failure_analysis:
+  enabled: true                        # Enable failure analysis features
+  auto_detect: true                    # Automatically detect failure patterns
+  correlation_threshold: 0.7           # Threshold for configuration correlation significance
+  temporal_window: "1d"                # Time window for temporal analysis: 1h, 1d, 1w, 1m
+  root_cause_depth: 3                  # Depth of root cause analysis
+  report_format: "detailed"            # Report format: summary, detailed, full
+
+# Workspace and artifact management
+workspace:
+  analytics_dir: "analytics"           # Directory name for analytics workspace
+  reports_dir: "reports"               # Subdirectory for analysis reports
+  cache_dir: "cache"                   # Subdirectory for caching results
+  artifacts_dir: "artifacts"           # Subdirectory for analysis artifacts
+  auto_create_dirs: true               # Automatically create directories if they don't exist
+
+#####################################################################################
+# Environment Variable Overrides (prefix with VIZ_ANALYTICS_):                     #
+# - VIZ_ANALYTICS_PROCESSORS_STATISTICS_CONFIDENCE_LEVEL=0.99                     #
+# - VIZ_ANALYTICS_EXPORT_DEFAULT_FORMAT=json                                       #
+# - VIZ_ANALYTICS_FAILURE_ANALYSIS_ENABLED=false                                   #
+##################################################################################### 

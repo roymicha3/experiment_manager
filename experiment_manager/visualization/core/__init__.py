@@ -7,9 +7,9 @@ This module contains the foundational components that enable the plugin architec
     - ConfigManager: Configuration management with validation
 """
 
-from .plugin_registry import PluginRegistry
-from .event_bus import EventBus, Event, EventType, EventPriority, EventFilter
-from .config_manager import ConfigManager, VisualizationConfig, ConfigMetadata, ConfigFormat
+from experiment_manager.visualization.core.plugin_registry import PluginRegistry
+from experiment_manager.visualization.core.event_bus import EventBus, Event, EventType, EventPriority, EventFilter
+from experiment_manager.visualization.core.config_manager import ConfigManager, VisualizationConfig, ConfigMetadata, ConfigFormat
 
 __all__ = [
     "PluginRegistry",

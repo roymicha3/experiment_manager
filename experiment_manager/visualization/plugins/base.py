@@ -10,7 +10,7 @@ from typing import Dict, List, Optional, Any, Union
 from pathlib import Path
 
 # Import the BasePlugin from the core registry
-from ..core.plugin_registry import BasePlugin as CoreBasePlugin, PluginType
+from experiment_manager.visualization.core.plugin_registry import BasePlugin as CoreBasePlugin, PluginType
 
 
 class BasePlugin(CoreBasePlugin):

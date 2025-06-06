@@ -20,7 +20,7 @@ from watchdog.events import FileSystemEventHandler
 from pydantic import BaseModel, ValidationError, Field, field_validator
 from enum import Enum
 
-from .event_bus import EventBus, Event, EventType, EventPriority
+from experiment_manager.visualization.core.event_bus import EventBus, Event, EventType, EventPriority
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +141,76 @@ class VisualizationConfig(BaseModel):
         "database_connection": None,
         "query_timeout": 300,
         "result_caching": True,
-        "batch_size": 1000
+        "batch_size": 1000,
+        
+        # Processor configurations
+        "processors": {
+            "statistics": {
+                "confidence_level": 0.95,
+                "percentiles": [25, 50, 75, 90, 95],
+                "missing_strategy": "drop",  # drop, fill_mean, fill_median, keep
+                "include_advanced": True
+            },
+            "outliers": {
+                "default_method": "iqr",  # iqr, zscore, modified_zscore, custom
+                "iqr_factor": 1.5,
+                "zscore_threshold": 3.0,
+                "modified_zscore_threshold": 3.5,
+                "custom_thresholds": {},
+                "action": "exclude"  # exclude, flag, keep
+            },
+            "failures": {
+                "failure_threshold": 0.1,
+                "min_samples": 10,
+                "time_window": "day",  # hour, day, week, month
+                "analysis_types": ["rates", "correlations", "temporal", "root_cause"],
+                "config_columns": ["optimizer", "model", "dataset"]
+            },
+            "comparisons": {
+                "confidence_level": 0.95,
+                "significance_threshold": 0.05,
+                "min_samples": 5,
+                "comparison_types": ["pairwise", "ranking", "ab_test", "trend"],
+                "baseline_selection": "auto"  # auto, first, largest, custom
+            }
+        },
+        
+        # Aggregation functions
+        "aggregation": {
+            "default_functions": ["mean", "median", "std", "min", "max", "count"],
+            "custom_functions": {},
+            "group_by_defaults": ["experiment_name", "trial_name"],
+            "metric_columns": ["metric_total_val", "loss", "accuracy"]
+        },
+        
+        # Export settings
+        "export": {
+            "default_format": "csv",  # csv, json, parquet, excel
+            "output_directory": "analytics_outputs",
+            "include_metadata": True,
+            "include_timestamps": True,
+            "compression": False,
+            "export_timeout": 120
+        },
+        
+        # Failure analysis parameters
+        "failure_analysis": {
+            "enabled": True,
+            "auto_detect": True,
+            "correlation_threshold": 0.7,
+            "temporal_window": "1d",  # 1h, 1d, 1w, 1m
+            "root_cause_depth": 3,
+            "report_format": "detailed"  # summary, detailed, full
+        },
+        
+        # Workspace and artifacts
+        "workspace": {
+            "analytics_dir": "analytics",
+            "reports_dir": "reports", 
+            "cache_dir": "cache",
+            "artifacts_dir": "artifacts",
+            "auto_create_dirs": True
+        }
     })
     
     @field_validator('system')
@@ -180,6 +249,84 @@ class VisualizationConfig(BaseModel):
         
         if 'memory_limit_mb' in v and v['memory_limit_mb'] < 64:
             raise ValueError("memory_limit_mb must be at least 64")
+        
+        return v
+    
+    @field_validator('analytics')
+    @classmethod
+    def validate_analytics_config(cls, v):
+        """Validate analytics configuration."""
+        # Validate processor configurations
+        if 'processors' in v:
+            processors = v['processors']
+            
+            # Validate statistics processor
+            if 'statistics' in processors:
+                stats = processors['statistics']
+                if 'confidence_level' in stats:
+                    if not 0 < stats['confidence_level'] < 1:
+                        raise ValueError("confidence_level must be between 0 and 1")
+                
+                if 'missing_strategy' in stats:
+                    valid_strategies = ['drop', 'fill_mean', 'fill_median', 'keep']
+                    if stats['missing_strategy'] not in valid_strategies:
+                        raise ValueError(f"missing_strategy must be one of {valid_strategies}")
+            
+            # Validate outlier processor
+            if 'outliers' in processors:
+                outliers = processors['outliers']
+                if 'default_method' in outliers:
+                    valid_methods = ['iqr', 'zscore', 'modified_zscore', 'custom']
+                    if outliers['default_method'] not in valid_methods:
+                        raise ValueError(f"outlier method must be one of {valid_methods}")
+                
+                if 'iqr_factor' in outliers and outliers['iqr_factor'] <= 0:
+                    raise ValueError("iqr_factor must be positive")
+                
+                if 'action' in outliers:
+                    valid_actions = ['exclude', 'flag', 'keep']
+                    if outliers['action'] not in valid_actions:
+                        raise ValueError(f"outlier action must be one of {valid_actions}")
+            
+            # Validate failure analyzer
+            if 'failures' in processors:
+                failures = processors['failures']
+                if 'failure_threshold' in failures:
+                    if not 0 <= failures['failure_threshold'] <= 1:
+                        raise ValueError("failure_threshold must be between 0 and 1")
+                
+                if 'min_samples' in failures and failures['min_samples'] < 1:
+                    raise ValueError("min_samples must be at least 1")
+                
+                if 'time_window' in failures:
+                    valid_windows = ['hour', 'day', 'week', 'month']
+                    if failures['time_window'] not in valid_windows:
+                        raise ValueError(f"time_window must be one of {valid_windows}")
+            
+            # Validate comparison processor
+            if 'comparisons' in processors:
+                comparisons = processors['comparisons']
+                if 'confidence_level' in comparisons:
+                    if not 0 < comparisons['confidence_level'] < 1:
+                        raise ValueError("confidence_level must be between 0 and 1")
+                
+                if 'significance_threshold' in comparisons:
+                    if not 0 < comparisons['significance_threshold'] < 1:
+                        raise ValueError("significance_threshold must be between 0 and 1")
+                
+                if 'min_samples' in comparisons and comparisons['min_samples'] < 2:
+                    raise ValueError("min_samples must be at least 2 for comparisons")
+        
+        # Validate export settings
+        if 'export' in v:
+            export = v['export']
+            if 'default_format' in export:
+                valid_formats = ['csv', 'json', 'parquet', 'excel']
+                if export['default_format'] not in valid_formats:
+                    raise ValueError(f"export format must be one of {valid_formats}")
+            
+            if 'export_timeout' in export and export['export_timeout'] < 1:
+                raise ValueError("export_timeout must be at least 1 second")
         
         return v
 
@@ -645,12 +792,17 @@ class ConfigManager:
             for k in keys[:-1]:
                 if k not in current:
                     current[k] = {}
+                elif not isinstance(current[k], dict):
+                    # If intermediate key exists but isn't a dict, skip this override
+                    logger.warning(f"Cannot override {config_key}: intermediate key '{k}' is not a dictionary")
+                    break
                 current = current[k]
-            
-            if isinstance(current, dict):
-                current[keys[-1]] = parsed_value
-                overrides_applied += 1
-                logger.debug(f"Environment override: {config_key} = {parsed_value}")
+            else:
+                # Only execute if we didn't break out of the loop
+                if isinstance(current, dict):
+                    current[keys[-1]] = parsed_value
+                    overrides_applied += 1
+                    logger.debug(f"Environment override: {config_key} = {parsed_value}")
         
         if overrides_applied > 0:
             try:
