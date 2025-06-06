@@ -43,6 +43,9 @@ def mock_database_manager():
         'epoch_idx': [4, 4, 4]
     })
     
+    # CRITICAL FIX: Add execute_query method that returns proper pandas DataFrame
+    mock_db.execute_query.return_value = sample_data
+    
     # Setup mock methods
     mock_db.get_analytics_data.return_value = sample_data
     mock_db.get_aggregated_metrics.return_value = pd.DataFrame({
@@ -195,14 +198,15 @@ class TestMetricsTrackingIntegration:
         assert isinstance(stats, dict)
         assert 'statistics_by_group' in stats
         
-        # Verify database was called
-        mock_database_manager.get_aggregated_metrics.assert_called()
+        # Verify the database execute_query method was called (not get_aggregated_metrics)
+        # The calculate_statistics method uses the query builder which calls execute_query
+        mock_database_manager.execute_query.assert_called()
     
     def test_analytics_api_analyze_failures(self, mock_database_manager):
         """Test failure analysis."""
         analytics = ExperimentAnalytics(mock_database_manager)
         
-        # Mock failure data
+        # Mock failure data - this isn't used since analyze_failures uses execute_query
         failure_data = pd.DataFrame({
             'experiment_id': [1],
             'trial_run_id': [1],
@@ -214,7 +218,9 @@ class TestMetricsTrackingIntegration:
         failure_analysis = analytics.analyze_failures(1)
         
         assert isinstance(failure_analysis, dict)
-        mock_database_manager.get_failure_data.assert_called_with([1], True)
+        # Fix: analyze_failures uses query.execute() which calls execute_query
+        # It calls execute_query twice: once for all runs, once for successful runs only
+        assert mock_database_manager.execute_query.call_count >= 2
     
     def test_analytics_result_processing(self):
         """Test AnalyticsResult data processing."""
@@ -229,10 +235,10 @@ class TestMetricsTrackingIntegration:
         # Test summary generation
         summary = result.get_summary()
         assert isinstance(summary, dict)
-        assert 'row_count' in summary
-        assert 'column_count' in summary
-        assert summary['row_count'] == 3
-        assert summary['column_count'] == 3
+        assert 'row_count' in summary['overview']
+        assert 'column_count' in summary['overview']
+        assert summary['overview']['row_count'] == 3
+        assert summary['overview']['column_count'] == 3
         
         # Test dataframe conversion
         df = result.to_dataframe()

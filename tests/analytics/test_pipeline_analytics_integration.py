@@ -36,34 +36,44 @@ class TestPipelineForAnalytics(Pipeline, YAMLSerializable):
             analytics_pattern=config.pipeline.get('analytics_pattern', 'standard')
         )
     
-    @Pipeline.run_wrapper
     def run(self, config: DictConfig):
         """Run the test pipeline generating metrics for analytics."""
         self.env.logger.info("Starting analytics test pipeline")
         
-        for epoch in range(self.epochs):
-            self.run_epoch(epoch)
+        # Manually handle lifecycle for testing purposes
+        self._on_run_start()
         
-        # Generate final test metrics
-        if self.analytics_pattern == "successful":
-            test_acc = 0.95
-            test_loss = 0.05
-        elif self.analytics_pattern == "poor":
-            test_acc = 0.60
-            test_loss = 0.80
-        else:  # standard
-            test_acc = 0.85
-            test_loss = 0.25
+        try:
+            for epoch in range(self.epochs):
+                self.run_epoch(epoch, model=None)
             
-        self.run_metrics = {
-            Metric.TEST_ACC: test_acc,
-            Metric.TEST_LOSS: test_loss
-        }
-        
-        return {"status": "completed", "test_acc": test_acc, "test_loss": test_loss}
+            # Generate final test metrics
+            if self.analytics_pattern == "successful":
+                test_acc = 0.95
+                test_loss = 0.05
+            elif self.analytics_pattern == "poor":
+                test_acc = 0.60
+                test_loss = 0.80
+            else:  # standard
+                test_acc = 0.85
+                test_loss = 0.25
+                
+            self.run_metrics = {
+                Metric.TEST_ACC: test_acc,
+                Metric.TEST_LOSS: test_loss
+            }
+            
+            # Call lifecycle end 
+            self._on_run_end(self.run_metrics)
+            
+            return {"status": "completed", "test_acc": test_acc, "test_loss": test_loss}
+            
+        except Exception as e:
+            self.env.logger.error(f"Pipeline failed: {e}")
+            raise
     
     @Pipeline.epoch_wrapper 
-    def run_epoch(self, epoch_idx):
+    def run_epoch(self, epoch_idx, model, *args, **kwargs):
         """Run a single epoch generating realistic metrics."""
         
         if self.analytics_pattern == "successful":
@@ -106,7 +116,12 @@ class TestPipelineForAnalytics(Pipeline, YAMLSerializable):
 def test_env():
     """Create a test environment."""
     with tempfile.TemporaryDirectory() as tmp_dir:
-        env = Environment(workspace=tmp_dir)
+        config = OmegaConf.create({
+            "workspace": tmp_dir, 
+            "verbose": False,
+            "trackers": []
+        })
+        env = Environment(workspace=tmp_dir, config=config)
         yield env
         # Clean up all resources properly
         env.close()
@@ -139,6 +154,9 @@ def mock_database_manager():
         'max': [0.87],
         'count': [3]
     })
+    
+    # CRITICAL FIX: Add execute_query method that returns proper pandas DataFrame
+    mock_db.execute_query.return_value = sample_data
     
     # Setup mock methods
     mock_db.get_analytics_data.return_value = sample_data
@@ -225,8 +243,8 @@ class TestPipelineAnalyticsIntegration:
         assert isinstance(stats, dict)
         assert 'statistics_by_group' in stats
         
-        # Verify database manager was called correctly
-        mock_database_manager.get_aggregated_metrics.assert_called()
+        # Verify database manager was called correctly - uses execute_query not get_aggregated_metrics
+        mock_database_manager.execute_query.assert_called()
     
     def test_analytics_api_analyze_failures(self, mock_database_manager):
         """Test ExperimentAnalytics analyze_failures functionality."""
@@ -238,8 +256,8 @@ class TestPipelineAnalyticsIntegration:
         # Verify analysis structure
         assert isinstance(failure_analysis, dict)
         
-        # Verify database manager was called correctly
-        mock_database_manager.get_failure_data.assert_called_with([1], True)
+        # Verify database manager was called correctly - uses execute_query multiple times
+        assert mock_database_manager.execute_query.call_count >= 2
     
     def test_analytics_engine_caching(self, mock_database_manager):
         """Test analytics engine caching functionality."""
@@ -408,13 +426,16 @@ class TestPipelineAnalyticsIntegration:
         # Test summary generation
         summary = result.get_summary()
         assert isinstance(summary, dict)
-        assert 'row_count' in summary
-        assert 'column_count' in summary
+        assert 'row_count' in summary['overview']
+        assert 'column_count' in summary['overview']
+        assert summary['overview']['row_count'] == 3
+        assert summary['overview']['column_count'] == 7
         
-        # Test data conversion
+        # Test dataframe conversion
         df = result.to_dataframe()
         assert isinstance(df, pd.DataFrame)
-        assert not df.empty
+        assert len(df) == 3
+        assert 'experiment_id' in df.columns
     
     def test_pipeline_analytics_end_to_end(self, test_env):
         """Test end-to-end pipeline analytics workflow."""

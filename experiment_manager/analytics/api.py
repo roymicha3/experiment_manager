@@ -257,17 +257,8 @@ class ExperimentAnalytics:
         Returns:
             AnalyticsResult: Training curve analysis
         """
-        query = self.engine.create_query()
-        
-        query = query.runs(run_ids=trial_run_ids)
-        
-        if metric_types:
-            query = query.metrics(types=metric_types, context='training')
-        
-        # Sort by epoch/batch for proper curve analysis
-        query = query.sort_by('epoch')
-        
-        result = query.execute()
+        # Use the epoch series data method directly for training curves
+        result = self.engine.get_epoch_series_data(trial_run_ids, metric_types)
         
         # Add training curve specific metadata
         result.metadata['analysis_type'] = 'training_curves'

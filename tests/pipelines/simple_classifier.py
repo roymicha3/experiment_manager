@@ -160,6 +160,15 @@ class SimpleClassifierPipeline(Pipeline, YAMLSerializable):
         train_loader = DataLoader(TensorDataset(self.X_train, self.y_train), batch_size=self.batch_size, shuffle=True)
         val_loader = DataLoader(TensorDataset(self.X_val, self.y_val), batch_size=self.batch_size, shuffle=False)
         test_loader = DataLoader(TensorDataset(self.X_test, self.y_test), batch_size=self.batch_size, shuffle=False)
+        
+        # Initialize run_metrics early to ensure they're available even if early stopping is triggered
+        initial_test_loss, initial_test_acc = self.evaluate(self.model, test_loader, self.criterion, self.device)
+        self.run_metrics = {
+            Metric.TEST_ACC: initial_test_acc,
+            Metric.TEST_LOSS: initial_test_loss,
+            Metric.NETWORK: self.model
+        }
+        
         for epoch in range(self.epochs):
             self.env.logger.info(f"Epoch {epoch+1}/{self.epochs}")
 
@@ -171,15 +180,14 @@ class SimpleClassifierPipeline(Pipeline, YAMLSerializable):
                 checkpoint_path = os.path.join(self.env.artifact_dir, f"checkpoint_{epoch // checkpoint_interval}")
                 self.env.tracker_manager.on_checkpoint(self.model, checkpoint_path, metrics = self.epoch_metrics)
 
-        #final test
+        # Final test evaluation and update run_metrics with final results
         test_loss, test_acc = self.evaluate(self.model, test_loader, self.criterion, self.device)
         self.env.tracker_manager.track(Metric.TEST_ACC, test_acc)
-        self.run_metrics = \
-            {
-                Metric.TEST_ACC: test_acc,
-                Metric.TEST_LOSS: test_loss,
-                Metric.NETWORK: self.model
-            }
+        self.run_metrics.update({
+            Metric.TEST_ACC: test_acc,
+            Metric.TEST_LOSS: test_loss,
+            Metric.NETWORK: self.model
+        })
         
         return {"test_acc": test_acc}
 

@@ -57,13 +57,15 @@ class TestIntegrationPipeline(Pipeline, YAMLSerializable):
                 
                 if not should_continue:
                     self.env.logger.info(f"Training stopped early at epoch {epoch}")
-                    break
+                    return RunStatus.STOPPED
                     
         finally:
             # End callbacks
             final_metrics = self._get_final_metrics()
             for callback in self.callbacks:
                 callback.on_end(final_metrics)
+        
+        return RunStatus.SUCCESS
     
     @Pipeline.epoch_wrapper
     def _run_epoch(self, epoch_idx: int, model, *args, **kwargs) -> dict:
@@ -363,22 +365,28 @@ class TestPipelineIntegration:
         # Mock an error in epoch processing
         original_run_epoch = pipeline._run_epoch
         
-        def error_epoch(epoch):
-            if epoch == 1:
+        def error_epoch(epoch_idx, model, *args, **kwargs):
+            if epoch_idx == 1:
                 raise RuntimeError("Simulated training error")
-            return original_run_epoch(epoch)
+            return original_run_epoch(epoch_idx, model, *args, **kwargs)
         
         pipeline._run_epoch = error_epoch
         
         # Create a simple config for the test
         config = OmegaConf.create({"pipeline": {"epochs": 3}})
         
-        # Should handle error gracefully
-        with pytest.raises(RuntimeError, match="Simulated training error"):
-            pipeline.run(config)
+        # The @Pipeline.run_wrapper decorator catches all exceptions and returns RunStatus.FAILED
+        # instead of propagating them. This is the correct behavior for production pipelines.
+        result = pipeline.run(config)
         
-        # But callbacks should still be properly cleaned up
-        # (This would depend on implementation details)
+        # Verify that the pipeline returned FAILED status due to the exception
+        assert result == RunStatus.FAILED, f"Expected RunStatus.FAILED but got {result}"
+        
+        # The pipeline should have completed epoch 0 successfully (epoch_count=1) and failed on epoch 1
+        assert pipeline.epoch_count == 1, f"Expected epoch_count=1 but got {pipeline.epoch_count}"
+        
+        # Verify that callbacks were still properly initialized (even if cleanup may vary)
+        assert len(pipeline.callbacks) == 2
 
 
 if __name__ == "__main__":
