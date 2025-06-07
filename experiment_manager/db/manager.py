@@ -605,3 +605,349 @@ class DatabaseManager:
             "is_backward_compatible": is_backward_compatible(current_version, target_version),
             "requires_initialization": False
         }
+    
+    # === ANALYTICS INTEGRATION METHODS ===
+    
+    def get_all_experiments(self, limit: Optional[int] = None, offset: int = 0) -> List[Dict[str, Any]]:
+        """
+        Get all experiments with basic information.
+        
+        Args:
+            limit: Maximum number of experiments to return
+            offset: Number of experiments to skip
+            
+        Returns:
+            List[Dict[str, Any]]: List of experiment dictionaries
+        """
+        ph = self._get_placeholder()
+        desc_field = "desc" if self.use_sqlite else "`desc`"
+        
+        query = f"""
+        SELECT id, title, {desc_field} as description, start_time, update_time
+        FROM EXPERIMENT
+        ORDER BY start_time DESC
+        """
+        
+        if limit:
+            if self.use_sqlite:
+                query += f" LIMIT {limit} OFFSET {offset}"
+            else:
+                query += f" LIMIT {offset}, {limit}"
+        
+        cursor = self._execute_query(query)
+        rows = cursor.fetchall()
+        
+        return [dict(row) for row in rows]
+    
+    def get_experiment_summary(self, experiment_id: int) -> Dict[str, Any]:
+        """
+        Get comprehensive summary of an experiment including trials, metrics, and artifacts.
+        
+        Args:
+            experiment_id: ID of the experiment
+            
+        Returns:
+            Dict[str, Any]: Experiment summary
+        """
+        ph = self._get_placeholder()
+        desc_field = "desc" if self.use_sqlite else "`desc`"
+        
+        # Get experiment basic info
+        exp_query = f"""
+        SELECT id, title, {desc_field} as description, start_time, update_time
+        FROM EXPERIMENT
+        WHERE id = {ph}
+        """
+        
+        cursor = self._execute_query(exp_query, (experiment_id,))
+        exp_row = cursor.fetchone()
+        
+        if not exp_row:
+            raise QueryError(f"Experiment with id {experiment_id} does not exist")
+        
+        experiment = dict(exp_row)
+        
+        # Get trial count
+        trial_count_query = f"""
+        SELECT COUNT(*) as trial_count
+        FROM TRIAL
+        WHERE experiment_id = {ph}
+        """
+        
+        cursor = self._execute_query(trial_count_query, (experiment_id,))
+        trial_count = cursor.fetchone()["trial_count"]
+        
+        # Get metrics count
+        metrics = self.get_experiment_metrics(experiment_id)
+        
+        # Get artifacts count
+        artifacts = self.get_experiment_artifacts(experiment_id)
+        
+        return {
+            **experiment,
+            "trial_count": trial_count,
+            "metrics_count": len(metrics),
+            "artifacts_count": len(artifacts),
+            "metrics": [{"id": m.id, "type": m.type, "total_val": m.total_val} for m in metrics],
+            "artifacts": [{"id": a.id, "type": a.type, "location": a.location} for a in artifacts]
+        }
+    
+    def get_trials_by_experiment(self, experiment_id: int) -> List[Dict[str, Any]]:
+        """
+        Get all trials for a specific experiment.
+        
+        Args:
+            experiment_id: ID of the experiment
+            
+        Returns:
+            List[Dict[str, Any]]: List of trial dictionaries
+        """
+        ph = self._get_placeholder()
+        
+        query = f"""
+        SELECT id, name, experiment_id, start_time, update_time
+        FROM TRIAL
+        WHERE experiment_id = {ph}
+        ORDER BY start_time DESC
+        """
+        
+        cursor = self._execute_query(query, (experiment_id,))
+        rows = cursor.fetchall()
+        
+        return [dict(row) for row in rows]
+    
+    def get_trial_runs_by_trial(self, trial_id: int) -> List[Dict[str, Any]]:
+        """
+        Get all trial runs for a specific trial.
+        
+        Args:
+            trial_id: ID of the trial
+            
+        Returns:
+            List[Dict[str, Any]]: List of trial run dictionaries
+        """
+        ph = self._get_placeholder()
+        
+        query = f"""
+        SELECT id, trial_id, status, start_time, update_time, end_time
+        FROM TRIAL_RUN
+        WHERE trial_id = {ph}
+        ORDER BY start_time DESC
+        """
+        
+        cursor = self._execute_query(query, (trial_id,))
+        rows = cursor.fetchall()
+        
+        return [dict(row) for row in rows]
+    
+    def get_metrics_by_type(self, metric_type: str, experiment_ids: Optional[List[int]] = None) -> List[Dict[str, Any]]:
+        """
+        Get all metrics of a specific type, optionally filtered by experiments.
+        
+        Args:
+            metric_type: Type of metric to retrieve
+            experiment_ids: Optional list of experiment IDs to filter by
+            
+        Returns:
+            List[Dict[str, Any]]: List of metric dictionaries with experiment context
+        """
+        ph = self._get_placeholder()
+        
+        base_query = """
+        SELECT DISTINCT 
+            m.id, m.type, m.total_val, m.per_label_val,
+            e.id as experiment_id, e.title as experiment_title,
+            t.id as trial_id, t.name as trial_name,
+            tr.id as trial_run_id, tr.status as trial_run_status
+        FROM METRIC m
+        LEFT JOIN EPOCH_METRIC em ON em.metric_id = m.id
+        LEFT JOIN EPOCH ep ON ep.idx = em.epoch_idx AND ep.trial_run_id = em.epoch_trial_run_id
+        LEFT JOIN TRIAL_RUN tr ON tr.id = ep.trial_run_id
+        LEFT JOIN RESULTS_METRIC rm ON rm.metric_id = m.id
+        LEFT JOIN RESULTS r ON r.trial_run_id = rm.results_id
+        LEFT JOIN TRIAL t ON t.id = tr.trial_id OR t.id = (SELECT trial_id FROM TRIAL_RUN WHERE id = r.trial_run_id)
+        LEFT JOIN EXPERIMENT e ON e.id = t.experiment_id
+        WHERE m.type = {ph}
+        """
+        
+        params = [metric_type]
+        
+        if experiment_ids:
+            placeholders = ",".join([ph] * len(experiment_ids))
+            base_query += f" AND e.id IN ({placeholders})"
+            params.extend(experiment_ids)
+        
+        base_query += " ORDER BY e.id, t.id, tr.id"
+        
+        cursor = self._execute_query(base_query, tuple(params))
+        rows = cursor.fetchall()
+        
+        results = []
+        for row in rows:
+            result = dict(row)
+            if result["per_label_val"]:
+                result["per_label_val"] = json.loads(result["per_label_val"])
+            results.append(result)
+        
+        return results
+    
+    def get_experiment_performance_data(self, experiment_id: int) -> Dict[str, Any]:
+        """
+        Get comprehensive performance data for an experiment.
+        
+        Args:
+            experiment_id: ID of the experiment
+            
+        Returns:
+            Dict[str, Any]: Performance data including metrics over time
+        """
+        ph = self._get_placeholder()
+        
+        # Get all metrics for the experiment with temporal information
+        query = f"""
+        SELECT 
+            m.id, m.type, m.total_val, m.per_label_val,
+            t.id as trial_id, t.name as trial_name,
+            tr.id as trial_run_id, tr.start_time as trial_run_start,
+            em.epoch_idx,
+            ep.trial_run_id as epoch_trial_run_id
+        FROM METRIC m
+        LEFT JOIN EPOCH_METRIC em ON em.metric_id = m.id
+        LEFT JOIN EPOCH ep ON ep.idx = em.epoch_idx AND ep.trial_run_id = em.epoch_trial_run_id
+        LEFT JOIN TRIAL_RUN tr ON tr.id = ep.trial_run_id
+        LEFT JOIN RESULTS_METRIC rm ON rm.metric_id = m.id
+        LEFT JOIN RESULTS r ON r.trial_run_id = rm.results_id
+        LEFT JOIN TRIAL t ON t.id = tr.trial_id OR t.id = (SELECT trial_id FROM TRIAL_RUN WHERE id = r.trial_run_id)
+        WHERE t.experiment_id = {ph}
+        ORDER BY t.id, tr.start_time, em.epoch_idx
+        """
+        
+        cursor = self._execute_query(query, (experiment_id,))
+        rows = cursor.fetchall()
+        
+        # Organize data by metric type and trial
+        performance_data = {
+            "experiment_id": experiment_id,
+            "metrics_by_type": {},
+            "trials": {},
+            "timeline": []
+        }
+        
+        for row in rows:
+            row_dict = dict(row)
+            metric_type = row_dict["type"]
+            trial_id = row_dict["trial_id"]
+            
+            # Parse per_label_val if it exists
+            if row_dict["per_label_val"]:
+                row_dict["per_label_val"] = json.loads(row_dict["per_label_val"])
+            
+            # Group by metric type
+            if metric_type not in performance_data["metrics_by_type"]:
+                performance_data["metrics_by_type"][metric_type] = []
+            performance_data["metrics_by_type"][metric_type].append(row_dict)
+            
+            # Group by trial
+            if trial_id not in performance_data["trials"]:
+                performance_data["trials"][trial_id] = {
+                    "trial_name": row_dict["trial_name"],
+                    "metrics": []
+                }
+            performance_data["trials"][trial_id]["metrics"].append(row_dict)
+            
+            # Add to timeline
+            performance_data["timeline"].append(row_dict)
+        
+        return performance_data
+    
+    def search_experiments(self, title_pattern: Optional[str] = None, 
+                          description_pattern: Optional[str] = None,
+                          start_date: Optional[str] = None,
+                          end_date: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Search experiments based on various criteria.
+        
+        Args:
+            title_pattern: Pattern to match in experiment titles
+            description_pattern: Pattern to match in experiment descriptions
+            start_date: Start date filter (ISO format)
+            end_date: End date filter (ISO format)
+            
+        Returns:
+            List[Dict[str, Any]]: List of matching experiments
+        """
+        ph = self._get_placeholder()
+        desc_field = "desc" if self.use_sqlite else "`desc`"
+        
+        query = f"""
+        SELECT id, title, {desc_field} as description, start_time, update_time
+        FROM EXPERIMENT
+        WHERE 1=1
+        """
+        
+        params = []
+        
+        if title_pattern:
+            query += f" AND title LIKE {ph}"
+            params.append(f"%{title_pattern}%")
+        
+        if description_pattern:
+            query += f" AND {desc_field} LIKE {ph}"
+            params.append(f"%{description_pattern}%")
+        
+        if start_date:
+            query += f" AND start_time >= {ph}"
+            params.append(start_date)
+        
+        if end_date:
+            query += f" AND start_time <= {ph}"
+            params.append(end_date)
+        
+        query += " ORDER BY start_time DESC"
+        
+        cursor = self._execute_query(query, tuple(params))
+        rows = cursor.fetchall()
+        
+        return [dict(row) for row in rows]
+    
+    def get_metric_statistics(self, metric_type: str, experiment_ids: Optional[List[int]] = None) -> Dict[str, Any]:
+        """
+        Get statistical summary for a specific metric type.
+        
+        Args:
+            metric_type: Type of metric to analyze
+            experiment_ids: Optional list of experiment IDs to filter by
+            
+        Returns:
+            Dict[str, Any]: Statistical summary including min, max, avg, count
+        """
+        ph = self._get_placeholder()
+        
+        base_query = """
+        SELECT 
+            COUNT(m.total_val) as count,
+            MIN(m.total_val) as min_val,
+            MAX(m.total_val) as max_val,
+            AVG(m.total_val) as avg_val
+        FROM METRIC m
+        LEFT JOIN EPOCH_METRIC em ON em.metric_id = m.id
+        LEFT JOIN EPOCH ep ON ep.idx = em.epoch_idx AND ep.trial_run_id = em.epoch_trial_run_id
+        LEFT JOIN TRIAL_RUN tr ON tr.id = ep.trial_run_id
+        LEFT JOIN RESULTS_METRIC rm ON rm.metric_id = m.id
+        LEFT JOIN RESULTS r ON r.trial_run_id = rm.results_id
+        LEFT JOIN TRIAL t ON t.id = tr.trial_id OR t.id = (SELECT trial_id FROM TRIAL_RUN WHERE id = r.trial_run_id)
+        LEFT JOIN EXPERIMENT e ON e.id = t.experiment_id
+        WHERE m.type = {ph}
+        """
+        
+        params = [metric_type]
+        
+        if experiment_ids:
+            placeholders = ",".join([ph] * len(experiment_ids))
+            base_query += f" AND e.id IN ({placeholders})"
+            params.extend(experiment_ids)
+        
+        cursor = self._execute_query(base_query, tuple(params))
+        row = cursor.fetchone()
+        
+        return dict(row) if row else {}

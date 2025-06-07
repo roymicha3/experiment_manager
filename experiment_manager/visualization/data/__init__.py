@@ -24,12 +24,45 @@ from .pipeline import (
     ThresholdCallback
 )
 
-from .processors import (
+# Import basic processors from basic_processors.py module
+from .basic_processors import (
     FilterProcessor,
     AggregationProcessor, 
     NormalizationProcessor,
     get_builtin_processors,
     register_builtin_processors
+)
+
+# Import specialized processors from processors package
+from .processors.time_series_smoother import TimeSeriesSmoother
+from .processors.missing_data_imputer import MissingDataImputer
+from .processors.outlier_detector import OutlierDetector
+from .processors.metric_normalizer import MetricNormalizer
+from .processors import get_specialized_processors, register_specialized_processors
+
+# Import cache system
+from .cache import (
+    DataCache,
+    CacheConfig,
+    CacheEntry,
+    CacheMetrics,
+    EvictionPolicy,
+    InvalidationStrategy,
+    MemoryCacheBackend,
+    CacheManager,
+    cache_manager
+)
+
+# Import analytics adapter
+from .analytics_adapter import (
+    AnalyticsDataAdapter,
+    QueryOptimization,
+    StreamingConfig,
+    DataSourceConfig,
+    DataSourceInterface,
+    AnalyticsEngineSource,
+    DatabaseDirectSource,
+    create_analytics_adapter
 )
 
 __all__ = [
@@ -59,5 +92,24 @@ __all__ = [
     'AggregationProcessor',
     'NormalizationProcessor',
     'get_builtin_processors',
-    'register_builtin_processors'
+    'register_builtin_processors',
+    
+    # Specialized processors
+    'TimeSeriesSmoother',
+    'MissingDataImputer',
+    'OutlierDetector',
+    'MetricNormalizer',
+    'get_specialized_processors',
+    'register_specialized_processors',
+    
+    # Cache system
+    'DataCache',
+    'CacheConfig',
+    'CacheEntry',
+    'CacheMetrics',
+    'EvictionPolicy',
+    'InvalidationStrategy',
+    'MemoryCacheBackend',
+    'CacheManager',
+    'cache_manager',
 ] 

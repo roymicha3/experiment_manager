@@ -36,6 +36,20 @@ from experiment_manager.visualization.core.plugin_registry import PluginRegistry
 from experiment_manager.visualization.core.event_bus import EventBus, Event, EventType, EventPriority, EventFilter
 from experiment_manager.visualization.core.config_manager import ConfigManager, VisualizationConfig, ConfigFormat
 
+# Main visualizer manager
+from experiment_manager.visualization.visualizer_manager import (
+    VisualizerManager,
+    DataSpec,
+    PlotConfig,
+    RenderOptions,
+    Plot,
+    RenderResult,
+    VisualizationError,
+    PlotCreationError,
+    RenderingError,
+    PluginError,
+)
+
 # Data processing pipeline
 from experiment_manager.visualization.data import (
     DataPipeline,
@@ -64,8 +78,32 @@ from experiment_manager.visualization.plugins import (
     ThemePlugin,
 )
 
+# Theme registry and management
+from experiment_manager.visualization.themes import (
+    ThemeRegistry,
+    DefaultThemePlugin,
+    DarkThemePlugin,
+    PublicationThemePlugin,
+)
+
+# Renderer plugins
+from experiment_manager.visualization.renderers import (
+    MatplotlibRendererPlugin,
+)
+
 __version__ = "0.1.0"
 __all__ = [
+    # Main visualizer manager
+    "VisualizerManager",
+    "DataSpec",
+    "PlotConfig", 
+    "RenderOptions",
+    "Plot",
+    "RenderResult",
+    "VisualizationError",
+    "PlotCreationError",
+    "RenderingError",
+    "PluginError",
     # Core components
     "PluginRegistry",
     "PluginType",
@@ -99,4 +137,11 @@ __all__ = [
     "ExportPlugin",
     "DataProcessorPlugin",
     "ThemePlugin",
+    # Theme registry and management
+    "ThemeRegistry",
+    "DefaultThemePlugin",
+    "DarkThemePlugin",
+    "PublicationThemePlugin",
+    # Renderer plugins
+    "MatplotlibRendererPlugin",
 ] 
