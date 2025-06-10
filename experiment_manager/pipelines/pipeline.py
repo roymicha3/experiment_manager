@@ -53,6 +53,16 @@ class Pipeline(ABC):
     
     def _on_run_end(self, metrics: Dict[str, Any]) -> None:
         self.env.logger.info("Pipeline execution completed")
+        
+        # Reset epoch_idx to None for all DBTrackers so final metrics go to RESULTS
+        for tracker in self.env.tracker_manager.trackers:
+            if hasattr(tracker, 'epoch_idx'):
+                tracker.epoch_idx = None
+        
+        # Track final run metrics (these will be linked to RESULTS since epoch_idx is now None)
+        if metrics:
+            self.env.tracker_manager.track_dict(metrics)
+            
         self.env.tracker_manager.on_end(Level.PIPELINE)
         for callback in self.callbacks:
             self.env.logger.debug(f"Executing on_end for {callback.__class__.__name__}")

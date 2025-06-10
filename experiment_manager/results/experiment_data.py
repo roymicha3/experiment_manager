@@ -1,15 +1,21 @@
 # datasource/base.py
 
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List, Optional, Union
 import pandas as pd
 
 from experiment_manager.results.data_models import Experiment, Trial, TrialRun, MetricRecord, Artifact
 
 class ExperimentDataSource(ABC):
     @abstractmethod
-    def get_experiment(self, experiment_path: str) -> Experiment:
-        """Fetch the experiment and all associated trials and runs."""
+    def get_experiment(self, experiment_id: Optional[Union[str, int]] = None) -> Experiment:
+        """
+        Fetch the experiment and all associated trials and runs.
+        
+        Args:
+            experiment_id: Optional experiment ID (int) or title (str). 
+                          If None, returns the first experiment.
+        """
         pass
 
     @abstractmethod

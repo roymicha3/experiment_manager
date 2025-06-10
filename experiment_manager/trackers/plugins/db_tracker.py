@@ -164,7 +164,11 @@ class DBTracker(Tracker, YAMLSerializable):
         elif level == Level.TRIAL:
             pass
         elif level == Level.TRIAL_RUN:
-            pass
+            # Reset epoch_idx to None so final metrics are linked to RESULTS
+            self.epoch_idx = None
+        elif level == Level.PIPELINE:
+            # Also reset epoch_idx at pipeline level for child trackers
+            self.epoch_idx = None
         elif level == Level.EPOCH:
             self.epoch_idx += 1
         elif level == Level.BATCH:
@@ -199,6 +203,8 @@ class DBTracker(Tracker, YAMLSerializable):
         tracker = DBTracker(self.workspace, self.name, recreate=False)
         tracker.id = self.id
         tracker.parent = self
+        # Inherit the parent's epoch_idx state
+        tracker.epoch_idx = self.epoch_idx
         return tracker
     
     def save(self):
