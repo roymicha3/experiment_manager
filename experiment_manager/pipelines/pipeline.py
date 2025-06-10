@@ -84,13 +84,22 @@ class Pipeline(ABC):
                 status = RunStatus.RUNNING
                 status = run_function(self, config)
             
+            except StopIteration as e:
+                # Early stopping is not a failure - it's a successful early completion
+                self.env.logger.info(f"Pipeline completed early: {e}")
+                status = RunStatus.STOPPED
+            
             except Exception as e:
                 self.env.logger.error(f"Pipeline run failed: {e}")
                 status = RunStatus.FAILED
             
             finally:
+                # Always call on_end for proper cleanup, except for true failures
                 if status != RunStatus.FAILED:
-                    self.env.logger.info("Pipeline run completed successfully")
+                    if status == RunStatus.STOPPED:
+                        self.env.logger.info("Pipeline completed early via early stopping")
+                    else:
+                        self.env.logger.info("Pipeline run completed successfully")
                     self._on_run_end(self.run_metrics)
                 
                 return status
@@ -111,8 +120,14 @@ class Pipeline(ABC):
                 status = epoch_function(self, epoch_idx, model, *args, **kwargs)
                 self.env.tracker_manager.track_dict(self.epoch_metrics, epoch_idx)
             
+            except Exception as e:
+                self.env.logger.error(f"Pipeline epoch failed: {e}")
+                status = RunStatus.FAILED
+            
             finally:
                 should_stop = self._on_epoch_end(epoch_idx, self.epoch_metrics)
+                self.epoch_metrics.clear()
+                
                 if should_stop:
                     self.env.logger.info("Stopping pipeline execution")
                     raise StopIteration("Stopping pipeline execution")

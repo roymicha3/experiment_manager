@@ -51,4 +51,14 @@ class Epoch:
     epoch_idx: int
     trial_run_id: int
     time: datetime
+
+@dataclass
+class SchemaVersion:
+    """Represents a schema version in the database."""
+    id: Optional[int]
+    version: str  # Semantic version (e.g., "1.2.3")
+    migration_name: str  # Name of the migration file
+    description: str  # Description of changes
+    applied_at: datetime  # When migration was applied
+    rollback_script: Optional[str]  # SQL script for rollback (if available)
     

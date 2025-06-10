@@ -1,0 +1,26 @@
+- name: "cpu_intensive_trial"
+  desc: "Trial focused on CPU-intensive workloads"
+  repeat: 1
+  settings:
+    pipeline:
+      cpu_intensity: 2.0
+      memory_usage_mb: 150
+      work_duration_seconds: 1.0
+      
+- name: "memory_intensive_trial"
+  desc: "Trial focused on memory-intensive workloads"
+  repeat: 1
+  settings:
+    pipeline:
+      cpu_intensity: 1.0
+      memory_usage_mb: 500
+      work_duration_seconds: 1.5
+      
+- name: "balanced_workload_trial"
+  desc: "Trial with balanced CPU and memory usage"
+  repeat: 1
+  settings:
+    pipeline:
+      cpu_intensity: 1.5
+      memory_usage_mb: 300
+      work_duration_seconds: 1.2 

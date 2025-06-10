@@ -1,0 +1,867 @@
+# Experiment Manager - Product Requirements Document (PRD)
+
+<context>
+# Overview
+Experiment Manager aims to be the definitive solution for managing machine learning experiments by providing researchers and engineers with a structured, configurable, and extensible framework that addresses the common challenges of ML experimentation: organization, reproducibility, tracking, and analysis.
+
+Machine learning experimentation is inherently complex and iterative, presenting several key challenges:
+- **Experiment Organization**: Running multiple experiments with different configurations quickly becomes disorganized
+- **Configuration Management**: Tracking which parameters produced which results is difficult without a structured approach
+- **Results Tracking**: Collecting and comparing metrics across experiments is time-consuming without proper systems
+- **Reproducibility**: Recreating the exact conditions of a successful experiment is often challenging
+- **Resource Management**: Organizing artifacts, checkpoints, and logs can become unwieldy as experiments multiply
+- **Collaboration**: Sharing experiments and results among team members lacks standardization
+- **Pipeline Complexity**: Training workflows with early stopping, checkpointing, and metrics tracking require substantial boilerplate code
+
+# Core Features
+
+## Experiment & Trial Management
+- **Hierarchical Organization**: Structure experiments, trials, and runs in a logical hierarchy
+- **Trial Repetition**: Support multiple runs of the same trial with different random seeds
+- **Resumption Support**: Continue partially completed experiments from where they left off
+- **Workspace Organization**: Automatically create and manage directory structures for artifacts
+- **Comparison Tools**: Compare results across experiments and trials
+- **Versioning**: Track experiment versions and allow tagging for important milestones
+
+## Configuration System
+- **YAML-Based Configuration**: Define experiments using human-readable YAML files
+- **Inheritance & Merging**: Share common settings across trials with base configurations
+- **Trial-Specific Overrides**: Customize specific parameters for individual trials
+- **Dynamic Generation**: Generate configurations programmatically for parameter sweeps
+- **Validation**: Automatically validate required configuration fields
+- **Environment Variables**: Support environment variable substitution in configurations
+
+## Tracking System
+- **Multi-Level Logging**: Track metrics at experiment, trial, and run levels
+- **Plugin Architecture**: Extensible system with support for multiple tracking backends
+- **MLflow Integration**: Built-in support for MLflow experiment tracking
+- **TensorBoard Integration**: Visualization through TensorBoard
+- **Metric Tracking**: Record and analyze metrics throughout execution
+- **Artifact Management**: Store and retrieve model checkpoints, logs, and other artifacts
+- **Visualization**: View and compare metrics with built-in visualization tools
+- **Custom Metrics**: Define and track custom metrics specific to your experiments
+
+## Database Integration
+- **SQLite Support**: Lightweight database for development and small-scale projects
+- **MySQL Support**: Robust database for production environments and large-scale deployments
+- **Comprehensive Schema**: 7 core tables with 7 junction tables supporting complete experiment hierarchy
+- **Hierarchical Data Structure**: Database schema mirrors experiment organization (experiments → trials → trial runs → epochs)
+- **Multi-Level Relationships**: Support for linking artifacts and metrics at every level of the hierarchy
+- **Complex Metric Storage**: JSON support for per-label metrics alongside scalar values
+- **Junction Table Design**: Comprehensive many-to-many relationships for flexible data associations
+- **Database Manager API**: High-level Python interface for all database operations
+- **Query Capabilities**: Comprehensive API for querying historical experiment data with custom exceptions
+- **Migration Support**: Database schema evolution and migration capabilities
+- **Direct Connectivity**: Direct database access for custom queries and advanced analysis
+- **Result Extraction API**: Programmatic extraction of experiment results and metrics
+- **Progress Monitoring**: Real-time tracking of experiment progress through database queries
+- **Data Export**: Export results to various formats (CSV, JSON, pandas DataFrame)
+- **Interactive Query Interface**: Support for complex queries with filtering, sorting, and aggregation
+- **Cross-Experiment Analysis**: Analyze and compare metrics across multiple experiments and time periods
+- **Connection Management**: Connection pooling, proper error handling, and transaction support
+- **Error Handling**: Robust exception system with DatabaseError, ConnectionError, and QueryError classes
+
+## Pipeline Architecture
+- **Factory Pattern**: Create pipeline components dynamically from configuration
+- **Callback System**: Extend pipeline functionality with callback hooks
+- **Custom Implementations**: Define custom pipelines for specific experiment needs
+- **Event Tracking**: Automatically track pipeline lifecycle events
+- **Distributed Training**: Support for distributed execution (future)
+- **Error Handling**: Robust error handling and recovery mechanisms
+
+## Training Callbacks
+- **Early Stopping**: Automatically stop training when performance plateaus
+- **Checkpointing**: Save model state at specified intervals
+- **Metric Tracking**: Record and monitor metrics during training
+- **Custom Callbacks**: Create specialized callbacks for unique requirements
+- **Learning Rate Scheduling**: Dynamic adjustment of learning rates during training
+- **Model Pruning**: Support for model pruning and quantization
+
+# User Experience
+
+## Target Audience & User Personas
+
+### ML Researcher (Primary)
+- **Profile**: Academic or industry researcher exploring new ML techniques
+- **Technical Level**: Intermediate to advanced Python skills
+- **Goals**: Experiment with different approaches, compare results, publish findings
+- **Pain Points**: Manual experiment tracking, disorganized workflows, reproducibility challenges
+- **Usage Patterns**: Heavy experimentation, trial-and-error approach, result comparison
+
+### ML Engineer (Primary)
+- **Profile**: Industry professional building ML products
+- **Technical Level**: Advanced Python and software engineering skills
+- **Goals**: Optimize models, create robust pipelines, integrate with production systems
+- **Pain Points**: Scaling experiments, ensuring reproducibility, managing complex workflows
+- **Usage Patterns**: Systematic experimentation, hyperparameter optimization, model deployment
+
+### Data Science Team Lead (Secondary)
+- **Profile**: Manager overseeing multiple ML projects
+- **Technical Level**: Moderate to advanced technical understanding
+- **Goals**: Track team progress, compare results across projects, make resource decisions
+- **Pain Points**: Visibility into experiments, standardization across team members
+- **Usage Patterns**: Reviewing results, comparing experiments, managing resources
+
+### Academic Student (Secondary)
+- **Profile**: Undergraduate or graduate student learning ML techniques
+- **Technical Level**: Beginner to intermediate Python skills
+- **Goals**: Learn ML techniques, run experiments for coursework or thesis
+- **Pain Points**: Complex setup of ML environments, disorganized approach to experimentation
+- **Usage Patterns**: Basic experimentation, following established templates, learning-oriented
+
+## User Flows
+
+### Experiment Creation and Configuration
+1. User defines configuration files (env.yaml, experiment.yaml, base.yaml, trials.yaml)
+2. User creates or selects pipeline implementation for the experiment
+3. User initializes the experiment using the configuration and pipeline factory
+4. System validates configurations and creates the experiment structure
+
+### Experiment Execution
+1. User runs the experiment
+2. System executes each trial with the specified configuration
+3. System tracks metrics and artifacts throughout execution
+4. User can monitor progress through logs and tracking interfaces
+
+### Result Analysis
+1. User queries experiment results through API or tracking interface
+2. User compares metrics across trials and experiments
+3. User examines artifacts (models, logs, visualizations)
+4. User makes decisions for next iteration of experiments
+
+### Extensibility
+1. User creates custom pipeline implementation by subclassing Pipeline
+2. User creates custom callbacks for specific functionality
+3. User registers new components with the factory system
+4. User integrates custom components into their experiment workflows
+
+### Database Interaction
+1. User connects to the experiment database using provided connection utilities
+2. User queries experiment status and results using built-in query interfaces
+3. User exports data for external analysis or reporting
+4. User monitors ongoing experiments through live database connections
+5. User performs cross-experiment analysis to identify trends and insights
+</context>
+<PRD>
+# Technical Architecture
+
+## High-Level Architecture
+
+The Experiment Manager follows a layered architecture with clear separation of concerns:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                         User Interface                       │
+│                     (Python API, CLI, etc.)                  │
+└───────────────────────────────┬─────────────────────────────┘
+                                │
+┌───────────────────────────────▼─────────────────────────────┐
+│                      Experiment Management                   │
+│         (Experiment, Trial, Configuration Management)        │
+└───────────────────────────────┬─────────────────────────────┘
+                                │
+           ┌───────────────────┐│┌───────────────────┐
+           │                   ││                    │
+┌──────────▼──────────┐ ┌──────▼▼──────────┐ ┌──────▼──────────┐
+│  Pipeline Execution  │ │ Tracking System  │ │ Storage System  │
+│  (Pipelines,         │ │ (Metrics, Events,│ │ (Database, File │
+│   Callbacks)         │ │  Artifacts)      │ │  System)        │
+└─────────────────────┘ └─────────────────┘ └─────────────────┘
+```
+
+## Hierarchical Levels and Context Management System
+
+### The Six-Level Experiment Hierarchy
+
+The Experiment Manager implements a sophisticated six-level hierarchy that provides structured context for both tracking and execution. This hierarchical design enables precise organization and granular control over experiment data and workflow.
+
+```python
+class Level(Enum):
+    EXPERIMENT    = 0  # Top-level experiment container
+    TRIAL         = 1  # Individual experiment configurations  
+    TRIAL_RUN     = 2  # Single execution of a trial (with repetition support)
+    PIPELINE      = 3  # Execution context for training workflows
+    EPOCH         = 4  # Individual training epochs within a pipeline
+    BATCH         = 5  # Individual batch processing (finest granularity)
+```
+
+#### Level Definitions and Business Purpose
+
+1. **EXPERIMENT Level (0)**:
+   - **Business Purpose**: Overall experiment coordination and high-level research objectives
+   - **Technical Purpose**: Single source of truth for experiment metadata and cross-trial analysis
+   - **User Value**: Enables experiment-wide comparisons and research insights
+   - **Tracked Data**: Experiment configuration, overall success metrics, aggregated results
+
+2. **TRIAL Level (1)**:
+   - **Business Purpose**: Individual hypothesis testing with specific parameter configurations
+   - **Technical Purpose**: Systematic parameter space exploration with proper isolation
+   - **User Value**: Enables controlled variable testing and hyperparameter optimization
+   - **Tracked Data**: Hyperparameters, trial-specific configurations, statistical outcomes
+
+3. **TRIAL_RUN Level (2)**:
+   - **Business Purpose**: Statistical significance through multiple executions of the same trial
+   - **Technical Purpose**: Separation of configuration (trial) from execution (run) for clean abstraction
+   - **User Value**: Provides confidence intervals and statistical validation of results
+   - **Tracked Data**: Run status, random seeds, run-specific metrics and artifacts
+
+4. **PIPELINE Level (3)**:
+   - **Business Purpose**: Training workflow execution and process monitoring
+   - **Technical Purpose**: Bridge between experiment management and ML training logic
+   - **User Value**: Enables workflow customization and training process intervention
+   - **Tracked Data**: Pipeline configuration, training duration, workflow events
+   - **Special Role**: **Context where callbacks operate for training intervention**
+
+5. **EPOCH Level (4)**:
+   - **Business Purpose**: Learning progress monitoring and optimization tracking
+   - **Technical Purpose**: Fine-grained monitoring enabling training interventions
+   - **User Value**: Real-time training insights and early stopping capabilities
+   - **Tracked Data**: Per-epoch metrics, learning curves, model checkpoints
+
+6. **BATCH Level (5)**:
+   - **Business Purpose**: Detailed debugging and performance optimization
+   - **Technical Purpose**: Finest granularity for when detailed batch information is needed
+   - **User Value**: Deep debugging capabilities for training issues
+   - **Tracked Data**: Batch metrics, gradient information, detailed debugging data
+
+### Context-Based Component Architecture: Callbacks vs Trackers
+
+A fundamental architectural decision is the **context-based separation** between callbacks and trackers, which serves different purposes in the system:
+
+#### Callbacks: Pipeline-Context Components
+
+```python
+class Callback(ABC):
+    def on_start(self) -> None:
+        """Called when pipeline training starts."""
+        
+    def on_epoch_end(self, epoch_idx: int, metrics: Dict[str, Any]) -> bool:
+        """Called at end of each epoch. Return False to stop training."""
+        
+    def on_end(self, metrics: Dict[str, Any]) -> None:
+        """Called when pipeline training ends."""
+```
+
+**Business Purpose**: Real-time training intervention and workflow control
+**Technical Context**: Operate exclusively within PIPELINE level boundaries
+**Key Responsibilities**:
+- **Training Decision Making**: Early stopping, learning rate adjustments, model pruning
+- **Immediate Intervention**: Real-time responses to training state changes
+- **Workflow Management**: Setup, epoch processing, cleanup within training context
+- **Resource Management**: Checkpoint saving, model evaluation, optimization state management
+
+**User Value**: 
+- Automated training optimization without manual intervention
+- Consistent training workflows across different experiments
+- Extensible training logic without modifying core pipeline code
+
+#### Trackers: Multi-Level Context Components
+
+```python
+class Tracker(ABC):
+    def on_create(self, level: Level, *args, **kwargs):
+        """Called when an entity at any level is created."""
+        
+    def on_start(self, level: Level, *args, **kwargs):
+        """Called when an entity at any level starts execution."""
+        
+    def on_end(self, level: Level, *args, **kwargs):
+        """Called when an entity at any level completes."""
+        
+    def on_add_artifact(self, level: Level, artifact_path: str, *args, **kwargs):
+        """Called when artifacts are associated with any level."""
+```
+
+**Business Purpose**: Comprehensive experiment data collection and analysis support
+**Technical Context**: Operate across ALL hierarchy levels (EXPERIMENT through BATCH)
+**Key Responsibilities**:
+- **Data Collection**: Metrics, artifacts, metadata collection across all levels
+- **Persistent Storage**: Database records, log files, external system integration
+- **Hierarchical Organization**: Maintaining relationships between experiment entities
+- **Cross-Experiment Analysis**: Supporting research insights across multiple experiments
+- **Audit Trail**: Complete history of all experiment activities
+
+**User Value**:
+- Complete experiment reproducibility and audit trails
+- Cross-experiment comparison and analysis capabilities
+- Integration with external tools (MLflow, TensorBoard, databases)
+- Long-term experiment data management and insights
+
+### Design Benefits of Context Separation
+
+1. **Single Responsibility Principle**:
+   - **Callbacks**: Focus solely on training logic and real-time intervention
+   - **Trackers**: Focus solely on data collection and long-term persistence
+
+2. **Different Temporal Scopes**:
+   - **Callbacks**: Immediate, real-time decisions within bounded training execution
+   - **Trackers**: Long-term data management spanning entire experiment lifecycle
+
+3. **Orthogonal Extensibility**:
+   - Training workflows can be customized through callbacks without affecting data collection
+   - Tracking backends can be modified without impacting training logic
+   - Both can be extended independently based on user needs
+
+4. **Testing and Debugging**:
+   - Callbacks can be unit tested with mock training states
+   - Trackers can be tested independently with mock level events
+   - Clear separation makes debugging and maintenance easier
+
+### Advanced Design Patterns
+
+#### TrackScope Context Manager
+
+The system uses sophisticated context management for automatic level lifecycle tracking:
+
+```python
+class TrackScope:
+    def __init__(self, tracker_manager: TrackerManager, level: Level, *args, **kwargs):
+        self.tracker_manager = tracker_manager
+        self.level = level
+    
+    def __enter__(self):
+        self.tracker_manager.on_start(self.level, *self.args, **self.kwargs)
+    
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.tracker_manager.on_end(self.level)
+```
+
+**Business Value**: Eliminates manual tracking lifecycle management, reducing user errors
+**Technical Benefits**: Exception-safe cleanup, automatic hierarchical transitions, simplified user code
+
+#### Property-Based Lazy Resource Management
+
+The Environment class implements lazy directory creation using properties:
+
+```python
+@property
+def log_dir(self):
+    log_dir_path = os.path.join(self.workspace, ProductPaths.LOG_DIR.value)
+    if not os.path.exists(log_dir_path):
+        os.mkdir(log_dir_path)
+    return log_dir_path
+```
+
+**Business Value**: Reduces setup complexity and eliminates common filesystem errors
+**Technical Benefits**: Lazy evaluation, automatic resource management, consistent directory structure
+
+#### Hierarchical Workspace Organization
+
+The framework implements a workspace structure that mirrors the logical experiment hierarchy:
+
+```
+workspace/
+├── experiment_name/          # EXPERIMENT level
+│   ├── configs/             
+│   ├── logs/               
+│   ├── artifacts/          
+│   └── trials/             
+│       ├── trial_1/         # TRIAL level
+│       │   ├── configs/    
+│       │   ├── logs/       
+│       │   ├── artifacts/  
+│       │   └── run_1/       # TRIAL_RUN level
+│       │       ├── logs/   
+│       │       └── artifacts/
+```
+
+**Business Value**: Intuitive organization that matches mental model of experiments
+**Technical Benefits**: Logical isolation, easy artifact discovery, scalable organization
+
+#### Child Environment Creation Pattern
+
+The system uses inheritance with isolation for hierarchical resource management:
+
+```python
+def create_child(self, name: str, args: DictConfig = None) -> 'Environment':
+    child_workspace = os.path.join(self.workspace, name)
+    child_env = self.__class__(
+        workspace=child_workspace,
+        config=self.config,
+        factory=self.factory,
+        # ... inherited properties with isolated workspace
+        tracker_manager=self.tracker_manager.create_child(child_workspace))
+```
+
+**Business Value**: Consistent configuration inheritance with proper isolation
+**Technical Benefits**: Resource sharing, configuration propagation, isolated execution contexts
+
+## Core Components
+
+### 1. Environment (`Environment`)
+- Central context for an experiment
+- Manages workspace directories, logging, tracking systems, and device management
+- Hierarchical structure with parent-child relationships for trials and runs
+- Property-based directory management with lazy creation
+
+### 2. Experiment Management (`Experiment`, `Trial`)
+- Handles orchestration of experiments and trials
+- Loads and validates configurations
+- Initializes environment and sets up trials
+- Coordinates execution and manages lifecycle
+
+### 3. Pipeline System (`Pipeline`, `Callback`)
+- Encapsulates execution logic for experiments
+- Abstract Pipeline class defines execution flow
+- Callbacks respond to pipeline events
+- Decorator-based lifecycle management
+
+### 4. Tracking System (`Tracker`, `TrackerManager`)
+- Records metrics, events, and artifacts during execution
+- Plugin architecture for multiple tracking backends
+- Unified interface regardless of storage backend
+- Hierarchical tracking matching experiment structure
+
+### 5. Storage System (`DatabaseManager`)
+- Persists experiment data for analysis
+- Database integration with SQLite and MySQL
+- Schema design for all experiment entities
+- Comprehensive querying capabilities
+
+### 6. Result Access System (`ResultManager`)
+- Provides interfaces for experiment data access
+- Connection management for database backends
+- Query builder for constructing complex queries
+- Data transformation utilities for export formats
+- Real-time monitoring capabilities
+- Cross-experiment analysis tools
+
+## Design Patterns
+
+### 1. Factory-Serializable Pattern
+- Central pattern combining Factory pattern with serialization
+- `YAMLSerializable` provides serialization capabilities
+- `Factory` handles component creation
+- Registration mechanism using decorators
+
+### 2. Observer Pattern
+- Pipeline as subject, callbacks as observers
+- Events propagate through pipeline lifecycle
+
+### 3. Decorator Pattern
+- Used for cross-cutting concerns
+- Handles lifecycle management for pipeline runs
+
+### 4. Context Manager Pattern
+- Ensures proper event registration in tracking system
+
+### 5. Repository Pattern
+- Used for data access abstraction
+- Provides clean interface to database entities
+- Hides SQL complexity from consumers
+
+## Data Flow
+
+1. **Configuration Flow**: User defines YAML configs → Experiment loads and merges configs → Components receive configs
+2. **Execution Flow**: Experiment initiates run → Trial creates pipeline → Pipeline executes with lifecycle hooks → Callbacks notified → Metrics tracked
+3. **Tracking Flow**: TrackerManager initializes → Components track metrics → TrackerManager delegates to trackers → Data recorded to backends
+4. **Query Flow**: User initiates query → ResultManager constructs query → Database executes → Results transformed → Data returned to user
+
+## Directory Structure
+
+```
+workspace/
+├── experiment_name/
+│   ├── configs/           # Configuration files
+│   ├── logs/              # Experiment-level logs
+│   ├── artifacts/         # Experiment-level artifacts
+│   └── trials/            # Trial directories
+│       ├── trial_1/
+│       │   ├── configs/   # Trial-specific configs
+│       │   ├── logs/      # Trial-specific logs
+│       │   ├── artifacts/ # Trial-specific artifacts
+│       │   └── run_1/     # Trial run directories
+│       └── trial_2/
+│           └── ...
+```
+
+## Database Schema
+
+The database consists of 7 core tables and 7 junction tables providing comprehensive experiment tracking:
+
+### Core Tables
+
+```
+┌────────────────┐       ┌────────────────┐       ┌────────────────┐
+│   EXPERIMENT   │       │     TRIAL      │       │   TRIAL_RUN    │
+├────────────────┤       ├────────────────┤       ├────────────────┤
+│ id (PK)        │──┐    │ id (PK)        │──┐    │ id (PK)        │
+│ title          │  │    │ name           │  │    │ trial_id (FK)  │◄┘
+│ desc           │  │    │ experiment_id  │◄─┘    │ status         │
+│ start_time     │  │    │ start_time     │       │ start_time     │
+│ update_time    │  │    │ update_time    │       │ update_time    │
+└────────────────┘  │    └────────────────┘       └────────────────┘
+                    │                                      │
+                    │    ┌────────────────┐                │
+                    │    │    RESULTS     │                │
+                    │    ├────────────────┤                │
+                    │    │ trial_run_id   │◄───────────────┘
+                    │    │ (PK, FK)       │
+                    │    │ time           │
+                    │    └────────────────┘
+                    │                     │
+┌───────────────────▼┐   ┌────────────────▼───┐   ┌────────────────┐
+│     ARTIFACT       │   │      EPOCH         │   │     METRIC     │
+├────────────────────┤   ├────────────────────┤   ├────────────────┤
+│ id (PK)            │   │ idx (CK)           │   │ id (PK)        │
+│ type               │   │ trial_run_id (CK)  │   │ type           │
+│ loc                │   │ time               │   │ total_val      │
+└────────────────────┘   └────────────────────┘   │ per_label_val  │
+                                                   │ (JSON)         │
+                                                   └────────────────┘
+```
+
+### Junction Tables (Many-to-Many Relationships)
+
+- **EXPERIMENT_ARTIFACT**: Links artifacts to experiments
+- **TRIAL_ARTIFACT**: Links artifacts to trials  
+- **TRIAL_RUN_ARTIFACT**: Links artifacts to trial runs
+- **RESULTS_METRIC**: Links metrics to results
+- **RESULTS_ARTIFACT**: Links artifacts to results
+- **EPOCH_METRIC**: Links metrics to epochs
+- **EPOCH_ARTIFACT**: Links artifacts to epochs
+
+### Key Features
+
+1. **Hierarchical Structure**: EXPERIMENT → TRIAL → TRIAL_RUN → EPOCH/RESULTS
+2. **Flexible Artifact Tracking**: Artifacts can be linked at any level of the hierarchy
+3. **Complex Metric Support**: JSON support for per-label metrics alongside total values
+4. **Temporal Tracking**: Comprehensive timestamp tracking across all entities
+5. **Status Management**: Trial run status tracking for progress monitoring
+6. **One-to-One Results**: Each trial run has exactly one results record
+7. **Composite Keys**: Epochs use composite primary key (idx, trial_run_id)
+
+# Development Roadmap
+
+## Phase 1: Core Functionality (MVP)
+
+### Experiment & Trial Management
+- Hierarchical organization of experiments, trials, and runs
+- Trial repetition with different random seeds
+- Resume capability for partially completed experiments
+- Structured workspace organization for artifacts
+
+### Configuration System
+- YAML-based configuration with inheritance
+- Base configurations shared across trials
+- Trial-specific configuration overrides
+- Dynamic configuration generation
+
+### Tracking System
+- Multi-level logging (experiment, trial, run)
+- Extensible tracking system with plugin architecture
+- MLflow integration for experiment tracking
+- TensorBoard integration for visualization
+- Metric tracking at all levels
+- Basic artifact management
+
+### Database Integration
+- SQLite support for development
+- Basic schema for experiment data
+- Simple querying capabilities
+- Basic Python API for database access
+- Simple result extraction utilities
+
+### Pipeline Architecture
+- Basic pipeline system with factory pattern
+- Simple callbacks for common training tasks
+- Support for custom pipeline implementations
+- Basic tracking of pipeline events
+
+### Training Callbacks
+- Early stopping with configurable parameters
+- Checkpoint saving at intervals
+- Basic metric tracking
+
+## Phase 2: Enhanced Features
+
+### Configuration System
+- Improved validation of configuration fields
+- Environment variable substitution
+- Enhanced configuration generation utilities
+
+### Tracking System
+- Advanced visualization capabilities
+- Enhanced custom metric support
+- Improved artifact management
+- Better integration with third-party tools
+
+### Database Integration
+- MySQL support for production
+- Enhanced schema with more detailed relationships
+- Comprehensive querying API
+- Basic database migrations
+- Connection pool management
+- Advanced query builders
+- Common query templates
+- Data export to CSV and JSON
+- Pandas DataFrame integration
+
+### Pipeline Architecture
+- Enhanced error handling and recovery
+- More sophisticated event propagation
+- Expanded callback interfaces
+
+### Training Callbacks
+- Learning rate scheduling callbacks
+- More sophisticated early stopping strategies
+- Enhanced checkpointing capabilities
+
+### Usability
+- Comprehensive documentation with examples
+- Example notebooks and tutorials
+- CLI for common operations
+
+## Phase 3: Advanced Capabilities
+
+### Tracking System
+- Real-time monitoring dashboard
+- Advanced experiment comparison tools
+- Custom visualization plugins
+
+### Database Integration
+- Advanced querying interface
+- Interactive SQL execution
+- Cross-experiment analysis tools
+- Result caching mechanisms
+- Real-time progress monitoring
+- Notification systems for experiment status
+- Visual query builder
+- Custom reporting templates
+- Data export to multiple formats
+- Integration with BI tools
+
+### Pipeline Architecture
+- Distributed training support
+- Advanced resource management
+- Fault tolerance improvements
+
+### Advanced Features
+- Cloud storage integration
+- Advanced hyperparameter optimization
+- Web dashboard for experiment management
+- Model pruning and quantization
+- Containerized deployment support
+
+# Logical Dependency Chain
+
+## Foundation Layer
+1. **Core Data Structures**
+   - Environment class for resource management
+   - Basic configuration handling
+   - Directory structure management
+   - Logging infrastructure
+
+2. **Configuration System**
+   - YAML parsing and validation
+   - Configuration inheritance and merging
+   - Configuration generator utilities
+
+3. **Factory-Serializable Pattern**
+   - YAMLSerializable base class
+   - Factory base class
+   - Registration mechanism
+
+## Essential Components
+1. **Experiment & Trial Management**
+   - Experiment creation and configuration
+   - Trial creation and management
+   - Experiment and trial lifecycle
+
+2. **Pipeline Framework**
+   - Pipeline abstract class
+   - Basic lifecycle hooks
+   - Pipeline factory
+   - Event propagation system
+
+3. **Tracking System Core**
+   - Tracker abstract class
+   - TrackerManager implementation
+   - Basic metric tracking
+   - Event logging
+
+4. **Database Layer**
+   - Schema definition
+   - Connection management
+   - Basic CRUD operations
+   - Transaction support
+
+## Feature Extensions
+1. **Database Integration**
+   - SQLite database connection
+   - Schema creation
+   - Basic querying API
+
+2. **Tracking Plugins**
+   - MLflow tracker implementation
+   - TensorBoard tracker implementation
+   - File system artifact storage
+
+3. **Pipeline Callbacks**
+   - Callback base class
+   - Early stopping implementation
+   - Checkpoint callback
+   - Metric tracking callback
+
+4. **Result Access System**
+   - Connection utilities
+   - Query builders
+   - Data exporters
+   - Result formatters
+
+## User Interface Layer
+1. **Public API Finalization**
+   - Simplified experiment creation
+   - Convenient run methods
+   - Query interfaces for results
+   - Result extraction and analysis methods
+
+2. **Documentation & Examples**
+   - API documentation
+   - Example configurations
+   - Tutorial notebooks
+   - Query examples
+
+3. **CLI Tools** (Phase 2)
+   - Experiment management commands
+   - Result viewing utilities
+   - Configuration validation tools
+   - Database querying interface
+
+# Risks and Mitigations
+
+## Technical Challenges
+
+### 1. Configuration Complexity
+- **Risk**: YAML configuration system becomes too complex and hard to debug
+- **Mitigation**: Implement strong validation, clear error messages, and documentation
+- **Mitigation**: Create helper utilities and visualization tools for configuration
+
+### 2. Framework Lock-In
+- **Risk**: Tight coupling to specific ML frameworks (PyTorch)
+- **Mitigation**: Create adapter interfaces for framework-specific code
+- **Mitigation**: Document extension points for other frameworks
+
+### 3. Performance Overhead
+- **Risk**: Tracking and management adds significant overhead to experiments
+- **Mitigation**: Implement lazy loading and evaluation
+- **Mitigation**: Provide configuration options to disable features when not needed
+
+### 4. Resource Management
+- **Risk**: Improper cleanup of resources leading to leaks
+- **Mitigation**: Implement proper context managers and cleanup hooks
+- **Mitigation**: Add resource monitoring and warning systems
+
+### 5. Database Scalability
+- **Risk**: Database becomes a bottleneck for large-scale experimentation
+- **Mitigation**: Implement connection pooling and query optimization
+- **Mitigation**: Support for data sharding and partitioning
+- **Mitigation**: Index optimization for common query patterns
+
+## MVP Scoping
+
+### 1. Feature Prioritization
+- **Risk**: Trying to implement too many features for MVP
+- **Mitigation**: Focus on core functionality first (tracking, configuration, basic pipeline)
+- **Mitigation**: Implement extensibility mechanisms to allow future growth
+
+### 2. Integration Complexity
+- **Risk**: Integration with external systems (MLflow, TensorBoard) adds complexity
+- **Mitigation**: Make external integrations optional and pluggable
+- **Mitigation**: Start with file system tracking and add integrations incrementally
+
+### 3. User Adoption
+- **Risk**: Framework too complex for new users
+- **Mitigation**: Create simple "quick start" examples that work out of the box
+- **Mitigation**: Develop detailed documentation and tutorials
+
+## Resource Constraints
+
+### 1. Testing Coverage
+- **Risk**: Insufficient testing leads to unreliable framework
+- **Mitigation**: Prioritize test coverage for core components
+- **Mitigation**: Implement integration tests for common workflows
+
+### 2. Documentation Burden
+- **Risk**: Inadequate documentation hinders adoption
+- **Mitigation**: Include documentation as part of the definition of done
+- **Mitigation**: Create template examples for common use cases
+
+### 3. Maintenance Complexity
+- **Risk**: Codebase becomes difficult to maintain as it grows
+- **Mitigation**: Strong architecture with clear separation of concerns
+- **Mitigation**: Consistent code style and documentation standards
+
+# Appendix
+
+## A. Glossary
+
+- **Experiment**: A complete research investigation, containing multiple trials
+- **Trial**: A specific configuration or variant of an experiment
+- **Run**: A single execution of a trial (may be repeated multiple times)
+- **Pipeline**: The execution logic for an experiment
+- **Callback**: A component that responds to pipeline events
+- **Metric**: A quantitative measurement of model performance
+- **Artifact**: A file or object produced during an experiment (e.g., model checkpoint)
+- **Query**: A request for data from the database system
+- **Result Set**: The collection of data returned from a database query
+- **Connection**: A link to a database that allows for data operations
+
+## B. User Stories
+
+1. As an ML researcher, I want to define multiple experiment configurations in a structured way so I can systematically explore different approaches.
+2. As an ML engineer, I want to resume interrupted experiments so I don't lose progress on long-running tasks.
+3. As an ML researcher, I want to define common configuration parameters once and override them for specific trials to reduce duplication.
+4. As an ML engineer, I want to generate configurations programmatically to explore large parameter spaces.
+5. As a data science team lead, I want to compare metrics across different experiments to determine the best approach.
+6. As an ML engineer, I want automatic tracking of metrics without manual logging code.
+7. As an ML researcher, I want to implement early stopping to avoid wasting compute resources.
+8. As an ML engineer, I want to create custom callbacks for specialized model monitoring.
+9. As a data science team lead, I want to query historical experiment results to inform future work.
+10. As an ML researcher, I want to store and retrieve model artifacts for further analysis.
+11. As a data analyst, I want to connect to the experiment database to run custom SQL queries for advanced analysis across all 7 core tables and their relationships.
+12. As an ML engineer, I want to extract experiment results programmatically using the comprehensive DatabaseManager API to integrate with my reporting system.
+13. As a project manager, I want to monitor experiment progress in real-time through trial run status tracking and database queries.
+14. As a researcher, I want to export experiment data including per-label metrics and multi-level artifacts to various formats for publication and sharing.
+15. As a data science team lead, I want to perform cross-experiment analysis using junction tables to identify patterns and best practices across the entire experiment hierarchy.
+16. As an ML engineer, I want to track artifacts at different levels (experiment, trial, trial run, epoch, results) to maintain comprehensive provenance.
+17. As a researcher, I want to store and query per-label metrics using JSON support to analyze model performance across different classes.
+18. As a data scientist, I want to link metrics to specific epochs to track training progress and identify optimal stopping points.
+19. As a team lead, I want to query trial run statuses across multiple experiments to understand team productivity and resource utilization.
+20. As an analyst, I want to use the comprehensive junction table design to understand relationships between artifacts, metrics, and experimental outcomes.
+
+
+
+## C. Performance Requirements
+
+1. **Scalability**: The system should handle hundreds of experiments and thousands of trials without significant performance degradation.
+2. **Storage Efficiency**: Efficient storage of metrics and artifacts to minimize disk usage.
+3. **Query Performance**: Database queries should return results in under 5 seconds for typical use cases.
+4. **Memory Usage**: The tracking system should have minimal memory overhead during experiment execution.
+5. **Training Impact**: The framework should add no more than 5% overhead to training time compared to bare implementations.
+6. **Connection Capacity**: Support for at least 20 simultaneous database connections with proper connection pooling for multi-user environments.
+7. **Query Complexity**: Support for complex joins and aggregations across 7 core tables and 7 junction tables with optimized foreign key relationships.
+8. **Export Performance**: Ability to export large result sets (>100,000 rows) including JSON per-label metrics in under 30 seconds.
+9. **Junction Table Performance**: Efficient querying of many-to-many relationships with proper indexing on composite keys.
+10. **Hierarchical Query Performance**: Fast retrieval of complete experiment hierarchies (experiment → trials → trial runs → epochs) in under 2 seconds.
+11. **Metric Storage Performance**: Efficient storage and retrieval of both scalar and JSON per-label metrics with proper JSON indexing.
+12. **Artifact Linking Performance**: Fast association and retrieval of artifacts across all hierarchy levels with minimal overhead.
+
+## D. Technical Requirements
+
+1. **Python Compatibility**: Support Python 3.7+ with appropriate type annotations.
+2. **Framework Compatibility**: Primary support for PyTorch, with extension points for other frameworks.
+3. **Database Support**: SQLite for development, MySQL/PostgreSQL for production.
+4. **Integration Points**: Support for MLflow, TensorBoard, and custom tracking backends.
+5. **Serialization**: Standard formats for configuration (YAML) and artifacts (framework-specific).
+6. **Testing**: Comprehensive unit and integration test suite.
+7. **Documentation**: API documentation, user guides, and examples.
+8. **Database Interfaces**: Native SQL interface with DatabaseManager abstraction, support for both SQLite and MySQL backends.
+9. **Query Support**: Complex queries with filtering, sorting, grouping, and aggregation across 7 core tables and 7 junction tables.
+10. **Export Formats**: Support for CSV, JSON, Excel, pandas DataFrame, and pickle serialization with proper handling of JSON per-label metrics.
+11. **Connection Security**: Connection pooling, timeouts, proper credential management, and robust error handling with custom exception classes.
+12. **Schema Requirements**: Complete database schema with foreign key constraints, composite keys for epochs, and JSON support for complex metrics.
+13. **Junction Table Support**: Comprehensive many-to-many relationship handling for artifacts and metrics at all hierarchy levels.
+14. **Transaction Management**: ACID compliance for database operations with proper rollback capabilities.
+15. **Database Migration**: Schema evolution and migration support for production deployments.
+</PRD> 

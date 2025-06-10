@@ -65,7 +65,10 @@ class MetricsTracker(Callback, YAMLSerializable):
         final_metrics = []
         for key, value in metrics.items():
             if get_metric_category(key) == MetricCategory.TRACKED:
-                self.metrics[key] = [value]
+                # Append final metrics to existing data instead of overwriting
+                if key not in self.metrics:
+                    self.metrics[key] = []
+                self.metrics[key].append(value)
                 final_metrics.append(f"{key}: {value:.4f}")
         
         if final_metrics:
