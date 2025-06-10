@@ -15,7 +15,7 @@ from experiment_manager.common.serializable import YAMLSerializable
 
 @YAMLSerializable.register("TestIntegrationPipeline")
 class TestIntegrationPipeline(Pipeline, YAMLSerializable):
-    """Test pipeline for integration testing with early stopping and analytics."""
+    """Test pipeline for integration testing with early stopping."""
     
     def __init__(self, env: Environment, epochs: int = 5, scenario: str = "normal"):
         super().__init__(env)
@@ -149,7 +149,7 @@ def test_env():
 
 
 class TestPipelineIntegration:
-    """Test pipeline integration with early stopping and analytics."""
+    """Test pipeline integration with early stopping."""
     
     def test_normal_training_completes(self, test_env):
         """Test that normal training runs to completion."""

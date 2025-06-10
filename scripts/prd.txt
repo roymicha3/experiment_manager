@@ -830,49 +830,7 @@ The database consists of 7 core tables and 7 junction tables providing comprehen
 19. As a team lead, I want to query trial run statuses across multiple experiments to understand team productivity and resource utilization.
 20. As an analyst, I want to use the comprehensive junction table design to understand relationships between artifacts, metrics, and experimental outcomes.
 
-### Epic: Experiment Results Analytics
 
-21. As a data scientist, I want to easily extract all results from a specific experiment so that I can analyze the performance data without writing complex database queries.
-    - **Acceptance Criteria:**
-      - Extract results by experiment ID or name
-      - Filter by trial, trial run
-      - Export results in multiple formats (JSON, CSV, DataFrame)
-      - Include metadata (experiment config, trial parameters)
-
-22. As a researcher, I want to calculate statistical measures across trial runs so that I can understand the reliability and variance of my experiments.
-    - **Acceptance Criteria:**
-      - Calculate mean, median, std dev, min, max across trial runs
-      - Group statistics by trial or experiment
-      - Handle missing data gracefully
-      - Support custom aggregation functions
-
-23. As an ML engineer, I want to identify and exclude failed or incomplete runs from analysis so that my statistical analysis reflects only successful experiments.
-    - **Acceptance Criteria:**
-      - Filter runs by status (completed, failed, timeout, etc.)
-      - Identify outliers using configurable thresholds
-      - Mark runs for exclusion with reasoning
-      - Generate failure analysis reports
-
-24. As a researcher, I want to correlate run failures with configuration parameters so that I can identify problematic settings and improve experiment design.
-    - **Acceptance Criteria:**
-      - Analyze correlation between config parameters and failures
-      - Generate failure pattern reports
-      - Suggest parameter ranges that lead to stable runs
-      - Export insights for further investigation
-
-25. As a data scientist, I want to compare results across different experiments so that I can identify the best performing approaches.
-    - **Acceptance Criteria:**
-      - Compare metrics across experiments
-      - Generate comparison visualizations
-      - Rank experiments by performance criteria
-      - Export comparison reports
-
-26. As a researcher, I want to analyze metric evolution over training epochs (both by averaging over epochs and separately) so that I can understand training dynamics and convergence patterns.
-    - **Acceptance Criteria:**
-      - Extract epoch-level metrics
-      - Calculate training curves statistics
-      - Identify convergence patterns
-      - Detect overfitting or instability
 
 ## C. Performance Requirements
 

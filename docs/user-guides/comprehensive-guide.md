@@ -1,33 +1,37 @@
-# Experiment Manager - Comprehensive Technical Documentation
+# Comprehensive Guide to Experiment Manager
 
-## Table of Contents
-1. [Executive Summary](#executive-summary)
-2. [System Architecture](#system-architecture)
-3. [Core Design Principles](#core-design-principles)
-4. [Functional Architecture](#functional-architecture)
-5. [Data Model & Persistence](#data-model--persistence)
-6. [Integration & Extensibility](#integration--extensibility)
-7. [Configuration Management](#configuration-management)
-8. [Development & Operations](#development--operations)
-9. [Security & Performance](#security--performance)
-10. [API Reference](#api-reference)
-11. [Deployment Guidelines](#deployment-guidelines)
-12. [Future Roadmap](#future-roadmap)
+**Purpose**: Complete technical documentation for Product Managers and Software Architects  
+**Last Updated**: 2025-06-07  
+**Status**: Active
+
+## Table of contents
+1. [Executive summary](#executive-summary)
+2. [System architecture](#system-architecture)
+3. [Core design principles](#core-design-principles)
+4. [Functional architecture](#functional-architecture)
+5. [Data model & persistence](#data-model--persistence)
+6. [Integration & extensibility](#integration--extensibility)
+7. [Configuration management](#configuration-management)
+8. [Development & operations](#development--operations)
+9. [Security & performance](#security--performance)
+10. [API reference](#api-reference)
+11. [Deployment guidelines](#deployment-guidelines)
+12. [Future roadmap](#future-roadmap)
 
 ---
 
-## Executive Summary
+## Executive summary
 
 **Experiment Manager** is a sophisticated machine learning experimentation framework designed to standardize, organize, and track ML experiments across research and production environments. This documentation provides a comprehensive technical overview for Product Manager and Software Architect review.
 
-### Key Value Propositions
+### Key value propositions
 - **Standardization**: Unified approach to ML experimentation across teams
 - **Reproducibility**: Complete configuration versioning and artifact tracking  
 - **Scalability**: Single-machine development through production clusters
 - **Collaboration**: Database-backed experiment sharing and result comparison
 - **Extensibility**: Plugin architecture for custom tracking and pipelines
 
-### Technical Stack
+### Technical stack
 - **Language**: Python 3.6+
 - **Core Dependencies**: PyTorch, OmegaConf, MLflow, MySQL/SQLite
 - **Architecture**: Modular factory-pattern with plugin extensibility
@@ -35,9 +39,9 @@
 
 ---
 
-## System Architecture
+## System architecture
 
-### High-Level Architecture
+### High-level architecture
 
 The system follows a layered architecture with clear separation of concerns:
 
@@ -55,68 +59,56 @@ The system follows a layered architecture with clear separation of concerns:
 │  │  Tracking   │  │   Database   │  │    Environment      │ │
 │  │   System    │  │   Manager    │  │     Manager         │ │
 │  └─────────────┘  └──────────────┘  └─────────────────────┘ │
-│                           │                                 │
-│                    ┌──────▼──────┐                          │
-│                    │ Analytics   │                          │
-│                    │   Module    │                          │
-│                    └─────────────┘                          │
 ├─────────────────────────────────────────────────────────────┤
 │        Storage Layer (Artifacts, Logs, Configurations)     │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Core Component Architecture
+### Core component architecture
 
-#### 1. Experiment Management Layer
+#### 1. Experiment management layer
 - **Experiment**: Top-level orchestrator managing experiment lifecycle
 - **Trial**: Individual experiment variations with specific configurations  
 - **Environment**: Workspace and resource management
 - **Configuration System**: YAML-based hierarchical configuration
 
-#### 2. Execution Framework  
+#### 2. Execution framework  
 - **Pipeline Factory**: Abstract factory for creating execution pipelines
 - **Pipeline**: Base execution framework with lifecycle management
 - **Callbacks**: Event-driven hooks for training monitoring
 - **Run Management**: Status tracking and error handling
 
-#### 3. Data Persistence Layer
+#### 3. Data persistence layer
 - **Database Manager**: Schema management and data operations
 - **Migration System**: Version control for database schema evolution
 - **Artifact Storage**: File-based storage for models and outputs
 - **Configuration Versioning**: Complete experiment reproducibility
 
-#### 4. Tracking & Monitoring
+#### 4. Tracking & monitoring
 - **Tracker Manager**: Multi-provider experiment tracking coordination
 - **MLflow Integration**: Industry-standard experiment tracking
 - **Custom Trackers**: Extensible plugin system
 - **Metrics Collection**: Multi-level metric aggregation
 
-#### 5. Analytics & Insights Layer
-- **Analytics Engine**: Central orchestrator for advanced data analysis operations
-- **Query Builder**: Fluent API for constructing complex analytics queries
-- **Data Processors**: Pluggable analysis components (statistics, outliers, failures)
-- **Export System**: Multi-format export capabilities (CSV, JSON, Excel, DataFrame)
-- **Performance Optimization**: Database-level aggregations and query caching
-
 ---
 
-## Core Design Principles
+## Core design principles
 
-### 1. Configuration-Driven Architecture
+### 1. Configuration-driven architecture
 All behavior is controlled through YAML configuration files, enabling:
 - Runtime behavior modification without code changes
 - Environment-specific configurations
 - Hierarchical configuration inheritance
 - Version-controlled experiment definitions
 
-### 2. Factory Pattern Implementation  
+### 2. Factory pattern implementation  
 Flexible object creation supporting:
 - Runtime selection of pipeline implementations
 - Easy extension with new pipeline types
 - Configuration-driven object instantiation
 - Dependency injection for testing
 
-### 3. Hierarchical Organization
+### 3. Hierarchical organization
 Clear experimental structure:
 ```
 Experiment (1:N) → Trial (1:N) → Trial Run (1:N) → Epoch
@@ -124,7 +116,7 @@ Experiment (1:N) → Trial (1:N) → Trial Run (1:N) → Epoch
 Configuration    Configuration   Pipeline → Callbacks
 ```
 
-### 4. Plugin Architecture
+### 4. Plugin architecture
 Extensible framework supporting:
 - Custom tracker implementations
 - Domain-specific pipelines
@@ -133,9 +125,9 @@ Extensible framework supporting:
 
 ---
 
-## Data Model & Database Architecture
+## Data model & database architecture
 
-### Entity Relationship Model
+### Entity relationship model
 
 ```python
 @dataclass
@@ -163,22 +155,22 @@ class TrialRun:
     update_time: datetime
 ```
 
-### Migration System
+### Migration system
 - **Schema Versioning**: Semantic versioning with migration scripts
 - **Automated Migration**: Runtime schema validation and updates
 - **Rollback Support**: Safe rollback to previous schema versions
 - **Version Tracking**: Complete history of schema changes
 
-### Database Support
+### Database support
 - **Development**: SQLite for simplicity and portability
 - **Production**: MySQL for performance and concurrent access
 - **Configuration**: Environment-driven database selection
 
 ---
 
-## Configuration Management
+## Configuration management
 
-### Configuration File Structure
+### Configuration file structure
 
 ```yaml
 # env.yaml - Environment Configuration
@@ -214,7 +206,7 @@ training:
       embedding_dim: 1024
 ```
 
-### Configuration Merging Strategy
+### Configuration merging strategy
 1. **Base Configuration**: Foundation settings applied to all trials
 2. **Trial Overrides**: Specific modifications for individual trials  
 3. **Environment Integration**: Runtime environment variables
@@ -222,9 +214,9 @@ training:
 
 ---
 
-## Pipeline Architecture
+## Pipeline architecture
 
-### Abstract Pipeline Framework
+### Abstract pipeline framework
 
 ```python
 class Pipeline(ABC):
@@ -240,13 +232,13 @@ class Pipeline(ABC):
         """Single epoch execution"""
 ```
 
-### Lifecycle Management
+### Lifecycle management
 - **Initialization**: Resource allocation and setup
 - **Pre-execution**: Callback registration and validation  
 - **Execution**: Main training/inference loop
 - **Post-execution**: Cleanup and result finalization
 
-### Callback System
+### Callback system
 Built-in callbacks provide:
 - **Early Stopping**: Training termination based on metrics
 - **Checkpointing**: Model state persistence
@@ -255,199 +247,16 @@ Built-in callbacks provide:
 
 ---
 
-## Analytics Module Architecture
+## Integration & extensibility
 
-### Overview
-
-The Analytics Module provides sophisticated data analysis capabilities for experiment results, extending the experiment manager with powerful querying, statistical analysis, and export capabilities. The module leverages the existing database schema and follows established architectural patterns.
-
-### Core Components
-
-#### 1. Analytics Engine
-Central orchestrator coordinating all analytics operations:
-
-```python
-class AnalyticsEngine:
-    def __init__(self, database_manager: DatabaseManager):
-        self.db = database_manager
-        self.processor_manager = ProcessorManager()
-        
-    def fetch_data(self, query: AnalyticsQuery) -> RawData:
-        """Fetch data based on query specifications"""
-        
-    def process_data(self, data: RawData, processors: List[DataProcessor]) -> ProcessedData:
-        """Apply data processing operations"""
-        
-    def aggregate_data(self, data: ProcessedData, aggregations: List[str]) -> AggregatedData:
-        """Perform statistical aggregations"""
-```
-
-#### 2. Query Builder (Fluent API)
-Chainable interface for constructing complex analytics queries:
-
-```python
-class AnalyticsQuery:
-    def experiments(self, ids=None, names=None, time_range=None) -> 'AnalyticsQuery':
-        """Filter by experiment criteria"""
-        
-    def trials(self, names=None, status=None) -> 'AnalyticsQuery':
-        """Filter by trial criteria"""
-        
-    def runs(self, status=['completed'], exclude_timeouts=True) -> 'AnalyticsQuery':
-        """Filter by trial run criteria"""
-        
-    def metrics(self, types=None, context='results') -> 'AnalyticsQuery':
-        """Specify metric types and context"""
-        
-    def exclude_outliers(self, metric_type, method='iqr', threshold=1.5) -> 'AnalyticsQuery':
-        """Apply outlier detection and exclusion"""
-        
-    def group_by(self, field='trial') -> 'AnalyticsQuery':
-        """Specify grouping criteria"""
-        
-    def aggregate(self, functions=['mean', 'std']) -> 'AnalyticsQuery':
-        """Specify aggregation functions"""
-        
-    def execute(self) -> AnalyticsResult:
-        """Execute the query and return results"""
-```
-
-#### 3. Data Processors (Strategy Pattern)
-Pluggable analysis components implementing specific algorithms:
-
-- **StatisticsProcessor**: Basic and advanced statistical calculations
-- **OutlierProcessor**: Multiple outlier detection methods (IQR, Z-Score, Modified Z-Score)
-- **FailureAnalyzer**: Failure pattern analysis and correlation detection
-- **ComparisonProcessor**: Cross-experiment comparative analysis
-
-#### 4. Analytics Result Container
-Comprehensive result object with export capabilities:
-
-```python
-class AnalyticsResult:
-    def __init__(self):
-        self.raw_data: pd.DataFrame = None
-        self.aggregations: Dict[str, Any] = {}
-        self.exclusions: Dict[str, List] = {}
-        self.metadata: Dict[str, Any] = {}
-        
-    def export_csv(self, path: str, **options) -> None:
-        """Export to CSV format"""
-        
-    def export_json(self, path: str, **options) -> None:
-        """Export to JSON format"""
-        
-    def export_excel(self, path: str, **options) -> None:
-        """Export to Excel format"""
-        
-    def to_dataframe(self) -> pd.DataFrame:
-        """Convert to pandas DataFrame"""
-```
-
-### Integration with Existing Architecture
-
-#### Database Manager Enhancement
-New analytics-specific methods for optimized data extraction:
-
-```python
-class DatabaseManager:
-    def get_analytics_data(self, experiment_ids, filters) -> pd.DataFrame:
-        """Single optimized query for hierarchical experiment data"""
-        
-    def get_aggregated_metrics(self, experiment_ids, group_by, functions) -> pd.DataFrame:
-        """Pre-aggregate common statistics in database"""
-        
-    def get_failure_data(self, experiment_ids, include_configs=True) -> pd.DataFrame:
-        """Specialized query for failure analysis"""
-```
-
-#### Environment Integration
-Analytics workspace organization:
-
-```python
-class Environment:
-    @property
-    def analytics_dir(self) -> str:
-        """Analytics workspace directory"""
-        return os.path.join(self.workspace, "analytics")
-    
-    @property
-    def reports_dir(self) -> str:
-        """Generated reports directory"""
-        return os.path.join(self.analytics_dir, "reports")
-    
-    @property
-    def exports_dir(self) -> str:
-        """Export files directory"""
-        return os.path.join(self.analytics_dir, "exports")
-```
-
-### Analytics Operations by Hierarchy Level
-
-The Analytics Module operates across all six hierarchy levels:
-
-1. **EXPERIMENT Level**: Cross-trial aggregations, experiment-wide summaries
-2. **TRIAL Level**: Trial-specific analysis, hyperparameter correlations
-3. **TRIAL_RUN Level**: Individual run analysis, outlier detection
-4. **PIPELINE Level**: Workflow performance analysis
-5. **EPOCH Level**: Training curve analysis, convergence detection
-6. **BATCH Level**: Fine-grained debugging analysis (when enabled)
-
-### Performance Optimizations
-
-#### Database-Level Optimizations
-- **Composite Indexes**: Optimized for analytics query patterns
-- **Aggregation Functions**: Database-level statistical computations
-- **Query Caching**: Intelligent caching of frequently accessed data
-- **Batch Processing**: Chunked processing for large datasets
-
-#### Memory Management
-- **Lazy Loading**: Load data only when needed
-- **Streaming Results**: Process large datasets in chunks
-- **Result Caching**: Cache intermediate computations
-
-### Configuration Integration
-
-Analytics configuration follows existing YAML patterns:
-
-```yaml
-# analytics_config.yaml
-analytics:
-  default_processors:
-    - statistics
-    - outliers
-    - failures
-  
-  outlier_detection:
-    default_method: "iqr"
-    thresholds:
-      iqr: 1.5
-      zscore: 2.0
-      modified_zscore: 3.5
-  
-  export_settings:
-    default_format: "csv"
-    include_metadata: true
-    timestamp_format: "%Y-%m-%d %H:%M:%S"
-  
-  performance:
-    batch_size: 1000
-    cache_results: true
-    use_database_aggregation: true
-```
-
----
-
-## Integration & Extensibility
-
-### MLflow Integration
+### MLflow integration
 Seamless integration with MLflow for:
 - Experiment tracking and comparison
 - Model registry and versioning
 - Artifact storage and retrieval
 - Metric visualization and analysis
 
-### Custom Pipeline Development
+### Custom pipeline development
 ```python
 class CustomPipeline(Pipeline):
     @Pipeline.run_wrapper
@@ -461,7 +270,7 @@ class CustomPipeline(Pipeline):
         pass
 ```
 
-### Tracker Extension
+### Tracker extension
 ```python
 class CustomTracker(Tracker):
     def track_metric(self, key: str, value: float, step: int = None):
@@ -475,9 +284,9 @@ class CustomTracker(Tracker):
 
 ---
 
-## Development & Operations
+## Development & operations
 
-### Development Setup
+### Development setup
 ```bash
 # Clone and install
 git clone https://github.com/yourusername/experiment_manager.git
@@ -495,13 +304,13 @@ black experiment_manager/
 mypy experiment_manager/
 ```
 
-### Testing Strategy
+### Testing strategy
 - **Unit Tests**: Individual component testing (80% coverage target)
 - **Integration Tests**: Component interaction validation
 - **Database Tests**: Schema and migration testing
 - **Configuration Tests**: YAML parsing validation
 
-### Production Deployment
+### Production deployment
 ```yaml
 # Production configuration example
 workspace: "/data/experiments"
@@ -517,15 +326,15 @@ database:
 
 ---
 
-## Security & Performance
+## Security & performance
 
-### Security Considerations
+### Security considerations
 - **Configuration Security**: Sensitive parameter encryption
 - **Database Security**: Secure credential management
 - **Access Control**: Role-based permissions
 - **Audit Logging**: Comprehensive experiment access tracking
 
-### Performance Optimization
+### Performance optimization
 - **Database Performance**: Optimized indexing and query patterns
 - **Memory Management**: Lazy loading and garbage collection
 - **Scaling**: Horizontal scaling support for distributed execution
@@ -533,9 +342,9 @@ database:
 
 ---
 
-## API Reference
+## API reference
 
-### Core Classes
+### Core classes
 
 #### Experiment
 ```python
@@ -573,7 +382,7 @@ class Pipeline(ABC):
 
 ---
 
-## Future Roadmap
+## Future roadmap
 
 ### Short-term (3-6 months)
 - **Kubernetes Integration**: Native K8s job scheduling
@@ -581,7 +390,7 @@ class Pipeline(ABC):
 - **Web UI**: Browser-based experiment management
 - **Enhanced CLI**: Rich command-line interface
 
-### Medium-term (6-12 months)  
+### Medium-term (6-12 months)
 - **Hyperparameter Optimization**: Optuna/Ray Tune integration
 - **Auto-scaling**: Dynamic resource allocation
 - **Multi-tenancy**: Enterprise tenant isolation

@@ -28,13 +28,7 @@ The Experiment Manager follows a layered architecture with clear separation of c
 │ Execution     │ │ (Metrics, Events,     │ │ (Database, File │
 │ (Pipelines,   │ │  Artifacts)           │ │  System)        │
 │  Callbacks)   │ └───────────────────────┘ └─────────────────┘
-└───────────────┘            │
-                             │
-                    ┌────────▼────────┐
-                    │ Analytics Module │
-                    │ (Query, Analysis,│
-                    │  Export, Viz)    │
-                    └─────────────────┘
+└───────────────┘
 ```
 
 ### 2.2 Core Design Principles
@@ -131,77 +125,7 @@ The Storage System persists experiment data for later analysis using a comprehen
 - Comprehensive querying interface with custom exceptions
 - Connection pooling and transaction management
 
-### 3.6 Analytics Module (`AnalyticsEngine`, `QueryBuilder`, `DataProcessor`)
 
-The Analytics Module provides sophisticated data analysis capabilities for experiment results, statistical aggregations, failure analysis, and comparative analytics. This module directly leverages the existing database schema and follows established architectural patterns.
-
-#### Core Components:
-
-- **AnalyticsEngine**: Central orchestrator for analytics operations, coordinating data fetching, processing, and result compilation
-- **QueryBuilder**: Fluent API for constructing complex analytics queries with chainable filters and operations
-- **DataProcessor**: Abstract base class for pluggable analysis components (statistics, outliers, failures, comparisons)
-- **ProcessorManager**: Manages and executes data processing operations with proper dependency handling
-- **AnalyticsResult**: Container for analytics results with comprehensive export capabilities
-
-#### Analytics Architecture:
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                   ANALYTICS MODULE ENTITIES                     │
-│                                                                 │
-│  ┌─────────────────┐           ┌─────────────────┐              │
-│  │ AnalyticsEngine │◄──────────│ QueryBuilder    │              │
-│  │                 │           │                 │              │
-│  │ - fetch_data()  │           │ - experiments() │              │
-│  │ - process()     │           │ - trials()      │              │
-│  │ - aggregate()   │           │ - runs()        │              │
-│  │ - apply_filters()│          │ - metrics()     │              │
-│  └─────────────────┘           │ - execute()     │              │
-│           │                    └─────────────────┘              │
-│           │                                                     │
-│           ▼                                                     │
-│  ┌─────────────────┐                                            │
-│  │ ProcessorManager│                                            │
-│  │                 │                                            │
-│  │ - register()    │                                            │
-│  │ - execute()     │                                            │
-│  └─────────────────┘                                            │
-│           │                                                     │
-│    ┌─────────┬─────────┬─────────────┐                          │ 
-│    ▼         ▼         ▼             ▼                          │
-│ ┌──────┐ ┌────────┐ ┌─────────┐ ┌──────────┐                    │
-│ │Stats │ │Outlier │ │Failure  │ │Comparison│                    │
-│ │Proc  │ │Proc    │ │Analyzer │ │Proc      │                    │
-│ └──────┘ └────────┘ └─────────┘ └──────────┘                    │
-│                                                                 │
-│  ┌─────────────────┐                                            │
-│  │ AnalyticsResult │                                            │
-│  │                 │                                            │
-│  │ - raw_data      │                                            │
-│  │ - aggregations  │                                            │
-│  │ - exclusions    │                                            │
-│  │ - metadata      │                                            │
-│  │ - export()      │                                            │
-│  └─────────────────┘                                            │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-#### Key Design Features:
-
-- **Factory Pattern Integration**: Analytics components registered using `@YAMLSerializable.register` for configuration-driven instantiation
-- **Fluent Query Interface**: Chainable query construction with automatic validation and optimization
-- **Pluggable Processors**: Strategy pattern implementation for different analysis algorithms
-- **Multi-Level Analysis**: Operations across all hierarchy levels (experiment → trial → trial_run → epoch)
-- **Comprehensive Export**: Multiple format support (CSV, JSON, Excel, DataFrame) with metadata preservation
-- **Performance Optimization**: Database-level aggregations, query caching, and result streaming for large datasets
-- **Error Handling**: Graceful degradation and comprehensive validation throughout the analytics pipeline
-
-#### Integration Points:
-
-- **DatabaseManager Enhancement**: New analytics-specific query methods for optimized data extraction
-- **Environment Integration**: Analytics workspace organization with dedicated directories for reports and exports
-- **Configuration System**: Analytics configuration follows existing YAML patterns with inheritance support
-- **Hierarchical Operations**: Analytics operations respect and leverage the six-level experiment hierarchy
 
 ## 4. Design Patterns
 
@@ -292,63 +216,7 @@ class Level(Enum):
    - **Design Choice**: Optional level for when detailed batch-level information is needed
    - **Tracked Entities**: Batch metrics, gradient information, detailed debugging data
 
-### 5.1.1 Analytics Integration Across Hierarchy Levels
 
-The Analytics Module operates seamlessly across all hierarchy levels, providing specialized analysis capabilities at each level:
-
-#### Analytics Operations by Level:
-
-1. **EXPERIMENT Level Analytics**:
-   - Cross-trial aggregations and statistical comparisons
-   - Experiment-wide performance summaries
-   - High-level success/failure pattern analysis
-   - Multi-experiment comparative analytics
-
-2. **TRIAL Level Analytics**:
-   - Trial-specific performance analysis and ranking
-   - Hyperparameter correlation analysis
-   - Configuration sensitivity analysis
-   - Trial outcome prediction
-
-3. **TRIAL_RUN Level Analytics**:
-   - Individual run analysis and outlier detection
-   - Statistical significance testing across runs
-   - Run failure pattern analysis and correlation
-   - Reproducibility validation
-
-4. **PIPELINE Level Analytics**:
-   - Workflow performance optimization
-   - Training duration and resource utilization analysis
-   - Pipeline configuration effectiveness
-   - Error pattern identification
-
-5. **EPOCH Level Analytics**:
-   - Training curve analysis and convergence detection
-   - Learning progress visualization and reporting
-   - Early stopping effectiveness analysis
-   - Overfitting detection and prevention insights
-
-6. **BATCH Level Analytics** (when enabled):
-   - Fine-grained performance debugging
-   - Gradient analysis and optimization insights
-   - Detailed computational profiling
-   - Model behavior micro-analysis
-
-#### Multi-Level Query Capabilities:
-
-The QueryBuilder enables sophisticated cross-level analysis:
-
-```python
-# Example: Analyze training curves across multiple experiments
-result = (analytics.query()
-          .experiments(names=['transformer_exp', 'lstm_exp'])
-          .trials(status='completed')
-          .runs(exclude_failed=True)
-          .metrics(['loss', 'accuracy'], context='epoch')
-          .group_by('experiment')
-          .aggregate(['mean', 'std'])
-          .execute())
-```
 
 ### 5.2 Callbacks vs Trackers: Context Separation
 
@@ -457,10 +325,7 @@ workspace/
 │   ├── configs/             
 │   ├── logs/               
 │   ├── artifacts/          
-│   ├── analytics/           # NEW: Analytics Module workspace
-│   │   ├── reports/         # Generated analytics reports
-│   │   ├── exports/         # CSV/JSON/Excel exports
-│   │   └── comparisons/     # Cross-experiment comparisons
+
 │   └── trials/             
 │       ├── trial_1/         # TRIAL level
 │       │   ├── configs/    

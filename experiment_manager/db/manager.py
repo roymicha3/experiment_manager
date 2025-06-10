@@ -608,13 +608,13 @@ class DatabaseManager:
         }
 
     # ========================
-    # Analytics-specific methods
+    # Data retrieval methods
     # ========================
     
-    def get_analytics_data(self, 
+    def get_experiment_data(self, 
                           experiment_ids: Optional[List[int]] = None,
                           filters: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
-        """Get comprehensive hierarchical experiment data for analytics.
+        """Get comprehensive hierarchical experiment data.
         
         Single optimized query that joins across the experiment hierarchy:
         experiment → trial → trial_run → metrics, with optional configuration data.
@@ -629,7 +629,7 @@ class DatabaseManager:
                 - include_configs: Whether to include configuration data
                 
         Returns:
-            pd.DataFrame: Structured data ready for analytics processing with columns:
+            pd.DataFrame: Structured data with columns:
                 experiment_id, experiment_title, trial_id, trial_name, 
                 trial_run_id, run_status, run_start_time, run_update_time,
                 metric_id, metric_type, metric_total_val, metric_per_label_val
@@ -753,8 +753,8 @@ class DatabaseManager:
                 ])
                 
         except Exception as e:
-            logger.error(f"Error executing analytics query: {e}")
-            raise QueryError(f"Failed to retrieve analytics data: {e}") from e
+            logger.error(f"Error executing experiment data query: {e}")
+            raise QueryError(f"Failed to retrieve experiment data: {e}") from e
 
     def get_aggregated_metrics(self, 
                               experiment_ids: Optional[List[int]] = None,
@@ -1086,7 +1086,7 @@ class DatabaseManager:
     def execute_query(self, query: str, params: Optional[tuple] = None) -> pd.DataFrame:
         """Execute a custom SQL query and return results as DataFrame.
         
-        This method is used by the analytics engine for custom queries.
+        This method is used for custom data queries.
         
         Args:
             query: SQL query string
@@ -1116,10 +1116,10 @@ class DatabaseManager:
             logger.error(f"Error executing custom query: {e}")
             raise QueryError(f"Failed to execute query: {e}") from e
 
-    def create_analytics_indexes(self) -> None:
-        """Create database indexes optimized for analytics queries.
+    def create_optimized_indexes(self) -> None:
+        """Create database indexes optimized for data queries.
         
-        This method creates indexes that improve performance for the analytics
+        This method creates indexes that improve performance for the data
         methods above. Should be called after database initialization.
         """
         indexes = [
