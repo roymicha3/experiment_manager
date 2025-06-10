@@ -82,28 +82,22 @@ Experiment Manager is particularly valuable for:
   - Relationship tracking between entities
   - Comprehensive querying capabilities
 
-- **Pipeline Architecture**
-  - Extensible pipeline system with factory pattern
-  - Built-in callbacks for common training tasks
-  - Support for custom pipeline implementations
-  - Automatic tracking of pipeline events
+- **Advanced Pipeline System**
+  - Structured execution with automatic lifecycle management
+  - Built-in decorators (@run_wrapper, @epoch_wrapper) for error handling
+  - Comprehensive metric tracking with standardized Metric enum
+  - Extensible callback system with plugin architecture
+  - Automatic database persistence and MLflow integration
+  - Robust error handling and early stopping support
 
-- **Training Callbacks**
-  - Early stopping with configurable patience and delta
-  - Checkpoint saving at specified intervals
-  - Comprehensive metric tracking and visualization
-  - Custom callback support via base class
+- **Built-in Training Callbacks**
+  - **Early Stopping**: Configurable patience, delta thresholds, and monitoring modes
+  - **Checkpoint Callback**: Automatic model saving at specified intervals
+  - **Metrics Tracker**: CSV export of training progression and final results
+  - **Custom Callbacks**: Easy extensibility via base callback interface
+  - **Automatic Integration**: Seamless integration with pipeline decorators
 
-- **Experiment Analytics Module**
-  - Sophisticated data analysis capabilities for experiment results
-  - Statistical aggregations and failure analysis
-  - Fluent query builder API for complex analytics queries
-  - Outlier detection and exclusion with multiple methods
-  - Cross-experiment comparative analysis and ranking
-  - Training curve analysis and convergence detection
-  - Comprehensive export capabilities (CSV, JSON, Excel, DataFrame)
-  - Visualization support for analytics results
-  - Performance optimization for large dataset analytics
+
 
 ## Installation
 
@@ -173,9 +167,69 @@ settings:
     learning_rate: 0.0001
 ```
 
-### 2. Create a Pipeline Factory
 
-Define how your experiment should run by creating a pipeline factory:
+
+### 2. Create Your Pipeline
+
+First, create a custom pipeline that implements your training logic:
+
+```python
+from experiment_manager.pipelines.pipeline import Pipeline
+from experiment_manager.common.common import RunStatus, Metric
+from omegaconf import DictConfig
+
+class YourPipeline(Pipeline):
+    def __init__(self, env, config: DictConfig):
+        super().__init__(env)
+        self.config = config
+        # Initialize your model, data loaders, optimizers, etc.
+        
+    @Pipeline.run_wrapper
+    def run(self, config):
+        """Main training loop with automatic lifecycle management"""
+        # Your training logic here
+        for epoch in range(config.epochs):
+            status = self.run_epoch(epoch)
+            if status == RunStatus.FAILED:
+                return RunStatus.FAILED
+        
+        # Store final results in run_metrics for automatic tracking
+        final_test_loss, final_test_acc = self.final_test()
+        self.run_metrics[Metric.TEST_LOSS] = final_test_loss
+        self.run_metrics[Metric.TEST_ACC] = final_test_acc
+        
+        return RunStatus.COMPLETED
+    
+    @Pipeline.epoch_wrapper  
+    def run_epoch(self, epoch_idx):
+        """Single epoch with automatic metric tracking"""
+        # Your epoch training logic
+        train_loss = self.train_step()  # Your training code
+        val_loss, val_acc = self.validate()  # Your validation code
+        
+        # Store in epoch_metrics - automatically tracked by @epoch_wrapper
+        self.epoch_metrics[Metric.TRAIN_LOSS] = train_loss
+        self.epoch_metrics[Metric.VAL_LOSS] = val_loss
+        self.epoch_metrics[Metric.VAL_ACC] = val_acc
+        
+        return RunStatus.COMPLETED
+    
+    def train_step(self):
+        # Your actual training implementation
+        return 0.5  # Example loss value
+        
+    def validate(self):
+        # Your actual validation implementation  
+        return 0.3, 0.85  # Example val_loss, val_acc
+        
+    def final_test(self):
+        # Your actual final test implementation
+        return 0.25, 0.90  # Example final_test_loss, final_test_acc
+```
+
+### 3. Create a Pipeline Factory
+
+Now create a factory to instantiate your pipeline:
 
 ```python
 from omegaconf import DictConfig
@@ -194,7 +248,7 @@ class YourPipelineFactory(PipelineFactory):
         return PipelineFactory.create(name, config, env, id)
 ```
 
-### 3. Run Your Experiment
+### 4. Run Your Experiment
 
 ```python
 from experiment_manager.experiment import Experiment
@@ -258,32 +312,81 @@ experiment.run()
 
 ### Tracker System
 
-The tracking system provides a unified interface for different tracking backends:
+The tracking system provides a unified interface for different tracking backends with automatic lifecycle management:
 
 ```python
-from experiment_manager.trackers.tracker_manager import TrackerManager
+from experiment_manager.trackers.tracker_manager import TrackerManager, TrackScope
 from experiment_manager.common.common import Metric, Level
 
 # Access tracker from environment
 tracker = env.tracker_manager
 
-# Track metrics
+# Track individual metrics
 tracker.track(Metric.TRAIN_LOSS, 0.456, step=1)
-tracker.track(Metric.VAL_ACCURACY, 0.921, step=1)
+tracker.track(Metric.VAL_ACC, 0.921, step=1)
 
-# Track lifecycle events
-with tracker.track_scope(Level.TRIAL, trial_id=1):
-    # Do trial work here - tracking context managed automatically
+# Track multiple metrics at once (used by pipelines)
+metrics_dict = {
+    Metric.TRAIN_LOSS: 0.345,
+    Metric.VAL_LOSS: 0.234,
+    Metric.VAL_ACC: 0.892
+}
+tracker.track_dict(metrics_dict, step=2)
+
+# Manual lifecycle management (usually handled by Pipeline decorators)
+tracker.on_create(Level.TRIAL_RUN)  # Create tracking context
+tracker.on_start(Level.TRIAL_RUN)   # Start tracking
+# ... do work ...
+tracker.on_end(Level.TRIAL_RUN)     # End tracking
+
+# Context manager for scoped tracking
+with TrackScope(tracker, Level.TRIAL_RUN):
+    # Tracking context managed automatically
     tracker.track(Metric.TRAIN_LOSS, 0.345, step=2)
+    # on_start called on enter, on_end called on exit
+
+# Artifact tracking
+tracker.on_add_artifact(
+    Level.TRIAL_RUN, 
+    artifact_path="/path/to/model.pth",
+    artifact_type="checkpoint"
+)
+
+# Parameter logging (useful for hyperparameters)
+tracker.log_params({
+    "learning_rate": 0.001,
+    "batch_size": 32,
+    "optimizer": "adam"
+})
+
+# Checkpoint tracking with model
+import torch
+model = torch.nn.Linear(10, 1)
+tracker.on_checkpoint(
+    network=model,
+    checkpoint_path="/path/to/checkpoint.pth",
+    metrics={Metric.VAL_ACC: 0.95}
+)
 ```
 
-### Pipeline & Callbacks
+### Pipeline System
 
-Create custom pipelines and callbacks for your specific use case:
+The Pipeline system provides a powerful foundation for structured experiment execution with built-in lifecycle management, metric tracking, and extensible callbacks.
+
+#### Core Pipeline Features
+
+- **Automatic Lifecycle Management**: Built-in decorators handle setup, teardown, and error handling
+- **Metric Tracking**: Integrated metric collection with automatic database persistence
+- **Callback System**: Extensible plugin architecture for custom behavior
+- **Error Handling**: Robust error handling with proper cleanup and status reporting
+- **Early Stopping**: Built-in support for training interruption via callbacks
+
+#### Pipeline Decorators
+
+The pipeline system uses two key decorators that handle lifecycle management automatically:
 
 ```python
 from experiment_manager.pipelines.pipeline import Pipeline
-from experiment_manager.pipelines.callbacks.early_stopping import EarlyStopping
 from experiment_manager.common.common import RunStatus, Metric
 
 class YourPipeline(Pipeline):
@@ -291,28 +394,214 @@ class YourPipeline(Pipeline):
         super().__init__(env)
         self.config = config
         
-        # Register callbacks
+        # Pipeline automatically creates PIPELINE level tracking context
+        # Register callbacks for enhanced functionality
         self.register_callback(EarlyStopping(
             env=env, 
             metric=Metric.VAL_LOSS,
             patience=5,
-            min_delta_percent=1.0
+            min_delta_percent=1.0,
+            mode="min"
         ))
     
     @Pipeline.run_wrapper
     def run(self, config):
-        # Your pipeline implementation
+        """
+        @run_wrapper automatically handles:
+        - Calling _on_run_start() before execution
+        - Exception handling and status management
+        - Calling _on_run_end() after completion
+        - Proper cleanup even on failures
+        """
+        # Your main training loop
         for epoch in range(config.epochs):
-            self.run_epoch(epoch, self.model)
+            status = self.run_epoch(epoch, self.model)
+            if status == RunStatus.FAILED:
+                return RunStatus.FAILED
         return RunStatus.COMPLETED
     
-    @Pipeline.epoch_wrapper
+    @Pipeline.epoch_wrapper  
     def run_epoch(self, epoch_idx, model):
-        # Run a single epoch
-        # Track metrics
-        self.epoch_metrics[Metric.TRAIN_LOSS] = 0.345
-        self.epoch_metrics[Metric.VAL_ACCURACY] = 0.912
+        """
+        @epoch_wrapper automatically handles:
+        - Creating and starting EPOCH level tracking context
+        - Tracking all metrics in self.epoch_metrics
+        - Calling callback.on_epoch_end() for all registered callbacks
+        - Early stopping via StopIteration exception
+        - Clearing epoch_metrics for next epoch
+        """
+        # Your epoch implementation
+        train_loss = self.train_step(model)
+        val_loss, val_acc = self.validate(model)
+        
+        # Add metrics to be automatically tracked
+        self.epoch_metrics[Metric.TRAIN_LOSS] = train_loss
+        self.epoch_metrics[Metric.VAL_LOSS] = val_loss
+        self.epoch_metrics[Metric.VAL_ACC] = val_acc
+        
+        # Metrics are automatically:
+        # 1. Tracked to database with epoch context
+        # 2. Passed to all callbacks
+        # 3. Cleared after epoch completes
+        
         return RunStatus.COMPLETED
+```
+
+#### Available Metrics
+
+The system includes a comprehensive `Metric` enum for standardized tracking:
+
+```python
+from experiment_manager.common.common import Metric
+
+# Tracked metrics (automatically saved to database)
+Metric.TRAIN_LOSS      # Training loss
+Metric.TRAIN_ACC       # Training accuracy  
+Metric.VAL_LOSS        # Validation loss
+Metric.VAL_ACC         # Validation accuracy
+Metric.TEST_LOSS       # Test loss
+Metric.TEST_ACC        # Test accuracy
+Metric.LEARNING_RATE   # Learning rate
+Metric.CONFUSION       # Confusion matrix
+Metric.CUSTOM          # Custom metrics (name, value) tuple
+
+# Untracked metrics (not automatically persisted)
+Metric.NETWORK         # Model/network object
+Metric.DATA           # Data objects
+Metric.LABELS         # Label information
+Metric.STATUS         # Status information
+```
+
+#### Built-in Callbacks
+
+The system provides several powerful callbacks out of the box:
+
+##### 1. Early Stopping Callback
+
+```python
+from experiment_manager.pipelines.callbacks.early_stopping import EarlyStopping
+
+# Monitor validation loss with early stopping
+early_stop = EarlyStopping(
+    env=env,
+    metric=Metric.VAL_LOSS,    # Metric to monitor
+    patience=5,                # Epochs to wait without improvement
+    min_delta_percent=1.0,     # Minimum % improvement required
+    mode="min"                 # "min" for loss, "max" for accuracy
+)
+
+# Alternative: Monitor validation accuracy
+early_stop_acc = EarlyStopping(
+    env=env,
+    metric=Metric.VAL_ACC,
+    patience=10,
+    min_delta_percent=0.5,
+    mode="max"                 # Higher accuracy is better
+)
+```
+
+##### 2. Metrics Tracker Callback
+
+```python
+from experiment_manager.pipelines.callbacks.metric_tracker import MetricsTracker
+
+# Automatically save metrics to CSV file
+metrics_tracker = MetricsTracker(env=env)
+# Saves to {artifact_dir}/metrics.log
+# Includes epoch-by-epoch progression and final values
+```
+
+##### 3. Checkpoint Callback
+
+```python
+from experiment_manager.pipelines.callbacks.checkpoint import CheckpointCallback
+
+# Save model checkpoints at regular intervals
+checkpoint = CheckpointCallback(
+    interval=5,                # Save every 5 epochs
+    env=env
+)
+
+# In your epoch_wrapper, include the model:
+self.epoch_metrics[Metric.NETWORK] = model  # Model will be saved automatically
+```
+
+#### Custom Callbacks
+
+Create custom callbacks by extending the base `Callback` class:
+
+```python
+from experiment_manager.pipelines.callbacks.callback import Callback
+from typing import Dict, Any
+
+class CustomCallback(Callback):
+    def __init__(self, env):
+        self.env = env
+        
+    def on_start(self) -> None:
+        """Called when training starts."""
+        self.env.logger.info("Training started!")
+        
+    def on_epoch_end(self, epoch_idx: int, metrics: Dict[str, Any]) -> bool:
+        """Called after each epoch. Return False to stop training."""
+        if epoch_idx > 0 and epoch_idx % 10 == 0:
+            self.env.logger.info(f"Milestone: Completed {epoch_idx} epochs")
+        return True  # Continue training
+        
+    def on_end(self, metrics: Dict[str, Any]) -> None:
+        """Called when training ends."""
+        self.env.logger.info("Training completed!")
+```
+
+#### Pipeline Status Management
+
+The pipeline system uses a comprehensive `RunStatus` enum:
+
+```python
+from experiment_manager.common.common import RunStatus
+
+RunStatus.RUNNING      # Currently executing
+RunStatus.COMPLETED    # Finished successfully  
+RunStatus.STOPPED      # Stopped via early stopping
+RunStatus.FAILED       # Failed due to error
+RunStatus.ABORTED      # Manually aborted
+RunStatus.SKIPPED      # Skipped execution
+```
+
+#### Error Handling and Early Stopping
+
+The pipeline system handles interruptions gracefully:
+
+```python
+# Early stopping is triggered via StopIteration exception
+# The @epoch_wrapper catches this and converts it to proper cleanup
+
+# In your callback:
+def on_epoch_end(self, epoch_idx: int, metrics: Dict[str, Any]) -> bool:
+    if should_stop_early():
+        return False  # This triggers StopIteration in the pipeline
+    return True
+
+# Pipeline automatically:
+# 1. Catches StopIteration 
+# 2. Sets status to RunStatus.STOPPED
+# 3. Calls _on_run_end() for proper cleanup
+# 4. Calls callback.on_end() for all callbacks
+```
+
+#### Metric Tracking Integration
+
+The pipeline integrates seamlessly with the tracking system:
+
+```python
+# Metrics are automatically tracked at the appropriate level
+self.epoch_metrics[Metric.TRAIN_LOSS] = 0.345
+
+# This results in:
+# 1. Database record at EPOCH level
+# 2. MLflow tracking (if configured)
+# 3. Callback notification
+# 4. Automatic cleanup after epoch
 ```
 
 ### Database Integration
@@ -458,33 +747,94 @@ db.link_epoch_artifact(5, trial_run.id, checkpoint.id)
 
 ## Understanding the Key Systems
 
+### Hierarchical Levels and Context Management
+
+The experiment manager operates on a six-level hierarchy, each with specific tracking contexts:
+
+```python
+from experiment_manager.common.common import Level
+
+Level.EXPERIMENT    # Top-level experiment (contains multiple trials)
+Level.TRIAL         # Individual trial configuration (contains trial runs)
+Level.TRIAL_RUN     # Single execution of a trial (contains epochs)
+Level.PIPELINE      # Pipeline execution context
+Level.EPOCH         # Individual training epoch (contains batches)
+Level.BATCH         # Individual batch processing (optional fine-grained tracking)
+```
+
+#### Automatic Context Management
+
+The pipeline system automatically manages contexts at appropriate levels:
+
+```python
+class YourPipeline(Pipeline):
+    def __init__(self, env):
+        super().__init__(env)
+        # Automatically creates Level.PIPELINE context
+        
+    @Pipeline.run_wrapper
+    def run(self, config):
+        # @run_wrapper manages Level.PIPELINE start/end
+        for epoch in range(config.epochs):
+            self.run_epoch(epoch, model)
+            
+    @Pipeline.epoch_wrapper 
+    def run_epoch(self, epoch_idx, model):
+        # @epoch_wrapper manages Level.EPOCH create/start/end
+        # Automatically tracks self.epoch_metrics at EPOCH level
+        self.epoch_metrics[Metric.TRAIN_LOSS] = train_loss
+```
+
+#### Manual Context Management
+
+For custom implementations, you can manually manage tracking contexts:
+
+```python
+# Create and start experiment-level tracking
+tracker.on_create(Level.EXPERIMENT)
+tracker.on_start(Level.EXPERIMENT)
+
+# Trial-level tracking
+tracker.on_create(Level.TRIAL)
+tracker.on_start(Level.TRIAL)
+
+# Track metrics at appropriate levels
+tracker.track(Metric.TRAIN_LOSS, 0.345, step=epoch)
+
+# End contexts (automatic cleanup)
+tracker.on_end(Level.TRIAL)
+tracker.on_end(Level.EXPERIMENT)
+```
+
 ### The Tracker System in Depth
 
-The tracking system is designed to record all aspects of your experiments across multiple levels (experiment, trial, run, epoch):
+The tracking system is designed to record all aspects of your experiments across multiple levels:
 
 - **Metrics Tracking**: 
   - Record scalar values (loss, accuracy, F1 score)
-  - Store per-class or per-label breakdowns
+  - Store per-class or per-label breakdowns with JSON support
   - Track metrics over time (by epoch or step)
+  - Automatic categorization (tracked vs untracked metrics)
 
 - **Lifecycle Events**:
-  - Automatically capture start/end of experiments, trials, runs
+  - Automatically capture start/end of experiments, trials, runs, epochs
   - Create hierarchical relationships between entities
   - Enable proper organization in visualization tools
+  - Support for nested contexts and proper cleanup
 
 - **Artifact Management**:
   - Store models, checkpoints, plots, and other files
   - Link artifacts to the appropriate experiment level
   - Enable easy retrieval and comparison
+  - Automatic artifact registration via callbacks
 
 - **Plugin Architecture**:
   - Use MLflow for visualization and comparison
   - Store in database for persistence and querying
   - Extend with custom trackers for specific needs
+  - Multiple tracker support with unified interface
 
-The tracker uses the Context Manager pattern (`with tracker.track_scope()`) to automatically handle start/end events and proper hierarchy creation.
-
-## Hierarchical Levels and Context Management
+The tracker uses both decorator-based automation and manual Context Manager patterns for flexible usage.
 
 The Experiment Manager operates on a sophisticated hierarchical level system that provides structured context for both tracking and execution. Understanding these levels is crucial for effective use of the framework.
 
@@ -667,10 +1017,8 @@ workspace/
 │   ├── logs/              # Experiment-level logs
 │   │   └── metrics.log
 │   ├── artifacts/         # Experiment-level artifacts
-│   ├── analytics/         # Analytics Module workspace
-│   │   ├── reports/       # Generated analytics reports
-│   │   ├── exports/       # CSV/JSON/Excel exports
-│   │   └── comparisons/   # Cross-experiment comparisons
+
+
 │   └── trials/            # Trial directories
 │       ├── trial_1/
 │       │   ├── configs/   # Trial-specific configs
@@ -959,272 +1307,6 @@ for i, model_type in enumerate(model_types):
 # Save and run as above
 ```
 
-## Experiment Analytics Module
-
-The Analytics Module provides sophisticated data analysis capabilities for experiment results, enabling researchers to extract insights from their experimental data through statistical analysis, outlier detection, failure analysis, and cross-experiment comparisons.
-
-### Core Features
-
-- **Fluent Query Builder API**: Construct complex analytics queries with chainable methods
-- **Statistical Analysis**: Comprehensive statistical aggregations and distributions
-- **Outlier Detection**: Multiple methods for identifying and excluding outliers
-- **Failure Analysis**: Pattern analysis and correlation detection for failed experiments
-- **Comparative Analytics**: Cross-experiment comparisons and ranking
-- **Training Curve Analysis**: Convergence detection and learning progress visualization
-- **Export Capabilities**: Multiple format support (CSV, JSON, Excel, DataFrame)
-- **Performance Optimization**: Database-level aggregations and query caching for large datasets
-
-### Quick Start with Analytics
-
-```python
-from experiment_manager.analytics.api import ExperimentAnalytics
-from experiment_manager.database.database_manager import DatabaseManager
-
-# Initialize analytics with your database
-db = DatabaseManager(database_path="experiments.db", use_sqlite=True)
-analytics = ExperimentAnalytics(db)
-
-# Extract results from an experiment
-results = analytics.extract_results("cifar10_experiment", include_failed=False)
-
-# Calculate statistics for specific metrics
-stats = analytics.calculate_statistics(
-    experiment_id=1, 
-    metric_types=["accuracy", "loss"],
-    group_by="trial"
-)
-
-# Analyze failures and patterns
-failure_analysis = analytics.analyze_failures(
-    experiment_id=1, 
-    correlation_analysis=True
-)
-
-# Compare multiple experiments
-comparison = analytics.compare_experiments(
-    experiment_ids=[1, 2, 3],
-    metric_type="accuracy"
-)
-```
-
-### Fluent Query Builder
-
-The QueryBuilder provides a powerful, chainable interface for constructing complex analytics queries:
-
-```python
-from experiment_manager.analytics.query_builder import AnalyticsQuery
-
-# Complex query with multiple filters and processing
-result = (AnalyticsQuery(db)
-          .experiments(names=["transformer_exp", "lstm_exp"])
-          .trials(status="completed")
-          .runs(exclude_failed=True, exclude_timeouts=True)
-          .metrics(types=["accuracy", "f1_score"], context="results")
-          .exclude_outliers(metric_type="accuracy", method="iqr", threshold=1.5)
-          .group_by("experiment")
-          .aggregate(["mean", "std", "max", "min"])
-          .execute())
-
-# Access structured results
-print(f"Mean accuracy: {result.aggregations['accuracy']['mean']}")
-print(f"Results shape: {result.raw_data.shape}")
-
-# Export to different formats
-result.export_csv("experiment_comparison.csv")
-result.export_json("experiment_comparison.json")
-result.to_dataframe()  # Returns pandas DataFrame
-```
-
-### Statistical Analysis and Outlier Detection
-
-```python
-# Detect outliers using different methods
-outliers_iqr = analytics.detect_outliers(
-    experiment_id=1,
-    metric_type="accuracy", 
-    method="iqr",
-    threshold=1.5
-)
-
-outliers_zscore = analytics.detect_outliers(
-    experiment_id=1,
-    metric_type="accuracy",
-    method="zscore",
-    threshold=2.0
-)
-
-# Advanced query with outlier exclusion
-clean_results = (AnalyticsQuery(db)
-                .experiments(ids=[1])
-                .trials(status="completed")
-                .exclude_outliers(metric_type="accuracy", method="iqr")
-                .exclude_outliers(metric_type="loss", method="modified_zscore")
-                .aggregate(["mean", "std", "confidence_interval"])
-                .execute())
-```
-
-### Training Curve Analysis
-
-```python
-# Analyze training curves for convergence patterns
-curve_analysis = analytics.analyze_training_curves(
-    trial_run_ids=[1, 2, 3, 4, 5],
-    metric_types=["train_loss", "val_loss", "val_accuracy"]
-)
-
-# Query epoch-level data for detailed analysis
-epoch_data = (AnalyticsQuery(db)
-             .experiments(ids=[1])
-             .trials(names=["trial_1", "trial_2"])
-             .runs(status="completed")
-             .metrics(types=["loss", "accuracy"], context="epoch")
-             .group_by("epoch")
-             .aggregate(["mean", "std"])
-             .execute())
-
-# Export training curves for visualization
-curve_analysis.export_csv("training_curves.csv", include_metadata=True)
-```
-
-### Failure Analysis and Pattern Detection
-
-```python
-# Comprehensive failure analysis
-failure_report = analytics.analyze_failures(
-    experiment_id=1,
-    correlation_analysis=True,
-    include_configurations=True
-)
-
-# Query specific failure patterns
-failed_runs = (AnalyticsQuery(db)
-              .experiments(ids=[1, 2, 3])
-              .trials(status=["failed", "timeout"])
-              .runs(status=["failed", "timeout"])
-              .include_configurations()
-              .execute())
-
-# Analyze configuration correlations with failures
-correlation_data = analytics.analyze_configuration_correlation(
-    experiment_ids=[1, 2, 3],
-    include_failure_rates=True
-)
-```
-
-### Cross-Experiment Comparison
-
-```python
-# Compare experiments across different architectures
-model_comparison = analytics.compare_experiments(
-    experiment_ids=[1, 2, 3],  # ResNet, VGG, Transformer experiments
-    metric_type="accuracy",
-    include_statistical_tests=True
-)
-
-# Advanced comparison with custom grouping
-comparison_results = (AnalyticsQuery(db)
-                     .experiments(names=["resnet_exp", "vgg_exp", "transformer_exp"])
-                     .trials(status="completed")
-                     .runs(exclude_failed=True)
-                     .metrics(types=["accuracy", "f1_score"])
-                     .group_by(["experiment", "trial"])
-                     .aggregate(["mean", "std", "max"])
-                     .execute())
-
-# Generate summary report
-summary_report = analytics.generate_summary_report(experiment_id=1)
-print(summary_report)
-```
-
-### Export and Visualization
-
-```python
-# Export analytics results in various formats
-result = analytics.extract_results("my_experiment")
-
-# CSV export with customizable options
-result.export_csv(
-    "results.csv",
-    include_metadata=True,
-    include_aggregations=True,
-    flatten_nested=True
-)
-
-# JSON export preserving full structure
-result.export_json(
-    "results.json",
-    include_raw_data=True,
-    pretty_print=True
-)
-
-# Excel export with multiple sheets
-result.export_excel(
-    "results.xlsx",
-    sheets=["raw_data", "aggregations", "metadata"],
-    include_charts=True
-)
-
-# DataFrame for further analysis
-df = result.to_dataframe()
-# Now you can use pandas/matplotlib/seaborn for custom analysis
-```
-
-### Configuration and Customization
-
-Analytics behavior can be configured through YAML configuration:
-
-```yaml
-# analytics_config.yaml
-analytics:
-  default_processors:
-    - statistics
-    - outliers
-    - failures
-  
-  outlier_detection:
-    default_method: "iqr"
-    iqr_threshold: 1.5
-    zscore_threshold: 2.0
-    
-  export_formats:
-    csv:
-      include_metadata: true
-      datetime_format: "%Y-%m-%d %H:%M:%S"
-    json:
-      pretty_print: true
-      
-  aggregation_functions:
-    - mean
-    - std
-    - min
-    - max
-    - median
-    - quantile_25
-    - quantile_75
-```
-
-### Performance Optimization
-
-For large datasets, the analytics module includes several performance optimizations:
-
-```python
-# Use database-level aggregations for better performance
-large_dataset_results = (AnalyticsQuery(db)
-                         .experiments(ids=list(range(1, 101)))  # 100 experiments
-                         .use_database_aggregation()  # Compute aggregations in DB
-                         .batch_size(1000)  # Process in chunks
-                         .cache_results()  # Cache intermediate results
-                         .aggregate(["mean", "std"])
-                         .execute())
-
-# Stream results for memory efficiency
-for batch in analytics.stream_results(experiment_ids=range(1, 1001), batch_size=100):
-    # Process each batch individually
-    batch_stats = batch.calculate_statistics()
-    batch.export_csv(f"batch_{batch.id}.csv")
-```
-
-The Analytics Module integrates seamlessly with the existing experiment hierarchy and database schema, providing a powerful tool for extracting insights from your experimental data.
 
 ## Contributing
 

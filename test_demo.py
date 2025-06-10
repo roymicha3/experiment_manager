@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Demonstration script for early stopping and analytics tests.
+Demonstration script for early stopping tests.
 This script shows that our test pipelines work correctly using the Metric enum.
 """
 
@@ -274,7 +274,7 @@ def test_metric_enum_properties():
 
 
 if __name__ == "__main__":
-    print("🧪 Running Early Stopping and Analytics Tests with Metric Enum")
+    print("🧪 Running Early Stopping Tests with Metric Enum")
     print("=" * 70)
     
     try:

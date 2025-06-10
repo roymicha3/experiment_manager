@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Experiment Manager Visualizer is a **modular, extensible** plotting and visualization system designed around a plugin architecture. It provides rich, interactive visualizations for experimental data, training metrics, and analytics results while allowing easy extension through plugins, custom renderers, and configurable data pipelines.
+The Experiment Manager Visualizer is a **modular, extensible** plotting and visualization system designed around a plugin architecture. It provides rich, interactive visualizations for experimental data and training metrics while allowing easy extension through plugins, custom renderers, and configurable data pipelines.
 
 ## Modular Architecture
 
@@ -372,7 +372,7 @@ class DashboardBuilder:
         pass
 ```
 
-## Integration with Analytics System
+## Integration with Database System
 
 ### Data Pipeline
 
@@ -380,19 +380,19 @@ class DashboardBuilder:
 class VisualizationDataPipeline:
     """Handles data preparation for visualization."""
     
-    def __init__(self, analytics_engine: AnalyticsEngine):
-        self.analytics = analytics_engine
+    def __init__(self, database_manager):
+        self.database_manager = database_manager
         
     def prepare_training_curves(self, 
                               trial_run_ids: List[int],
                               metrics: List[str]) -> pd.DataFrame:
         """Prepare training curve data with proper formatting."""
         
-        # Get epoch series data
-        result = self.analytics.get_epoch_series_data(trial_run_ids, metrics)
+        # Get epoch series data from database
+        data = self.database_manager.get_epoch_metrics(trial_run_ids, metrics)
         
         # Process for visualization
-        df = result.to_dataframe()
+        df = pd.DataFrame(data)
         df = self._interpolate_missing_epochs(df)
         df = self._apply_smoothing(df)
         
@@ -403,13 +403,12 @@ class VisualizationDataPipeline:
                               metric: str) -> pd.DataFrame:
         """Prepare experiment comparison data."""
         
-        result = self.analytics.calculate_statistics(
+        data = self.database_manager.get_experiment_metrics(
             experiment_ids, 
-            metric_types=[metric],
-            group_by="experiment"
+            metric_types=[metric]
         )
         
-        return result.to_dataframe()
+        return pd.DataFrame(data)
     
     def _interpolate_missing_epochs(self, df: pd.DataFrame) -> pd.DataFrame:
         # Handle missing epoch data
@@ -426,8 +425,7 @@ class VisualizationDataPipeline:
 
 ```python
 # Initialize visualizer
-analytics = AnalyticsEngine(database_manager)
-visualizer = ExperimentVisualizer(analytics)
+visualizer = ExperimentVisualizer(database_manager)
 
 # Plot training curves
 plot = visualizer.plot_training_curves(
@@ -537,7 +535,7 @@ experiment_manager/
 - Test theme application
 
 ### Integration Tests
-- Test visualizer with real analytics data
+- Test visualizer with real experimental data
 - Test dashboard functionality
 - Test data pipeline integration
 - Test export functionality
@@ -648,14 +646,14 @@ This design provides a comprehensive, extensible visualization system that integ
 - **Dependencies**: Task 2.1 (Data Pipeline Core)
 - **Estimated Effort**: 3-4 days
 
-#### Task 2.4: Integrate with Analytics Engine
-- **Scope**: Connect data pipeline to existing analytics infrastructure
+#### Task 2.4: Integrate with Database System
+- **Scope**: Connect data pipeline to existing database infrastructure
 - **Deliverables**:
-  - `AnalyticsDataAdapter` for seamless integration
+  - `DatabaseDataAdapter` for seamless integration
   - Data source abstraction layer
   - Query optimization for visualization workloads
   - Streaming data support for live updates
-- **Dependencies**: Task 2.1 (Data Pipeline), existing Analytics Engine
+- **Dependencies**: Task 2.1 (Data Pipeline), existing Database Manager
 - **Estimated Effort**: 3-4 days
 
 ### Phase 3: Core Visualization Manager
@@ -825,7 +823,7 @@ This design provides a comprehensive, extensible visualization system that integ
   - Real-time plot updates with minimal redraw
   - WebSocket support for live dashboards
   - Configurable update frequencies and buffering
-- **Dependencies**: Task 2.4 (Analytics Integration), Task 6.2 (Dashboard Core)
+- **Dependencies**: Task 2.4 (Database Integration), Task 6.2 (Dashboard Core)
 - **Estimated Effort**: 4-5 days
 
 #### Task 7.3: Create Web API for Visualization Services
@@ -850,14 +848,14 @@ This design provides a comprehensive, extensible visualization system that integ
 - **Dependencies**: All previous phases
 - **Estimated Effort**: 5-6 days
 
-#### Task 8.2: Integration Testing with Analytics
+#### Task 8.2: Integration Testing with Database
 - **Scope**: End-to-end testing with real experiment data
 - **Deliverables**:
   - Integration tests with actual database
   - Performance tests with large datasets
   - Regression tests for visualization accuracy
   - Cross-renderer consistency validation
-- **Dependencies**: Task 2.4 (Analytics Integration), Task 8.1 (Unit Testing)
+- **Dependencies**: Task 2.4 (Database Integration), Task 8.1 (Unit Testing)
 - **Estimated Effort**: 3-4 days
 
 #### Task 8.3: User Documentation and Examples
