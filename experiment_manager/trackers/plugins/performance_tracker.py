@@ -892,3 +892,4 @@ class PerformanceTracker(Tracker, YAMLSerializable):
     def __del__(self):
         """Cleanup on destruction."""
         self.stop_monitoring() 
+

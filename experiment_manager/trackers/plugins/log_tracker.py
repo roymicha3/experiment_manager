@@ -22,7 +22,7 @@ class LogTracker(Tracker):
 
     def _setup_logger(self):
         os.makedirs(self.workspace, exist_ok=True)
-        self.log_path = os.path.join(self.workspace, self.name)
+        self.log_path = os.path.join(self.workspace, self.LOG_NAME)
         self.logger = logging.getLogger("experiment_tracker")
         self.logger.propagate = False
         self.logger.setLevel(logging.INFO)
