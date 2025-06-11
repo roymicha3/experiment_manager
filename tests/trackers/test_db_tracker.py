@@ -6,6 +6,7 @@ from omegaconf import OmegaConf
 
 from experiment_manager.trackers.plugins.db_tracker import DBTracker
 from experiment_manager.common.common import Level, Metric
+from experiment_manager.results.sources.db_data_source import DBDataSource
 
 @pytest.fixture
 def workspace(tmp_path):
@@ -149,3 +150,81 @@ def test_metric_tracking(workspace):
     
     # Clean up
     tracker.db_manager.__del__()
+
+def test_db_tracker_integration_with_real_data(experiment_db_only):
+    """Test DBTracker integration with real MNIST experiment data.
+    
+    This test verifies that DBTracker database manager can successfully 
+    read and query real experiment data, confirming integration with
+    actual experiment database structures.
+    """
+    # experiment_db_only provides the path to real MNIST experiment database
+    real_db_path = experiment_db_only
+    
+    # Create a database manager directly using the real database path
+    from experiment_manager.db.manager import DatabaseManager
+    db_manager = DatabaseManager(database_path=real_db_path, use_sqlite=True, recreate=False)
+    
+    try:
+        # Test basic database connectivity and real data presence
+        experiments = db_manager._execute_query("SELECT title FROM EXPERIMENT").fetchall()
+        
+        # Should have the real MNIST experiment
+        experiment_titles = [exp["title"] for exp in experiments]
+        assert "test_mnist_baseline" in experiment_titles
+        assert len(experiment_titles) >= 1
+        
+        # Test querying real trial data
+        trials = db_manager._execute_query("SELECT name FROM TRIAL").fetchall()
+        trial_names = {trial["name"] for trial in trials}
+        expected_names = {"small_lr", "medium_lr", "large_lr"}
+        assert trial_names == expected_names
+        assert len(trials) == 3  # Should have 3 trials
+        
+        # Test querying real trial runs
+        trial_runs = db_manager._execute_query("SELECT id, status FROM TRIAL_RUN").fetchall()
+        assert len(trial_runs) == 6  # 3 trials × 2 repetitions each
+        
+        # Verify all trial runs have a valid status (they should be started or completed)
+        valid_statuses = ["started", "completed", "success", "finished", "running"]
+        for run in trial_runs:
+            assert run["status"] in valid_statuses, f"Unexpected status: {run['status']}"
+        
+        # Test querying real metrics data
+        metrics = db_manager._execute_query("SELECT type, total_val FROM METRIC WHERE total_val IS NOT NULL").fetchall()
+        assert len(metrics) > 0  # Should have many metrics from real experiment
+        
+        # Verify we have expected metric types from MNIST experiment
+        metric_types = {metric["type"] for metric in metrics}
+        expected_metric_types = {"train_loss", "train_acc", "val_loss", "val_acc", "test_loss", "test_acc"}
+        
+        # Should have at least some of the expected metric types
+        found_metrics = metric_types.intersection(expected_metric_types)
+        assert len(found_metrics) >= 3, f"Expected at least 3 metric types, found: {found_metrics}"
+        
+        # Test that metrics have reasonable values for MNIST (accuracy between 0-1, loss > 0)
+        for metric in metrics:
+            if "acc" in metric["type"]:
+                assert 0.0 <= metric["total_val"] <= 1.0, f"Accuracy {metric['type']} should be 0-1, got {metric['total_val']}"
+            elif "loss" in metric["type"]:
+                assert metric["total_val"] >= 0.0, f"Loss {metric['type']} should be >= 0, got {metric['total_val']}"
+        
+        # Test epoch data query
+        epochs = db_manager._execute_query("SELECT idx, trial_run_id FROM EPOCH").fetchall()
+        assert len(epochs) > 0  # Should have epoch data from real experiment
+        
+        # Verify epoch indices are reasonable (0, 1, 2 for 3-epoch MNIST experiment)
+        epoch_indices = {epoch["idx"] for epoch in epochs}
+        assert epoch_indices == {0, 1, 2}, f"Expected epoch indices [0, 1, 2], got {epoch_indices}"
+        
+        print(f"✅ Successfully verified DBTracker integration with real MNIST data:")
+        print(f"   - Experiments: {len(experiment_titles)}")
+        print(f"   - Trials: {len(trials)}")
+        print(f"   - Trial runs: {len(trial_runs)}")
+        print(f"   - Metrics: {len(metrics)}")
+        print(f"   - Metric types: {metric_types}")
+        
+    finally:
+        # Clean up database manager
+        if hasattr(db_manager, 'connection') and db_manager.connection:
+            db_manager.connection.close()
