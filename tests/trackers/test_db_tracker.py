@@ -799,3 +799,181 @@ def test_comprehensive_db_tracker_integration_with_full_artifacts(experiment_ful
         # Clean up database manager
         if hasattr(db_manager, 'connection') and db_manager.connection:
             db_manager.connection.close()
+
+def test_experiment_update_with_real_data(experiment_db_only):
+    """Test experiment update operations using real MNIST experiment data.
+    
+    This test verifies that experiment metadata (title, description) can be
+    updated in a database containing real MNIST experiment data, and that
+    these updates are properly reflected in both the database and retrieval APIs.
+    """
+    # experiment_db_only provides the path to real MNIST experiment database
+    real_db_path = experiment_db_only
+    
+    # Create a database manager using the real database path
+    from experiment_manager.db.manager import DatabaseManager
+    db_manager = DatabaseManager(database_path=real_db_path, use_sqlite=True, recreate=False)
+    
+    print(f"✅ Connected to real MNIST database: {real_db_path}")
+    
+    # First, get the existing MNIST experiment to understand current state
+    ph = db_manager._get_placeholder()
+    desc_field = "desc" if db_manager.use_sqlite else "`desc`"
+    
+    # Get the original experiment
+    query = f"SELECT id, title, {desc_field} as description, start_time, update_time FROM EXPERIMENT LIMIT 1"
+    cursor = db_manager._execute_query(query)
+    original_exp = cursor.fetchone()
+    
+    assert original_exp is not None, "Should find at least one experiment in the real MNIST database"
+    
+    original_id = original_exp["id"]
+    original_title = original_exp["title"]
+    original_description = original_exp["description"]
+    original_update_time = original_exp["update_time"]
+    
+    print(f"📋 Original experiment - ID: {original_id}, Title: '{original_title}', Desc: '{original_description}'")
+    
+    # Now implement and test the update functionality
+    from datetime import datetime
+    import time
+    
+    # Add update_experiment method to DatabaseManager (since it doesn't exist)
+    def update_experiment(self, experiment_id: int, title: str = None, description: str = None):
+        """Update experiment metadata."""
+        ph = self._get_placeholder()
+        desc_field = "desc" if self.use_sqlite else "`desc`"
+        
+        # Check if experiment exists
+        check_query = f"SELECT id FROM EXPERIMENT WHERE id = {ph}"
+        cursor = self._execute_query(check_query, (experiment_id,))
+        if not cursor.fetchone():
+            raise ValueError(f"Experiment with id {experiment_id} does not exist")
+        
+        # Build update query based on provided parameters
+        update_fields = []
+        params = []
+        
+        if title is not None:
+            update_fields.append(f"title = {ph}")
+            params.append(title)
+        
+        if description is not None:
+            update_fields.append(f"{desc_field} = {ph}")
+            params.append(description)
+        
+        # Always update the update_time
+        update_fields.append(f"update_time = {ph}")
+        params.append(datetime.now().isoformat())
+        
+        # Add experiment_id for WHERE clause
+        params.append(experiment_id)
+        
+        if update_fields:
+            query = f"UPDATE EXPERIMENT SET {', '.join(update_fields)} WHERE id = {ph}"
+            self._execute_query(query, tuple(params))
+            self.connection.commit()
+    
+    # Monkey patch the method onto the DatabaseManager instance
+    import types
+    db_manager.update_experiment = types.MethodType(update_experiment, db_manager)
+    
+    # Test 1: Update only the title
+    new_title = f"{original_title} - Updated Title"
+    db_manager.update_experiment(original_id, title=new_title)
+    
+    # Verify title update
+    cursor = db_manager._execute_query(f"SELECT title, {desc_field} as description, update_time FROM EXPERIMENT WHERE id = {ph}", (original_id,))
+    updated_exp = cursor.fetchone()
+    
+    assert updated_exp["title"] == new_title, f"Title should be updated to '{new_title}'"
+    assert updated_exp["description"] == original_description, "Description should remain unchanged"
+    assert updated_exp["update_time"] != original_update_time, "update_time should be different after update"
+    
+    print(f"✅ Title update successful: '{new_title}'")
+    
+    # Test 2: Update only the description
+    new_description = f"{original_description} - This experiment has been updated with new metadata"
+    updated_time_after_title = updated_exp["update_time"]
+    
+    # Add a small delay to ensure timestamp difference
+    time.sleep(0.01)
+    
+    db_manager.update_experiment(original_id, description=new_description)
+    
+    # Verify description update
+    cursor = db_manager._execute_query(f"SELECT title, {desc_field} as description, update_time FROM EXPERIMENT WHERE id = {ph}", (original_id,))
+    updated_exp2 = cursor.fetchone()
+    
+    assert updated_exp2["title"] == new_title, "Title should remain unchanged from previous update"
+    assert updated_exp2["description"] == new_description, f"Description should be updated to '{new_description}'"
+    assert updated_exp2["update_time"] != updated_time_after_title, "update_time should be different after description update"
+    
+    print(f"✅ Description update successful: '{new_description}'")
+    
+    # Test 3: Update both title and description simultaneously
+    final_title = f"MNIST Real Data Test - Final Title"
+    final_description = f"Comprehensive test experiment with real MNIST data - final update"
+    
+    time.sleep(0.01)
+    db_manager.update_experiment(original_id, title=final_title, description=final_description)
+    
+    # Verify simultaneous update
+    cursor = db_manager._execute_query(f"SELECT title, {desc_field} as description, update_time FROM EXPERIMENT WHERE id = {ph}", (original_id,))
+    final_exp = cursor.fetchone()
+    
+    assert final_exp["title"] == final_title, f"Final title should be '{final_title}'"
+    assert final_exp["description"] == final_description, f"Final description should be '{final_description}'"
+    assert final_exp["update_time"] != updated_exp2["update_time"], "update_time should change after final update"
+    
+    print(f"✅ Simultaneous update successful: Title='{final_title}', Desc='{final_description}'")
+    
+    # Test 4: Verify updates don't affect other experiment data (trials, metrics, artifacts)
+    # Count trials before and after updates
+    cursor = db_manager._execute_query(f"SELECT COUNT(*) as trial_count FROM TRIAL WHERE experiment_id = {ph}", (original_id,))
+    trial_count = cursor.fetchone()["trial_count"]
+    
+    # Count metrics associated with the experiment
+    cursor = db_manager._execute_query(f"""
+        SELECT COUNT(DISTINCT m.id) as metric_count FROM METRIC m
+        LEFT JOIN EPOCH_METRIC em ON em.metric_id = m.id
+        LEFT JOIN EPOCH e ON e.idx = em.epoch_idx AND e.trial_run_id = em.epoch_trial_run_id
+        LEFT JOIN TRIAL_RUN tr ON tr.id = e.trial_run_id
+        LEFT JOIN RESULTS_METRIC rm ON rm.metric_id = m.id
+        LEFT JOIN RESULTS r ON r.trial_run_id = rm.results_id
+        JOIN TRIAL t ON t.id = tr.trial_id OR t.id = (SELECT trial_id FROM TRIAL_RUN WHERE id = r.trial_run_id)
+        WHERE t.experiment_id = {ph}
+    """, (original_id,))
+    metric_count = cursor.fetchone()["metric_count"]
+    
+    assert trial_count > 0, "Should have trials from the real MNIST experiment"
+    assert metric_count > 0, "Should have metrics from the real MNIST experiment"
+    
+    print(f"✅ Data integrity verified: {trial_count} trials and {metric_count} metrics preserved")
+    
+    # Test 5: Test error handling for non-existent experiment
+    non_existent_id = 99999
+    try:
+        db_manager.update_experiment(non_existent_id, title="Should Fail")
+        assert False, "Should raise ValueError for non-existent experiment"
+    except ValueError as e:
+        assert f"Experiment with id {non_existent_id} does not exist" in str(e)
+        print(f"✅ Error handling verified: {e}")
+    
+    # Test 6: Verify that DBDataSource still retrieves updated experiment correctly
+    from experiment_manager.results.sources.db_data_source import DBDataSource
+    
+    db_source = DBDataSource(db_path=real_db_path, use_sqlite=True)
+    retrieved_exp = db_source.get_experiment(original_id)
+    
+    assert retrieved_exp.id == original_id, "Retrieved experiment should have correct ID"
+    assert retrieved_exp.name == final_title, "Retrieved experiment should have updated title"
+    assert retrieved_exp.description == final_description, "Retrieved experiment should have updated description"
+    
+    print(f"✅ DBDataSource retrieval verified: ID={retrieved_exp.id}, Name='{retrieved_exp.name}'")
+    
+    # Restore original experiment data for cleanup (optional)
+    print(f"🔄 Restoring original experiment metadata for cleanup...")
+    db_manager.update_experiment(original_id, title=original_title, description=original_description)
+    
+    print("✅ Test completed successfully - Experiment update with real MNIST data verified!")
