@@ -343,25 +343,225 @@ def experiment_lightweight(shared_mnist_experiment):
 
 
 # =============================================================================
-# CONFIGURATION FIXTURES
+# FIXTURE CONFIGURATION SYSTEM
 # =============================================================================
-# These fixtures provide test configuration options and markers.
+# These fixtures and markers allow tests to specify their experiment data needs
 
 @pytest.fixture
-def experiment_config():
+def experiment_config(request):
     """
     Configuration fixture for experiment data requirements.
     
     This fixture allows tests to specify what level of experiment data
-    they need, enabling pytest to optimize test execution and resource usage.
+    they need using pytest markers. It examines the test's markers to
+    determine the appropriate configuration.
     
+    Args:
+        request: pytest request object containing test metadata
+        
     Returns:
         dict: Configuration options for experiment data access
+        
+    Usage:
+        @pytest.mark.experiment_data(scope='minimal', require_metrics=True)
+        def test_with_metrics(experiment_config):
+            config = experiment_config
+            assert config['data_scope'] == 'minimal'
+            assert config['require_metrics'] is True
     """
-    return {
+    # Default configuration
+    config = {
         'data_scope': 'full',  # Options: 'minimal', 'metrics', 'full', 'db_only'
         'require_artifacts': False,
         'require_metrics': True,
         'require_workspace': False,
-        'cache_data': True
-    } 
+        'cache_data': True,
+        'performance_mode': False
+    }
+    
+    # Check for experiment_data marker
+    experiment_marker = request.node.get_closest_marker('experiment_data')
+    if experiment_marker:
+        # Update config with marker values
+        marker_config = experiment_marker.kwargs
+        config.update(marker_config)
+        
+        # Handle 'scope' parameter separately as it maps to 'data_scope'
+        if 'scope' in marker_config:
+            config['data_scope'] = marker_config['scope']
+    
+    return config
+
+
+@pytest.fixture
+def adaptive_experiment_data(request, shared_mnist_experiment):
+    """
+    Adaptive fixture that provides experiment data based on test requirements.
+    
+    This fixture examines pytest markers on the test to determine what level
+    of experiment data to provide, optimizing performance by loading only
+    what's needed.
+    
+    Args:
+        request: pytest request object containing test metadata
+        shared_mnist_experiment: The session-scoped MNIST experiment fixture
+        
+    Returns:
+        dict: Experiment data tailored to test requirements
+        
+    Usage:
+        @pytest.mark.experiment_data(scope='db_only')
+        def test_database_only(adaptive_experiment_data):
+            # Will receive only database path
+            assert isinstance(adaptive_experiment_data, str)
+            
+        @pytest.mark.experiment_data(scope='metrics', require_metrics=True)
+        def test_with_metrics(adaptive_experiment_data):
+            # Will receive pre-loaded metrics data
+            assert 'metrics' in adaptive_experiment_data
+    """
+    # Get configuration from marker
+    experiment_marker = request.node.get_closest_marker('experiment_data')
+    scope = 'full'  # default
+    
+    if experiment_marker:
+        scope = experiment_marker.kwargs.get('scope', 'full')
+    
+    # Route to appropriate fixture based on scope
+    if scope == 'db_only':
+        return shared_mnist_experiment['db_path']
+    elif scope == 'minimal':
+        return _get_lightweight_data(shared_mnist_experiment)
+    elif scope == 'metrics':
+        return _get_metrics_data(shared_mnist_experiment)
+    elif scope == 'full':
+        return _get_full_data(shared_mnist_experiment)
+    else:
+        raise ValueError(f"Unknown experiment data scope: {scope}")
+
+
+def _get_lightweight_data(shared_mnist_experiment):
+    """Helper function to get lightweight experiment data."""
+    db_path = shared_mnist_experiment['db_path']
+    temp_dir = shared_mnist_experiment['temp_dir']
+    
+    data_source = DBDataSource(db_path)
+    try:
+        with data_source as source:
+            experiment = source.get_experiment()
+            return {
+                'experiment_name': experiment.name,
+                'trial_count': len(experiment.trials),
+                'db_path': db_path,
+                'workspace_exists': os.path.exists(temp_dir)
+            }
+    finally:
+        data_source.close()
+
+
+def _get_metrics_data(shared_mnist_experiment):
+    """Helper function to get metrics-focused experiment data."""
+    db_path = shared_mnist_experiment['db_path']
+    
+    data_source = DBDataSource(db_path)
+    try:
+        with data_source as source:
+            experiment = source.get_experiment()
+            metrics_df = source.metrics_dataframe(experiment)
+            
+            return {
+                'db_path': db_path,
+                'metrics': metrics_df,
+                'experiment_id': experiment.id,
+                'trial_count': len(experiment.trials)
+            }
+    finally:
+        data_source.close()
+
+
+def _get_full_data(shared_mnist_experiment):
+    """Helper function to get complete experiment data."""
+    db_path = shared_mnist_experiment['db_path']
+    temp_dir = shared_mnist_experiment['temp_dir']
+    
+    data_source = DBDataSource(db_path)
+    try:
+        with data_source as source:
+            experiment = source.get_experiment()
+            
+            # Catalog artifacts
+            artifacts = {}
+            workspace_path = Path(temp_dir)
+            for pattern in ['*.pth', '*.pkl', '*.log', '*.json', '*.yaml', '*.csv']:
+                artifacts[pattern] = list(workspace_path.rglob(pattern))
+            
+            return {
+                'db_path': db_path,
+                'temp_dir': temp_dir,
+                'experiment': experiment,
+                'framework_experiment': shared_mnist_experiment['framework_experiment'],
+                'artifacts': artifacts
+            }
+    finally:
+        data_source.close()
+
+
+# =============================================================================
+# PYTEST CONFIGURATION AND MARKERS
+# =============================================================================
+
+def pytest_configure(config):
+    """Configure custom pytest markers for experiment data management."""
+    config.addinivalue_line(
+        "markers", 
+        "experiment_data(scope='full', require_metrics=True, require_artifacts=False, "
+        "require_workspace=False, performance_mode=False): "
+        "Specify experiment data requirements for the test. "
+        "scope can be 'minimal', 'metrics', 'full', or 'db_only'."
+    )
+    config.addinivalue_line(
+        "markers",
+        "slow_test: Mark test as slow (requires full experiment data)"
+    )
+    config.addinivalue_line(
+        "markers", 
+        "fast_test: Mark test as fast (uses minimal experiment data)"
+    )
+    config.addinivalue_line(
+        "markers",
+        "integration_test: Mark test as integration test (may require full artifacts)"
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    """
+    Automatically mark tests based on their experiment data usage.
+    
+    This hook examines test functions and automatically applies appropriate
+    markers based on the fixtures they use, helping with test categorization
+    and execution optimization.
+    """
+    for item in items:
+        # Get fixture names used by this test
+        fixture_names = getattr(item, 'fixturenames', [])
+        
+        # Auto-mark based on fixture usage
+        if 'experiment_full_artifacts' in fixture_names:
+            item.add_marker(pytest.mark.slow_test)
+            item.add_marker(pytest.mark.integration_test)
+        elif 'experiment_lightweight' in fixture_names or 'experiment_db_only' in fixture_names:
+            item.add_marker(pytest.mark.fast_test)
+        elif 'experiment_metrics_only' in fixture_names:
+            item.add_marker(pytest.mark.fast_test)
+        
+        # Mark any test using experiment data
+        experiment_fixtures = [
+            'experiment_data', 'experiment_db_only', 'experiment_metrics_only',
+            'experiment_full_artifacts', 'experiment_lightweight', 'adaptive_experiment_data'
+        ]
+        
+        if any(fixture in fixture_names for fixture in experiment_fixtures):
+            # Add custom marker to indicate this test uses experiment data
+            if not item.get_closest_marker('experiment_data'):
+                # Apply default experiment_data marker if none exists
+                item.add_marker(pytest.mark.experiment_data(scope='full')) 
