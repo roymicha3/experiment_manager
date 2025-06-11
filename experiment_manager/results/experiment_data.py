@@ -5,8 +5,10 @@ from typing import List, Optional, Union
 import pandas as pd
 
 from experiment_manager.results.data_models import Experiment, Trial, TrialRun, MetricRecord, Artifact
+from experiment_manager.common.serializable import YAMLSerializable
 
-class ExperimentDataSource(ABC):
+class ExperimentDataSource(ABC, YAMLSerializable):
+    
     @abstractmethod
     def get_experiment(self, experiment_id: Optional[Union[str, int]] = None) -> Experiment:
         """

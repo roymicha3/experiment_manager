@@ -1,26 +1,21 @@
 import json
 from typing import List, Union, Optional
 import pandas as pd
+from omegaconf import DictConfig
 
 from experiment_manager.results.experiment_data import ExperimentDataSource
 from experiment_manager.results.data_models import Experiment, Trial, TrialRun, MetricRecord, Artifact
 from experiment_manager.db.manager import DatabaseManager
 from experiment_manager.db import tables
+from experiment_manager.common.serializable import YAMLSerializable
 
-
+@YAMLSerializable.register("DBDataSource")
 class DBDataSource(ExperimentDataSource):
     def __init__(self, db_path: str, use_sqlite: bool = True, host: str = "localhost", 
                  user: str = "root", password: str = ""):
-        """
-        Initialize database data source.
         
-        Args:
-            db_path: Path to database file (SQLite) or database name (MySQL)
-            use_sqlite: Whether to use SQLite (True) or MySQL (False)
-            host: MySQL host (ignored for SQLite)
-            user: MySQL username (ignored for SQLite)
-            password: MySQL password (ignored for SQLite)
-        """
+        ExperimentDataSource.__init__(self)
+        
         self.db_path = db_path
         self.db_manager = DatabaseManager(
             database_path=db_path,
@@ -28,6 +23,16 @@ class DBDataSource(ExperimentDataSource):
             host=host,
             user=user,
             password=password
+        )
+        
+    @classmethod
+    def from_config(cls, config: DictConfig):
+        return cls(
+            db_path=config.db_path,
+            use_sqlite=config.use_sqlite,
+            host=config.host,
+            user=config.user,
+            password=config.password
         )
 
     def get_experiment(self, experiment_id: Optional[Union[str, int]] = None) -> Experiment:

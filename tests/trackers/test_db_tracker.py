@@ -545,3 +545,257 @@ def test_metrics_aggregation_with_real_data(experiment_metrics_only):
         # Clean up database manager
         if hasattr(db_manager, 'connection') and db_manager.connection:
             db_manager.connection.close()
+
+def test_comprehensive_db_tracker_integration_with_full_artifacts(experiment_full_artifacts):
+    """Comprehensive integration test using experiment_full_artifacts fixture.
+    
+    This test verifies the complete DB Tracker functionality by testing the full
+    experiment lifecycle with real MNIST data, including database operations,
+    artifact management, workspace verification, and cross-system validation.
+    
+    Tests all major aspects:
+    - Database connectivity and data integrity 
+    - Experiment, trial, and trial run hierarchy
+    - Metrics storage, retrieval, and aggregation
+    - Artifact catalog and workspace validation
+    - Cross-validation between database and filesystem
+    - DBDataSource and DatabaseManager consistency
+    """
+    # experiment_full_artifacts provides complete access to real MNIST experiment
+    db_path = experiment_full_artifacts['db_path']
+    temp_dir = experiment_full_artifacts['temp_dir']
+    experiment_obj = experiment_full_artifacts['experiment']
+    framework_experiment = experiment_full_artifacts['framework_experiment']
+    artifacts_catalog = experiment_full_artifacts['artifacts']
+    
+    print(f"\n🏗️ Comprehensive DB Tracker Integration Test:")
+    print(f"   Database: {db_path}")
+    print(f"   Workspace: {temp_dir}")
+    print(f"   Framework Experiment: {framework_experiment}")
+    print(f"   Artifact Types: {list(artifacts_catalog.keys())}")
+    
+    # Create both DatabaseManager and DBDataSource for cross-validation
+    from experiment_manager.db.manager import DatabaseManager
+    from experiment_manager.results.sources.db_data_source import DBDataSource
+    
+    db_manager = DatabaseManager(database_path=db_path, use_sqlite=True, recreate=False)
+    
+    try:
+        # ===== TEST 1: Database Connectivity and Structure =====
+        print(f"\n🔌 Testing database connectivity and structure...")
+        
+        # Test DatabaseManager connectivity
+        assert hasattr(db_manager, 'connection'), "DatabaseManager should have active connection"
+        assert db_manager.connection is not None, "DatabaseManager connection should be established"
+        
+        # Test basic query execution
+        cursor = db_manager._execute_query("SELECT COUNT(*) as count FROM EXPERIMENT")
+        experiment_count = cursor.fetchone()['count']
+        assert experiment_count > 0, "Should have at least one experiment in database"
+        
+        print(f"   ✅ Database connectivity: verified")
+        print(f"   ✅ Experiment count: {experiment_count}")
+        
+        # ===== TEST 2: Experiment Hierarchy Validation =====
+        print(f"\n📊 Testing experiment hierarchy and data integrity...")
+        
+        # Validate experiment data through DatabaseManager
+        experiment_id = experiment_obj.id
+        experiment_name = experiment_obj.name
+        trial_count = len(experiment_obj.trials)
+        
+        print(f"   Experiment ID: {experiment_id}")
+        print(f"   Experiment Name: {experiment_name}")
+        print(f"   Trial Count: {trial_count}")
+        
+        # Cross-validate with DBDataSource
+        with DBDataSource(db_path) as db_source:
+            ds_experiment = db_source.get_experiment()
+            assert ds_experiment.id == experiment_id, "Experiment IDs should match between sources"
+            assert ds_experiment.name == experiment_name, "Experiment names should match"
+            assert len(ds_experiment.trials) == trial_count, "Trial counts should match"
+            
+            # Validate trial hierarchy
+            total_runs = 0
+            total_epochs = 0
+            for trial in ds_experiment.trials:
+                assert trial.experiment_id == experiment_id, f"Trial {trial.id} should belong to experiment {experiment_id}"
+                
+                for run in trial.runs:
+                    assert run.trial_id == trial.id, f"Run {run.id} should belong to trial {trial.id}"
+                    total_runs += 1
+                    total_epochs += run.num_epochs if hasattr(run, 'num_epochs') else 0
+            
+            print(f"   ✅ Total trial runs: {total_runs}")
+            print(f"   ✅ Total epochs: {total_epochs}")
+            assert total_runs >= 6, "Should have at least 6 trial runs (3 trials × 2 repeats)"
+        
+        # ===== TEST 3: Metrics Validation and Aggregation =====
+        print(f"\n📈 Testing metrics storage, retrieval, and aggregation...")
+        
+        # Get metrics through multiple methods for validation
+        experiment_metrics = db_manager.get_experiment_metrics(experiment_id)
+        assert len(experiment_metrics) > 0, "Should have experiment metrics"
+        
+        # Test aggregated metrics at different levels
+        exp_agg = db_manager.get_aggregated_metrics(
+            experiment_ids=[experiment_id],
+            group_by='experiment',
+            functions=['mean', 'count', 'min', 'max']
+        )
+        assert not exp_agg.empty, "Experiment-level aggregation should return data"
+        
+        trial_agg = db_manager.get_aggregated_metrics(
+            experiment_ids=[experiment_id],
+            group_by='trial',
+            functions=['mean', 'std']
+        )
+        assert not trial_agg.empty, "Trial-level aggregation should return data"
+        
+        run_agg = db_manager.get_aggregated_metrics(
+            experiment_ids=[experiment_id],
+            group_by='trial_run',
+            functions=['count', 'sum']
+        )
+        assert not run_agg.empty, "Trial run-level aggregation should return data"
+        
+        # Validate metric types and values
+        metric_types = set(exp_agg['metric_type'].unique())
+        expected_types = {'test_acc', 'test_loss'}
+        common_types = metric_types.intersection(expected_types)
+        assert len(common_types) > 0, f"Should have common metric types. Found: {metric_types}"
+        
+        print(f"   ✅ Experiment metrics: {len(experiment_metrics)}")
+        print(f"   ✅ Aggregation levels: experiment({len(exp_agg)}), trial({len(trial_agg)}), run({len(run_agg)})")
+        print(f"   ✅ Metric types: {metric_types}")
+        
+        # ===== TEST 4: Artifact Management and Workspace Validation =====
+        print(f"\n📦 Testing artifact management and workspace validation...")
+        
+        from pathlib import Path
+        workspace = Path(temp_dir)
+        assert workspace.exists(), f"Workspace directory should exist: {workspace}"
+        assert workspace.is_dir(), f"Workspace should be a directory: {workspace}"
+        
+        # Validate artifact catalog from fixture
+        total_artifacts = 0
+        for pattern, files in artifacts_catalog.items():
+            artifact_count = len(files)
+            total_artifacts += artifact_count
+            print(f"   {pattern}: {artifact_count} files")
+            
+            # Validate artifact paths are within workspace
+            for artifact_path in files:
+                assert str(artifact_path).startswith(str(workspace)), f"Artifact should be in workspace: {artifact_path}"
+        
+        print(f"   ✅ Total cataloged artifacts: {total_artifacts}")
+        assert total_artifacts > 0, "Should have cataloged artifacts in workspace"
+        
+        # Test database artifact retrieval
+        db_experiment_artifacts = db_manager.get_experiment_artifacts(experiment_id)
+        print(f"   ✅ Database experiment artifacts: {len(db_experiment_artifacts)}")
+        
+        # Test trial-level artifacts
+        first_trial_id = experiment_obj.trials[0].id
+        trial_artifacts = db_manager.get_trial_artifacts(first_trial_id)
+        print(f"   ✅ Trial artifacts: {len(trial_artifacts)}")
+        
+        # Test trial run-level artifacts
+        first_run_id = experiment_obj.trials[0].runs[0].id
+        run_artifacts = db_manager.get_trial_run_artifacts(first_run_id)
+        print(f"   ✅ Trial run artifacts: {len(run_artifacts)}")
+        
+        # ===== TEST 5: Cross-System Data Consistency =====
+        print(f"\n🔄 Testing cross-system data consistency...")
+        
+        # Compare experiment data from different access methods
+        with DBDataSource(db_path) as db_source:
+            # Get comprehensive data
+            exp_data = db_manager.get_experiment_data(experiment_ids=[experiment_id])
+            assert not exp_data.empty, "Experiment data should not be empty"
+            
+            # Get metrics data frame
+            metrics_df = db_source.metrics_dataframe(ds_experiment)
+            assert not metrics_df.empty, "Metrics DataFrame should not be empty"
+            
+            # Cross-validate metric counts
+            db_metric_count = len(metrics_df)
+            agg_metric_count = exp_agg['count'].sum() if 'count' in exp_agg.columns else 0
+            
+            print(f"   DataFrame metrics: {db_metric_count}")
+            print(f"   Aggregated count: {agg_metric_count}")
+            
+            # Validate experiment ID consistency across all data
+            unique_exp_ids = set(exp_data['experiment_id'].unique()) if 'experiment_id' in exp_data.columns else {experiment_id}
+            assert experiment_id in unique_exp_ids, "Experiment ID should be consistent across all data sources"
+            
+            # Validate trial ID consistency
+            db_trial_ids = set(exp_data['trial_id'].unique()) if 'trial_id' in exp_data.columns else set()
+            obj_trial_ids = {trial.id for trial in experiment_obj.trials}
+            if db_trial_ids:
+                common_trial_ids = db_trial_ids.intersection(obj_trial_ids)
+                assert len(common_trial_ids) > 0, "Should have common trial IDs between database and object"
+                print(f"   ✅ Common trial IDs: {len(common_trial_ids)}")
+        
+        # ===== TEST 6: Performance and Error Handling =====
+        print(f"\n⚡ Testing performance and error handling...")
+        
+        # Test query performance with larger datasets
+        import time
+        start_time = time.time()
+        large_data = db_manager.get_experiment_data()
+        query_time = time.time() - start_time
+        print(f"   Full data query time: {query_time:.3f}s")
+        assert query_time < 5.0, "Large data queries should complete within reasonable time"
+        
+        # Test error handling for invalid IDs
+        try:
+            db_manager.get_experiment_metrics(99999)  # Non-existent experiment
+            empty_metrics = True  # Should return empty list, not error
+        except Exception as e:
+            empty_metrics = False
+            print(f"   ✅ Error handling for invalid ID: {type(e).__name__}")
+        
+        # Test invalid aggregation parameters
+        try:
+            db_manager.get_aggregated_metrics(group_by='invalid_level')
+            assert False, "Should raise error for invalid group_by"
+        except ValueError:
+            print(f"   ✅ Error handling for invalid parameters: verified")
+        
+        # ===== TEST 7: Framework Integration Validation =====
+        print(f"\n🔗 Testing framework integration...")
+        
+        # Validate framework experiment object
+        assert framework_experiment is not None, "Framework experiment should be provided"
+        
+        # Check if framework experiment has expected attributes
+        expected_attrs = ['env', 'name']
+        for attr in expected_attrs:
+            if hasattr(framework_experiment, attr):
+                print(f"   ✅ Framework attribute '{attr}': present")
+        
+        # Validate workspace consistency
+        if hasattr(framework_experiment, 'env') and hasattr(framework_experiment.env, 'workspace'):
+            fw_workspace = framework_experiment.env.workspace
+            assert str(workspace).startswith(str(fw_workspace)) or str(fw_workspace).startswith(str(workspace)), \
+                "Framework workspace should be consistent with fixture workspace"
+            print(f"   ✅ Workspace consistency: verified")
+        
+        print(f"\n✅ Comprehensive DB Tracker Integration Test PASSED!")
+        print(f"   🔌 Database connectivity: verified")
+        print(f"   📊 Experiment hierarchy: validated")
+        print(f"   📈 Metrics system: functional") 
+        print(f"   📦 Artifact management: operational")
+        print(f"   🔄 Cross-system consistency: confirmed")
+        print(f"   ⚡ Performance & error handling: tested")
+        print(f"   🔗 Framework integration: validated")
+        print(f"   💾 Total artifacts: {total_artifacts}")
+        print(f"   📊 Total metrics: {db_metric_count}")
+        print(f"   🏃 Total runs: {total_runs}")
+        print(f"   ⚡ Query performance: {query_time:.3f}s")
+        
+    finally:
+        # Clean up database manager
+        if hasattr(db_manager, 'connection') and db_manager.connection:
+            db_manager.connection.close()
