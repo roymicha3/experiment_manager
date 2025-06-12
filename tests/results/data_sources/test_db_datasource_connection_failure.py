@@ -2,23 +2,29 @@ import os
 import pytest
 from experiment_manager.results.sources.db_datasource import DBDataSource
 from experiment_manager.db.manager import ConnectionError
+import platform
 
-@pytest.mark.parametrize("db_path, use_sqlite, expect_error", [
-    ("/nonexistent_dir/should_fail.db", True, True),  # Non-existent directory
-    ("/", True, True),  # Path is a directory, not a file
-    ("/root/forbidden.db", True, True),  # Likely not writable
-    ("test_should_succeed.db", True, False),  # Should succeed (created in cwd)
-])
-def test_sqlite_connection_failures(tmp_path, db_path, use_sqlite, expect_error):
-    # Adjust db_path for tmp_path if not absolute
-    if not os.path.isabs(db_path):
-        db_path = os.path.join(tmp_path, db_path)
-    if expect_error:
-        with pytest.raises(ConnectionError):
-            DBDataSource(db_path, use_sqlite=use_sqlite)
+def test_sqlite_connection_failures(tmp_path):
+    paths = []
+    # Path that is a directory (should always fail)
+    paths.append((str(tmp_path), True, True))
+    # Path to a non-existent drive (Windows) or /dev/null (Linux, as a file)
+    if os.name == "nt":
+        paths.append((r"Z:\\this_should_fail.db", True, True))
+        paths.append((r"C:\\Windows\\System32\\forbidden.db", True, True))
     else:
-        ds = DBDataSource(db_path, use_sqlite=use_sqlite)
-        ds.close()
+        paths.append(("/dev/null/should_fail.db", True, True))
+        paths.append(("/etc/forbidden.db", True, True))
+    # Path that should succeed (created in cwd)
+    paths.append((str(tmp_path / "test_should_succeed.db"), True, False))
+
+    for db_path, use_sqlite, expect_error in paths:
+        if expect_error:
+            with pytest.raises(ConnectionError):
+                DBDataSource(db_path, use_sqlite=use_sqlite)
+        else:
+            ds = DBDataSource(db_path, use_sqlite=use_sqlite)
+            ds.close()
 
 @pytest.mark.parametrize("host, user, password, expect_error", [
     ("invalid_host", "root", "", True),  # Unreachable host

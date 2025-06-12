@@ -60,7 +60,7 @@ class DatabaseManager:
             else:
                 self.connection = init_mysql_db(host, user, password, database_path, recreate=recreate)
                 self.cursor = self.connection.cursor(dictionary=True)
-        except (sqlite3.Error, mysql.connector.Error) as e:
+        except (sqlite3.Error, OSError, mysql.connector.Error) as e:
             raise ConnectionError(f"Failed to connect to database: {e}") from e
         
     def __del__(self):
