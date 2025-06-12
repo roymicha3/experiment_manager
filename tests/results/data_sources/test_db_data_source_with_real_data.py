@@ -2,7 +2,7 @@
 Test DBDataSource with real experiment data generated from MNIST baseline.
 """
 import pytest
-from experiment_manager.results.sources.db_data_source import DBDataSource
+from experiment_manager.results.sources.db_datasource import DBDataSource
 
 
 class TestDBDataSourceWithRealData:

@@ -13,7 +13,7 @@ import atexit
 import time
 from pathlib import Path
 
-from experiment_manager.results.sources.db_data_source import DBDataSource
+from experiment_manager.results.sources.db_datasource import DBDataSource
 from tests.run_mnist_baseline import run_mnist_baseline_experiment
 
 

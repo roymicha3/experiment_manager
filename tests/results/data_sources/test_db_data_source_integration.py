@@ -5,7 +5,7 @@ import os
 import pytest
 from pathlib import Path
 
-from experiment_manager.results.sources.db_data_source import DBDataSource
+from experiment_manager.results.sources.db_datasource import DBDataSource
 
 
 class TestDBDataSourceIntegration:
@@ -27,7 +27,7 @@ class TestDBDataSourceIntegration:
         for trial in experiment.trials:
             assert len(trial.runs) == 2
     
-    def test_db_data_source_with_real_data(self, experiment_data):
+    def test_db_datasource_with_real_data(self, experiment_data):
         """Test DBDataSource operations with real experiment data."""
         db_path = experiment_data['db_path']
         

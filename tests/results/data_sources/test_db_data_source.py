@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from experiment_manager.results.sources.db_data_source import DBDataSource
+from experiment_manager.results.sources.db_datasource import DBDataSource
 from experiment_manager.results.data_models import Experiment, Trial, TrialRun, MetricRecord, Artifact
 from experiment_manager.db.manager import DatabaseManager
 
@@ -93,7 +93,7 @@ def _create_sample_data(db_manager):
 
 
 @pytest.fixture
-def db_data_source(db_manager):
+def db_datasource(db_manager):
     """Create a DBDataSource instance."""
     return DBDataSource(db_manager.connection.execute("PRAGMA database_list").fetchone()[2])
 
@@ -127,9 +127,9 @@ class TestDBDataSource:
         # Note: We can't directly test if connection is closed with sqlite3,
         # but we can verify the close method was called
     
-    def test_get_experiment_by_id(self, db_data_source):
+    def test_get_experiment_by_id(self, db_datasource):
         """Test getting experiment by ID."""
-        experiment = db_data_source.get_experiment("1")
+        experiment = db_datasource.get_experiment("1")
         
         assert experiment is not None
         assert experiment.id == 1
@@ -137,9 +137,9 @@ class TestDBDataSource:
         assert experiment.description == "First test experiment"
         assert len(experiment.trials) == 2
     
-    def test_get_experiment_by_title(self, db_data_source):
+    def test_get_experiment_by_title(self, db_datasource):
         """Test getting experiment by title."""
-        experiment = db_data_source.get_experiment("Test Experiment 2")
+        experiment = db_datasource.get_experiment("Test Experiment 2")
         
         assert experiment is not None
         assert experiment.id == 2
@@ -147,18 +147,18 @@ class TestDBDataSource:
         assert experiment.description == "Second test experiment"
         assert len(experiment.trials) == 1
     
-    def test_get_experiment_not_found(self, db_data_source):
+    def test_get_experiment_not_found(self, db_datasource):
         """Test getting non-existent experiment."""
         with pytest.raises(ValueError, match="Experiment not found: 999"):
-            db_data_source.get_experiment("999")
+            db_datasource.get_experiment("999")
         
         with pytest.raises(ValueError, match="Experiment not found: Non-existent"):
-            db_data_source.get_experiment("Non-existent")
+            db_datasource.get_experiment("Non-existent")
     
-    def test_get_trials(self, db_data_source):
+    def test_get_trials(self, db_datasource):
         """Test getting trials for an experiment."""
         experiment = Experiment(id=1, name="Test", trials=[], description="Test")
-        trials = db_data_source.get_trials(experiment)
+        trials = db_datasource.get_trials(experiment)
         
         assert len(trials) == 2
         assert trials[0].name == "Trial 1-1"
@@ -169,10 +169,10 @@ class TestDBDataSource:
         assert len(trials[0].runs) == 2  # Trial 1-1 has 2 runs
         assert len(trials[1].runs) == 1  # Trial 1-2 has 1 run
     
-    def test_get_trial_runs(self, db_data_source):
+    def test_get_trial_runs(self, db_datasource):
         """Test getting trial runs for a trial."""
         trial = Trial(id=1, name="Trial 1-1", experiment_id=1, runs=[])
-        runs = db_data_source.get_trial_runs(trial)
+        runs = db_datasource.get_trial_runs(trial)
         
         assert len(runs) == 2
         assert runs[0].status == "completed"
@@ -184,11 +184,11 @@ class TestDBDataSource:
         assert len(runs[0].metrics) > 0  # Should have metrics
         assert len(runs[0].artifacts) > 0  # Should have artifacts
     
-    def test_get_metrics(self, db_data_source):
+    def test_get_metrics(self, db_datasource):
         """Test getting metrics for a trial run."""
         trial_run = TrialRun(id=1, trial_id=1, status="completed", 
                            metrics=[], artifacts=[], num_epochs=2)
-        metrics = db_data_source.get_metrics(trial_run)
+        metrics = db_datasource.get_metrics(trial_run)
         
         assert len(metrics) > 0
         
@@ -216,45 +216,45 @@ class TestDBDataSource:
         per_label_metrics = [m for m in metrics if any(k.endswith("_per_label") for k in m.metrics.keys())]
         assert len(per_label_metrics) > 0  # Should have at least one metric with per-label data
     
-    def test_get_artifacts_experiment(self, db_data_source):
+    def test_get_artifacts_experiment(self, db_datasource):
         """Test getting artifacts for an experiment."""
         experiment = Experiment(id=1, name="Test", trials=[], description="Test")
-        artifacts = db_data_source.get_artifacts("experiment", experiment)
+        artifacts = db_datasource.get_artifacts("experiment", experiment)
         
         assert len(artifacts) == 1
         assert artifacts[0].type == "model"
         assert artifacts[0].path == "/models/model1.pt"
     
-    def test_get_artifacts_trial(self, db_data_source):
+    def test_get_artifacts_trial(self, db_datasource):
         """Test getting artifacts for a trial."""
         trial = Trial(id=1, name="Trial 1-1", experiment_id=1, runs=[])
-        artifacts = db_data_source.get_artifacts("trial", trial)
+        artifacts = db_datasource.get_artifacts("trial", trial)
         
         assert len(artifacts) == 1
         assert artifacts[0].type == "config"
         assert artifacts[0].path == "/configs/config1.yaml"
     
-    def test_get_artifacts_trial_run(self, db_data_source):
+    def test_get_artifacts_trial_run(self, db_datasource):
         """Test getting artifacts for a trial run."""
         trial_run = TrialRun(id=1, trial_id=1, status="completed", 
                            metrics=[], artifacts=[], num_epochs=2)
-        artifacts = db_data_source.get_artifacts("trial_run", trial_run)
+        artifacts = db_datasource.get_artifacts("trial_run", trial_run)
         
         assert len(artifacts) == 1
         assert artifacts[0].type == "log"
         assert artifacts[0].path == "/logs/run1.log"
     
-    def test_get_artifacts_invalid_level(self, db_data_source):
+    def test_get_artifacts_invalid_level(self, db_datasource):
         """Test getting artifacts with invalid entity level."""
         experiment = Experiment(id=1, name="Test", trials=[], description="Test")
         
         with pytest.raises(ValueError, match="Unknown entity_level: invalid"):
-            db_data_source.get_artifacts("invalid", experiment)
+            db_datasource.get_artifacts("invalid", experiment)
     
-    def test_metrics_dataframe(self, db_data_source):
+    def test_metrics_dataframe(self, db_datasource):
         """Test creating metrics DataFrame."""
-        experiment = db_data_source.get_experiment("1")
-        df = db_data_source.metrics_dataframe(experiment)
+        experiment = db_datasource.get_experiment("1")
+        df = db_datasource.metrics_dataframe(experiment)
         
         assert not df.empty
         
@@ -289,11 +289,11 @@ class TestDBDataSource:
         assert len(epoch_data) > 0
         assert len(result_data) > 0
     
-    def test_metrics_dataframe_empty_experiment(self, db_data_source):
+    def test_metrics_dataframe_empty_experiment(self, db_datasource):
         """Test metrics DataFrame with experiment that has no data."""
         # Create empty experiment
         empty_experiment = Experiment(id=999, name="Empty", trials=[], description="Empty")
-        df = db_data_source.metrics_dataframe(empty_experiment)
+        df = db_datasource.metrics_dataframe(empty_experiment)
         
         assert df.empty
         # When DataFrame is empty from empty data (not an uninitialized DataFrame),
@@ -302,20 +302,20 @@ class TestDBDataSource:
         # Let's just verify it's empty and not test for columns structure
         assert len(df) == 0
     
-    def test_num_epochs(self, db_data_source):
+    def test_num_epochs(self, db_datasource):
         """Test getting number of epochs for a trial run."""
         # Test trial run with epochs
-        num_epochs = db_data_source._get_num_epochs(1)
+        num_epochs = db_datasource._get_num_epochs(1)
         assert num_epochs == 2  # We created 2 epochs for trial run 1
         
         # Test trial run without epochs
-        num_epochs = db_data_source._get_num_epochs(999)
+        num_epochs = db_datasource._get_num_epochs(999)
         assert num_epochs == 0
     
-    def test_complete_workflow(self, db_data_source):
+    def test_complete_workflow(self, db_datasource):
         """Test complete workflow with all methods."""
         # Get experiment
-        experiment = db_data_source.get_experiment("Test Experiment 1")
+        experiment = db_datasource.get_experiment("Test Experiment 1")
         assert experiment is not None
         assert len(experiment.trials) == 2
         
@@ -332,7 +332,7 @@ class TestDBDataSource:
                 assert isinstance(run.artifacts, list)
         
         # Create DataFrame
-        df = db_data_source.metrics_dataframe(experiment)
+        df = db_datasource.metrics_dataframe(experiment)
         assert not df.empty
         
         # Verify data consistency
@@ -350,20 +350,20 @@ class TestDBDataSource:
         
         assert len(df) == non_per_label_metrics
     
-    def test_close_method(self, db_data_source):
+    def test_close_method(self, db_datasource):
         """Test the close method."""
         # Should not raise any errors
-        db_data_source.close()
+        db_datasource.close()
         
         # Should be safe to call multiple times
-        db_data_source.close()
+        db_datasource.close()
     
-    def test_private_methods_error_handling(self, db_data_source):
+    def test_private_methods_error_handling(self, db_datasource):
         """Test error handling in private methods."""
         # Test non-existent experiment by ID
-        result = db_data_source._get_experiment_by_id(999)
+        result = db_datasource._get_experiment_by_id(999)
         assert result is None
         
         # Test non-existent experiment by title
-        result = db_data_source._get_experiment_by_title("Non-existent")
+        result = db_datasource._get_experiment_by_title("Non-existent")
         assert result is None 

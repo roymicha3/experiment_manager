@@ -3,18 +3,19 @@ from typing import List, Union, Optional
 import pandas as pd
 from omegaconf import DictConfig
 
-from experiment_manager.results.experiment_data import ExperimentDataSource
+from experiment_manager.results.sources.datasource import ExperimentDataSource
 from experiment_manager.results.data_models import Experiment, Trial, TrialRun, MetricRecord, Artifact
 from experiment_manager.db.manager import DatabaseManager
 from experiment_manager.db import tables
 from experiment_manager.common.serializable import YAMLSerializable
 
 @YAMLSerializable.register("DBDataSource")
-class DBDataSource(ExperimentDataSource):
+class DBDataSource(ExperimentDataSource, YAMLSerializable):
     def __init__(self, db_path: str, use_sqlite: bool = True, host: str = "localhost", 
-                 user: str = "root", password: str = ""):
+                 user: str = "root", password: str = "", config: DictConfig = None):
         
         ExperimentDataSource.__init__(self)
+        YAMLSerializable.__init__(self, config)
         
         self.db_path = db_path
         self.db_manager = DatabaseManager(
@@ -29,11 +30,12 @@ class DBDataSource(ExperimentDataSource):
     def from_config(cls, config: DictConfig):
         return cls(
             db_path=config.db_path,
-            use_sqlite=config.use_sqlite,
-            host=config.host,
-            user=config.user,
-            password=config.password
-        )
+            use_sqlite=config.get('use_sqlite', True),
+            host=config.get('host', 'localhost'),
+            user=config.get('user', 'root'),
+            password=config.get('password', ''),
+            config=config)
+    
 
     def get_experiment(self, experiment_id: Optional[Union[str, int]] = None) -> Experiment:
         """

@@ -89,7 +89,7 @@ def main():
             print(f"Error checking database directly: {e}")
         
         # Get experiment data from database
-        from experiment_manager.results.sources.db_data_source import DBDataSource
+        from experiment_manager.results.sources.db_datasource import DBDataSource
         
         with DBDataSource(db_path) as source:
             exp_data = source.get_experiment()

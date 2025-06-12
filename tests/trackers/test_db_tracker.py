@@ -6,7 +6,7 @@ from omegaconf import OmegaConf
 
 from experiment_manager.trackers.plugins.db_tracker import DBTracker
 from experiment_manager.common.common import Level, Metric
-from experiment_manager.results.sources.db_data_source import DBDataSource
+from experiment_manager.results.sources.db_datasource import DBDataSource
 
 @pytest.fixture
 def workspace(tmp_path):
@@ -576,7 +576,7 @@ def test_comprehensive_db_tracker_integration_with_full_artifacts(experiment_ful
     
     # Create both DatabaseManager and DBDataSource for cross-validation
     from experiment_manager.db.manager import DatabaseManager
-    from experiment_manager.results.sources.db_data_source import DBDataSource
+    from experiment_manager.results.sources.db_datasource import DBDataSource
     
     db_manager = DatabaseManager(database_path=db_path, use_sqlite=True, recreate=False)
     
@@ -961,7 +961,7 @@ def test_experiment_update_with_real_data(experiment_db_only):
         print(f"✅ Error handling verified: {e}")
     
     # Test 6: Verify that DBDataSource still retrieves updated experiment correctly
-    from experiment_manager.results.sources.db_data_source import DBDataSource
+    from experiment_manager.results.sources.db_datasource import DBDataSource
     
     db_source = DBDataSource(db_path=real_db_path, use_sqlite=True)
     retrieved_exp = db_source.get_experiment(original_id)
