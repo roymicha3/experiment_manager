@@ -28,6 +28,9 @@ class DBDataSource(ExperimentDataSource, YAMLSerializable):
         
     @classmethod
     def from_config(cls, config: DictConfig):
+        # Validate configuration before attempting instantiation
+        cls._validate_config(config)
+
         return cls(
             db_path=config.db_path,
             use_sqlite=config.get('use_sqlite', True),
@@ -35,6 +38,24 @@ class DBDataSource(ExperimentDataSource, YAMLSerializable):
             user=config.get('user', 'root'),
             password=config.get('password', ''),
             config=config)
+
+    @staticmethod
+    def _validate_config(config: DictConfig):
+        """Validate YAML/DictConfig for required fields and correct types."""
+        # Required field: db_path must be a string
+        if not hasattr(config, "db_path"):
+            raise AttributeError("'db_path' is a required configuration field for DBDataSource")
+        if not isinstance(config.db_path, str):
+            raise TypeError("'db_path' must be a string path")
+
+        # Optional bool field use_sqlite
+        if "use_sqlite" in config and not isinstance(config.use_sqlite, bool):
+            raise TypeError("'use_sqlite' must be a boolean")
+
+        # Optional string fields host, user, password
+        for field in ("host", "user", "password"):
+            if field in config and not isinstance(config.get(field), str):
+                raise TypeError(f"'{field}' must be a string")
     
 
     def get_experiment(self, experiment_id: Optional[Union[str, int]] = None) -> Experiment:
