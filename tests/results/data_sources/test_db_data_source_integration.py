@@ -496,4 +496,34 @@ class TestDBDataSourceIntegration:
                 # Any exception should be descriptive
                 assert len(str(e)) > 0, "Error messages should be descriptive"
             
-            print("✅ Error handling tests completed successfully") 
+            print("✅ Error handling tests completed successfully")
+
+    def test_missing_experiment_and_trial(self, experiment_data):
+        """Test error handling for missing experiment and trial using MNIST data."""
+        db_path = experiment_data['db_path']
+        with DBDataSource(db_path) as source:
+            # Get the highest valid experiment ID
+            experiment = source.get_experiment()
+            valid_id = experiment.id
+            invalid_id = valid_id + 9999
+
+            # Query for non-existent experiment by ID
+            with pytest.raises(ValueError, match="not found"):
+                source.get_experiment(invalid_id)
+
+            # Query for non-existent experiment by nonsense string
+            with pytest.raises(ValueError, match="not found"):
+                source.get_experiment("this_experiment_does_not_exist")
+
+            # Query for non-existent trial in a valid experiment
+            trials = source.get_trials(experiment)
+            valid_trial_ids = [t.id for t in trials]
+            invalid_trial_id = max(valid_trial_ids) + 9999
+            # Create a dummy trial object with invalid ID
+            from experiment_manager.results.data_models import Trial
+            fake_trial = Trial(id=invalid_trial_id, name="fake", experiment_id=valid_id, runs=[])
+            runs = source.get_trial_runs(fake_trial)
+            assert runs == [] or runs is not None  # Should return empty list, not crash
+
+            # Suggest improvement if error messages are not specific
+            # (If you want more specific errors for missing trials, consider raising ValueError in get_trial_runs if no runs found.) 

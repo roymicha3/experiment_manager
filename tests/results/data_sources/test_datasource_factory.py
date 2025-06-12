@@ -156,9 +156,8 @@ class TestDataSourceFactoryIntegration:
             # Missing db_path
         })
         
-        # This should raise an error when DBDataSource tries to initialize
-        from omegaconf.errors import ConfigAttributeError
-        with pytest.raises(ConfigAttributeError):
+        # This should raise an AttributeError due to new DBDataSource validation
+        with pytest.raises(AttributeError, match="db_path.*required configuration field"):
             DataSourceFactory.create("DBDataSource", invalid_config)
     
     def test_factory_lookup_mechanisms(self):
