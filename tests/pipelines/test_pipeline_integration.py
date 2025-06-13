@@ -230,6 +230,8 @@ class TestPipelineIntegration:
     
     def test_early_stopping_patience(self, test_env):
         """Test early stopping patience mechanism."""
+        import random
+        random.seed(42)  # Make test deterministic
         pipeline = TestIntegrationPipeline(
             env=test_env,
             epochs=8,
