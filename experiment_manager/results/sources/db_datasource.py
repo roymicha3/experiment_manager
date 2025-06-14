@@ -12,7 +12,7 @@ from experiment_manager.common.serializable import YAMLSerializable
 @YAMLSerializable.register("DBDataSource")
 class DBDataSource(ExperimentDataSource, YAMLSerializable):
     def __init__(self, db_path: str, use_sqlite: bool = True, host: str = "localhost", 
-                 user: str = "root", password: str = "", config: DictConfig = None):
+                 user: str = "root", password: str = "", config: DictConfig = None, readonly: bool = True):
         
         ExperimentDataSource.__init__(self)
         YAMLSerializable.__init__(self, config)
@@ -23,8 +23,10 @@ class DBDataSource(ExperimentDataSource, YAMLSerializable):
             use_sqlite=use_sqlite,
             host=host,
             user=user,
-            password=password
+            password=password,
+            readonly=readonly
         )
+        self.readonly = readonly
         
     @classmethod
     def from_config(cls, config: DictConfig):
@@ -37,7 +39,9 @@ class DBDataSource(ExperimentDataSource, YAMLSerializable):
             host=config.get('host', 'localhost'),
             user=config.get('user', 'root'),
             password=config.get('password', ''),
-            config=config)
+            config=config,
+            readonly=config.get('readonly', True)
+        )
 
     @staticmethod
     def _validate_config(config: DictConfig):

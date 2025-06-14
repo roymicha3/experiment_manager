@@ -23,6 +23,7 @@ def test_db_datasource_yaml_round_trip(tmp_path):
 
     # Prepare configuration and YAML file location
     cfg = _create_config(tmp_path)
+    cfg.readonly = False  # Needs write access for test DB creation
     yaml_path = os.path.join(tmp_path, "db_config.yaml")
 
     # Serialize to YAML using OmegaConf (DBDataSource.save is not yet implemented)

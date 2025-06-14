@@ -46,15 +46,15 @@ class DatabaseManager:
     
     def __init__(self, database_path: Union[str, Path] = "experiment_manager.db", 
                  use_sqlite: bool = False, host: str = "localhost", 
-                 user: str = "root", password: str = "", recreate: bool = False):
+                 user: str = "root", password: str = "", recreate: bool = False, readonly: bool = False):
         """
         Initialize database connection.
         """
         self.use_sqlite = use_sqlite
+        self.readonly = readonly
         try:
             if use_sqlite:
-                self.connection = init_sqlite_db(database_path, recreate=recreate)
-                # Make SQLite return dictionaries for rows
+                self.connection = init_sqlite_db(database_path, recreate=recreate, readonly=readonly)
                 self.connection.row_factory = sqlite3.Row
                 self.cursor = self.connection.cursor()
             else:

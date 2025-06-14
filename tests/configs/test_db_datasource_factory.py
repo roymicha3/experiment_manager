@@ -9,6 +9,7 @@ def _build_config(tmp_path, minimal: bool):
     """Create DictConfig for DBDataSource with minimal or full parameters."""
     base = {
         "db_path": os.path.join(tmp_path, "factory_test.db"),
+        "readonly": False  # Needs write access for test DB creation
     }
     if not minimal:
         base.update(

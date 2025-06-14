@@ -19,13 +19,14 @@ class TestDataSourceFactoryIntegration:
         # Create a temporary database
         db_path = tmp_path / "test_factory.db"
         
-        # Create config for DBDataSource
+        # Create config for DBDataSource (needs write access to create DB)
         config = DictConfig({
             'db_path': str(db_path),
             'use_sqlite': True,
             'host': 'localhost',
             'user': 'root',
-            'password': ''
+            'password': '',
+            'readonly': False
         })
         
         # Test factory creation
@@ -57,10 +58,11 @@ class TestDataSourceFactoryIntegration:
         """Test factory creation with different configuration scenarios."""
         db_path = tmp_path / "test_configs.db"
         
-        # Test 1: Minimal configuration (SQLite defaults)
+        # Test 1: Minimal configuration (SQLite defaults, needs write access)
         minimal_config = DictConfig({
             'db_path': str(db_path),
-            'use_sqlite': True
+            'use_sqlite': True,
+            'readonly': False
         })
         
         datasource1 = DataSourceFactory.create("DBDataSource", minimal_config)
@@ -68,13 +70,14 @@ class TestDataSourceFactoryIntegration:
         assert datasource1.db_manager.use_sqlite is True
         datasource1.close()
         
-        # Test 2: Full configuration with all parameters
+        # Test 2: Full configuration with all parameters (needs write access)
         full_config = DictConfig({
             'db_path': str(db_path),
             'use_sqlite': True,
             'host': 'test_host',
             'user': 'test_user',
-            'password': 'test_pass'
+            'password': 'test_pass',
+            'readonly': False
         })
         
         datasource2 = DataSourceFactory.create("DBDataSource", full_config)
@@ -117,6 +120,7 @@ class TestDataSourceFactoryIntegration:
         host: localhost
         user: root
         password: ""
+        readonly: False  # Needs write access for test DB creation
         """
         
         # Write YAML file
@@ -182,13 +186,14 @@ class TestDataSourceFactoryIntegration:
         # experiment_db_only provides path to real MNIST database
         real_db_path = experiment_db_only
         
-        # Create configuration for real database
+        # Create configuration for real database (read-only is sufficient)
         config = DictConfig({
             'db_path': real_db_path,
             'use_sqlite': True,
             'host': 'localhost',
             'user': 'root', 
-            'password': ''
+            'password': '',
+            'readonly': True
         })
         
         # Create datasource using factory

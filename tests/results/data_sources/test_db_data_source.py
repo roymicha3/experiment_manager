@@ -105,14 +105,14 @@ class TestDBDataSource:
         """Test DBDataSource initialization."""
         db_path = tmp_path / "test_init.db"
         
-        # Test SQLite initialization
-        source = DBDataSource(str(db_path))
+        # Test SQLite initialization (needs write access to create DB)
+        source = DBDataSource(str(db_path), readonly=False)
         assert source.db_path == str(db_path)
         assert source.db_manager.use_sqlite is True
         source.close()
         
-        # Test with custom parameters
-        source = DBDataSource(str(db_path), use_sqlite=True)
+        # Test with custom parameters (needs write access)
+        source = DBDataSource(str(db_path), use_sqlite=True, readonly=False)
         assert source.db_manager.use_sqlite is True
         source.close()
     
@@ -120,7 +120,8 @@ class TestDBDataSource:
         """Test DBDataSource as context manager."""
         db_path = tmp_path / "test_context.db"
         
-        with DBDataSource(str(db_path)) as source:
+        # Needs write access to create DB
+        with DBDataSource(str(db_path), readonly=False) as source:
             assert source.db_manager.connection is not None
         
         # Connection should be closed after exiting context

@@ -161,13 +161,13 @@ def dict_factory(cursor: sqlite3.Cursor, row: tuple) -> dict:
         d[col[0]] = row[idx]
     return d
 
-def init_sqlite_db(db_path: Union[str, Path], recreate: bool = False) -> sqlite3.Connection:
+def init_sqlite_db(db_path: Union[str, Path], recreate: bool = False, readonly: bool = False) -> sqlite3.Connection:
     """Initialize SQLite database with all tables.
     
     Args:
         db_path: Path to SQLite database file
         recreate: If True, delete existing database file
-        
+        readonly: If True, open database in readonly mode
     Returns:
         SQLite connection object
     """
@@ -180,19 +180,22 @@ def init_sqlite_db(db_path: Union[str, Path], recreate: bool = False) -> sqlite3
     db_path.parent.mkdir(parents=True, exist_ok=True)
     
     # Connect to database
-    conn = sqlite3.connect(str(db_path))
+    if readonly:
+        conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    else:
+        conn = sqlite3.connect(str(db_path))
     conn.row_factory = dict_factory
     cursor = conn.cursor()
     
-    # Create tables in order (due to foreign key constraints)
-    for table_name, create_sql in SQLITE_TABLES.items():
-        try:
-            cursor.execute(create_sql)
-        except sqlite3.OperationalError as e:
-            print(f"Error creating table {table_name}: {e}")
-            raise
-    
-    conn.commit()
+    if not readonly:
+        # Create tables in order (due to foreign key constraints)
+        for table_name, create_sql in SQLITE_TABLES.items():
+            try:
+                cursor.execute(create_sql)
+            except sqlite3.OperationalError as e:
+                print(f"Error creating table {table_name}: {e}")
+                raise
+        conn.commit()
     return conn
 
 def init_mysql_db(host: str, user: str, password: str, database: str, 

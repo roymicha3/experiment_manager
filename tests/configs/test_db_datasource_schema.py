@@ -21,6 +21,7 @@ def _build_valid_config(tmp_path, extra: bool = False):
 def test_valid_config_compliance(tmp_path):
     """A fully valid configuration should pass validation and construct the datasource."""
     cfg = _build_valid_config(tmp_path)
+    cfg.readonly = False  # Needs write access for test DB creation
     ds = DBDataSource.from_config(cfg)
     try:
         assert ds.db_path == cfg.db_path
@@ -32,6 +33,7 @@ def test_valid_config_compliance(tmp_path):
 def test_unknown_field_allowed(tmp_path):
     """Unknown fields should be ignored by validation and not cause errors."""
     cfg = _build_valid_config(tmp_path, extra=True)
+    cfg.readonly = False  # Needs write access for test DB creation
     ds = DBDataSource.from_config(cfg)
     try:
         assert ds.config.get("extra_field") == "extra_value"

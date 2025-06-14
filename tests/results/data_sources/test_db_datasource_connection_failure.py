@@ -25,7 +25,8 @@ def test_sqlite_connection_failures(tmp_path):
             with pytest.raises(ConnectionError):
                 DBDataSource(db_path, use_sqlite=use_sqlite)
         else:
-            ds = DBDataSource(db_path, use_sqlite=use_sqlite)
+            # Needs write access to create DB
+            ds = DBDataSource(db_path, use_sqlite=use_sqlite, readonly=False)
             ds.close()
 
 @pytest.mark.parametrize("host, user, password, expect_error", [
@@ -49,12 +50,12 @@ def test_invalid_file_format_raises_connection_error(tmp_path):
     text_file = tmp_path / "not_a_db.txt"
     text_file.write_text("this is not a database")
     with pytest.raises(ConnectionError):
-        DBDataSource(str(text_file), use_sqlite=True)
+        DBDataSource(str(text_file), use_sqlite=True, readonly=False)
 
 def test_read_only_db_file_raises_on_write(tmp_path):
-    # Create a valid db file
+    # Create a valid db file (needs write access)
     db_path = tmp_path / "readonly.db"
-    ds = DBDataSource(str(db_path), use_sqlite=True)
+    ds = DBDataSource(str(db_path), use_sqlite=True, readonly=False)
     ds.close()
     # Make it read-only
     os.chmod(db_path, 0o444)
@@ -72,9 +73,9 @@ def test_read_only_db_file_raises_on_write(tmp_path):
 def test_special_characters_in_path(tmp_path):
     # Path with special characters
     special_path = tmp_path / "db_!@#$%^&*()[]{};,.db"
-    # Try to create and open
+    # Try to create and open (needs write access)
     try:
-        ds = DBDataSource(str(special_path), use_sqlite=True)
+        ds = DBDataSource(str(special_path), use_sqlite=True, readonly=False)
         ds.close()
     except ConnectionError:
         # Acceptable if OS/filesystem does not allow

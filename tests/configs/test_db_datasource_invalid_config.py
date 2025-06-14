@@ -32,6 +32,7 @@ INVALID_CONFIGS = [
 @pytest.mark.parametrize("cfg_builder, expected_exc", INVALID_CONFIGS)
 def test_invalid_configs_raise(cfg_builder, expected_exc, tmp_path):
     cfg = cfg_builder(tmp_path)
+    cfg.readonly = False  # Needs write access for test DB creation
     with pytest.raises(expected_exc):
         # Attempt to construct from invalid config
         DBDataSource.from_config(cfg) 

@@ -33,7 +33,8 @@ class TestDBDataSourceIntegration:
         """Test DBDataSource operations with real experiment data."""
         db_path = experiment_data['db_path']
         
-        with DBDataSource(db_path) as source:
+        # Read-only access is sufficient for real experiment data
+        with DBDataSource(db_path, readonly=True) as source:
             # Test get_experiment works
             experiment = source.get_experiment()
             assert experiment is not None
@@ -51,7 +52,8 @@ class TestDBDataSourceIntegration:
         """Test that real experiment has expected metrics structure."""
         db_path = experiment_data['db_path']
         
-        with DBDataSource(db_path) as source:
+        # Read-only access is sufficient for real experiment data
+        with DBDataSource(db_path, readonly=True) as source:
             experiment = source.get_experiment()
             first_trial = experiment.trials[0]
             first_run = first_trial.runs[0]
@@ -76,7 +78,8 @@ class TestDBDataSourceIntegration:
         """Test DataFrame creation with real experiment data."""
         db_path = experiment_data['db_path']
         
-        with DBDataSource(db_path) as source:
+        # Read-only access is sufficient for real experiment data
+        with DBDataSource(db_path, readonly=True) as source:
             experiment = source.get_experiment()
             df = source.metrics_dataframe(experiment)
             
