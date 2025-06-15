@@ -8,6 +8,9 @@ import pandas as pd
 from pathlib import Path
 
 from experiment_manager.results.sources.db_datasource import DBDataSource
+from experiment_manager.results.data_models import Experiment, Trial, TrialRun
+from experiment_manager.common.common import Level
+from tests.conftest import create_metrics_dataframe
 
 
 class TestDBDataSourceIntegration:
@@ -16,18 +19,25 @@ class TestDBDataSourceIntegration:
     def test_real_experiment_structure(self, experiment_data):
         """Test that real experiment has expected structure."""
         experiment = experiment_data['experiment']
-        
-        assert experiment.id is not None
-        assert experiment.name == "test_mnist_baseline"
-        assert len(experiment.trials) == 3
-        
-        # Check trial names
-        trial_names = {trial.name for trial in experiment.trials}
-        assert trial_names == {"small_lr", "medium_lr", "large_lr"}
-        
-        # Each trial should have 2 runs
-        for trial in experiment.trials:
-            assert len(trial.runs) == 2
+
+        # Use DBDataSource for hierarchical data
+        db_path = experiment_data['db_path']
+
+        with DBDataSource(db_path) as source:
+            trials = source.get_trials(experiment)
+
+            assert experiment.id is not None
+            assert experiment.name == "test_mnist_baseline"
+            assert len(trials) == 3
+
+            # Check trial names
+            trial_names = {t.name for t in trials}
+            assert trial_names == {"small_lr", "medium_lr", "large_lr"}
+
+            # Each trial should have 2 runs
+            for trial in trials:
+                runs = source.get_trial_runs(trial)
+                assert len(runs) == 2
     
     def test_db_data_source_with_real_data(self, experiment_data):
         """Test DBDataSource operations with real experiment data."""
@@ -55,22 +65,26 @@ class TestDBDataSourceIntegration:
         # Read-only access is sufficient for real experiment data
         with DBDataSource(db_path, readonly=True) as source:
             experiment = source.get_experiment()
-            first_trial = experiment.trials[0]
-            first_run = first_trial.runs[0]
-            
+
+            trials = source.get_trials(experiment)
+            first_trial = trials[0]
+            runs = source.get_trial_runs(first_trial)
+            first_run = runs[0]
+
             # Should have epoch metrics (3 epochs × multiple metrics)
-            epoch_metrics = [m for m in first_run.metrics if m.epoch is not None]
+            run_metrics = source.get_metrics(first_run)
+            epoch_metrics = [m for m in run_metrics if m.epoch is not None]
             assert len(epoch_metrics) > 0
-            
+
             # Should have final result metrics (epoch=None)
-            final_metrics = [m for m in first_run.metrics if m.epoch is None]
+            final_metrics = [m for m in run_metrics if m.epoch is None]
             assert len(final_metrics) > 0
-            
+
             # Check for expected final metric types (from metrics dict keys)
             final_metric_types = set()
             for metric_record in final_metrics:
                 final_metric_types.update(metric_record.metrics.keys())
-            
+
             assert "test_acc" in final_metric_types
             assert "test_loss" in final_metric_types
     
@@ -81,7 +95,7 @@ class TestDBDataSourceIntegration:
         # Read-only access is sufficient for real experiment data
         with DBDataSource(db_path, readonly=True) as source:
             experiment = source.get_experiment()
-            df = source.metrics_dataframe(experiment)
+            df = create_metrics_dataframe(source, experiment)
             
             # Should have data
             assert len(df) > 0
@@ -97,13 +111,14 @@ class TestDBDataSourceIntegration:
     
     def test_trial_parameter_differences(self, experiment_data):
         """Test that different trials have different configurations."""
-        experiment = experiment_data['experiment']
-        
-        # Each trial should have different names reflecting their configs
-        trial_names = [trial.name for trial in experiment.trials]
-        assert "small_lr" in trial_names
-        assert "medium_lr" in trial_names  
-        assert "large_lr" in trial_names
+        db_path = experiment_data['db_path']
+        with DBDataSource(db_path) as source:
+            experiment = source.get_experiment()
+            trials = source.get_trials(experiment)
+            trial_names = [t.name for t in trials]
+            assert "small_lr" in trial_names
+            assert "medium_lr" in trial_names
+            assert "large_lr" in trial_names
     
     def test_epoch_progression(self, experiment_data):
         """Test that epochs progress correctly in the data."""
@@ -111,10 +126,13 @@ class TestDBDataSourceIntegration:
         
         with DBDataSource(db_path) as source:
             experiment = source.get_experiment()
-            first_run = experiment.trials[0].runs[0]
+            trials = source.get_trials(experiment)
+            first_trial = trials[0]
+            first_run = source.get_trial_runs(first_trial)[0]
             
             # Get epoch metrics and check progression
-            epoch_metrics = [m for m in first_run.metrics if m.epoch is not None]
+            run_metrics = source.get_metrics(first_run)
+            epoch_metrics = [m for m in run_metrics if m.epoch is not None]
             epochs = sorted(set(m.epoch for m in epoch_metrics))
             
             # Should have 3 epochs (0, 1, 2)
@@ -151,9 +169,11 @@ class TestDBDataSourceIntegration:
             epoch_metrics_count = 0
             final_metrics_count = 0
             
-            for trial in experiment.trials:
-                for run in trial.runs:
-                    metrics = run.metrics
+            trials = source.get_trials(experiment)
+            for trial in trials:
+                runs = source.get_trial_runs(trial)
+                for run in runs:
+                    metrics = source.get_metrics(run)
                     total_metrics_count += len(metrics)
                     
                     # Separate epoch vs final metrics
@@ -168,8 +188,10 @@ class TestDBDataSourceIntegration:
             print(f"   - Total metrics records: {total_metrics_count}")
             print(f"   - Epoch-level metrics: {epoch_metrics_count}")
             print(f"   - Final result metrics: {final_metrics_count}")
-            print(f"   - Trials: {len(experiment.trials)}")
-            print(f"   - Total runs: {sum(len(trial.runs) for trial in experiment.trials)}")
+            trials = source.get_trials(experiment)
+            print(f"   - Trials: {len(trials)}")
+            total_runs = sum(len(source.get_trial_runs(t)) for t in trials)
+            print(f"   - Total runs: {total_runs}")
             
             # Assert expected count (update based on actual structure)
             assert total_metrics_count > 90, f"Expected ~102 metrics records, got {total_metrics_count}"
@@ -198,7 +220,7 @@ class TestDBDataSourceIntegration:
             run_artifacts = 0
             
             # Get experiment-level artifacts
-            exp_arts = source.get_artifacts("experiment", experiment)
+            exp_arts = source.get_artifacts(Level.EXPERIMENT.value, experiment)
             experiment_artifacts += len(exp_arts)
             total_artifacts_count += len(exp_arts)
             
@@ -212,9 +234,10 @@ class TestDBDataSourceIntegration:
                 assert isinstance(artifact.type, str), "Artifact type should be string"
                 assert isinstance(artifact.path, str), "Artifact path should be string"
             
-            for trial in experiment.trials:
+            trials = source.get_trials(experiment)
+            for trial in trials:
                 # Get trial-level artifacts
-                trial_arts = source.get_artifacts("trial", trial)
+                trial_arts = source.get_artifacts(Level.TRIAL.value, trial)
                 trial_artifacts += len(trial_arts)
                 total_artifacts_count += len(trial_arts)
                 
@@ -228,9 +251,10 @@ class TestDBDataSourceIntegration:
                     assert isinstance(artifact.type, str), "Artifact type should be string"
                     assert isinstance(artifact.path, str), "Artifact path should be string"
                 
-                for run in trial.runs:
+                runs = source.get_trial_runs(trial)
+                for run in runs:
                     # Get run-level artifacts
-                    run_arts = source.get_artifacts("trial_run", run)
+                    run_arts = source.get_artifacts(Level.TRIAL_RUN.value, run)
                     run_artifacts += len(run_arts)
                     total_artifacts_count += len(run_arts)
                     
@@ -249,8 +273,9 @@ class TestDBDataSourceIntegration:
             print(f"   - Experiment-level artifacts: {experiment_artifacts}")
             print(f"   - Trial-level artifacts: {trial_artifacts}")
             print(f"   - Run-level artifacts: {run_artifacts}")
-            print(f"   - Trials: {len(experiment.trials)}")
-            print(f"   - Total runs: {sum(len(trial.runs) for trial in experiment.trials)}")
+            trials = source.get_trials(experiment)
+            print(f"   - Trials: {len(trials)}")
+            print(f"   - Total runs: {sum(len(source.get_trial_runs(t)) for t in trials)}")
             
             # Validate expected count
             # Note: MNIST experiment doesn't store artifacts in DB - this is a valid finding
@@ -269,16 +294,18 @@ class TestDBDataSourceIntegration:
             # Test artifact retrieval methods work without errors
             try:
                 # Try retrieving artifacts for different entity types
-                for trial in experiment.trials[:1]:  # Test first trial
-                    trial_artifacts_test = source.get_artifacts("trial", trial)
+                trials = source.get_trials(experiment)
+                for trial in trials[:1]:  # Test first trial
+                    trial_artifacts_test = source.get_artifacts(Level.TRIAL.value, trial)
                     assert isinstance(trial_artifacts_test, list), "get_artifacts should return a list"
                     
-                    for run in trial.runs[:1]:  # Test first run
-                        run_artifacts_test = source.get_artifacts("trial_run", run)
+                    runs = source.get_trial_runs(trial)
+                    for run in runs[:1]:  # Test first run
+                        run_artifacts_test = source.get_artifacts(Level.TRIAL_RUN.value, run)
                         assert isinstance(run_artifacts_test, list), "get_artifacts should return a list"
                         
                         # Validate that the artifact retrieval is consistent
-                        run_artifacts_test2 = source.get_artifacts("trial_run", run)
+                        run_artifacts_test2 = source.get_artifacts(Level.TRIAL_RUN.value, run)
                         assert len(run_artifacts_test) == len(run_artifacts_test2), \
                             "Artifact retrieval should be consistent across calls"
                             
@@ -301,16 +328,18 @@ class TestDBDataSourceIntegration:
             experiment = source.get_experiment()
             
             # Test 1: Filter by specific trial
-            first_trial = experiment.trials[0]
+            trials = source.get_trials(experiment)
+            first_trial = trials[0]
             trial_runs = source.get_trial_runs(first_trial)
             assert len(trial_runs) == 2, "Each trial should have 2 runs"
             
             # Test 2: Filter metrics by epoch
             first_run = trial_runs[0]
-            epoch_0_metrics = [m for m in first_run.metrics if m.epoch == 0]
-            epoch_1_metrics = [m for m in first_run.metrics if m.epoch == 1]
-            epoch_2_metrics = [m for m in first_run.metrics if m.epoch == 2]
-            final_metrics = [m for m in first_run.metrics if m.epoch is None]
+            run_metrics = source.get_metrics(first_run)
+            epoch_0_metrics = [m for m in run_metrics if m.epoch == 0]
+            epoch_1_metrics = [m for m in run_metrics if m.epoch == 1]
+            epoch_2_metrics = [m for m in run_metrics if m.epoch == 2]
+            final_metrics = [m for m in run_metrics if m.epoch is None]
             
             assert len(epoch_0_metrics) > 0, "Should have metrics for epoch 0"
             assert len(epoch_1_metrics) > 0, "Should have metrics for epoch 1"
@@ -318,7 +347,7 @@ class TestDBDataSourceIntegration:
             assert len(final_metrics) > 0, "Should have final metrics"
             
             # Test 3: Filter metrics by type using DataFrame
-            df = source.metrics_dataframe(experiment)
+            df = create_metrics_dataframe(source, experiment)
             
             # Filter by specific metric types
             train_acc_data = df[df['metric'] == 'train_acc']
@@ -350,7 +379,7 @@ class TestDBDataSourceIntegration:
         
         with DBDataSource(db_path) as source:
             experiment = source.get_experiment()
-            df = source.metrics_dataframe(experiment)
+            df = create_metrics_dataframe(source, experiment)
             
             # Test 1: Aggregate final test accuracy across all runs
             final_test_acc = df[(df['metric'] == 'test_acc') & (df['epoch'].isna())]
@@ -417,7 +446,7 @@ class TestDBDataSourceIntegration:
             
             # Test 2: DataFrame creation performance
             start_time = time.time()
-            df = source.metrics_dataframe(experiment)
+            df = create_metrics_dataframe(source, experiment)
             dataframe_time = time.time() - start_time
             
             print(f"   - DataFrame creation time: {dataframe_time:.3f}s")
@@ -428,7 +457,8 @@ class TestDBDataSourceIntegration:
             
             # Test 3: Multiple queries performance
             start_time = time.time()
-            for trial in experiment.trials[:2]:  # Test first 2 trials
+            trials = source.get_trials(experiment)
+            for trial in trials[:2]:  # Test first 2 trials
                 trial_runs = source.get_trial_runs(trial)
                 for run in trial_runs[:1]:  # Test first run of each trial
                     metrics = source.get_metrics(run)
@@ -463,18 +493,19 @@ class TestDBDataSourceIntegration:
                 assert "not found" in str(e).lower(), f"Error message should mention 'not found': {e}"
             
             # Test 3: Empty/None artifact queries should not crash
-            first_trial = experiment.trials[0]
-            first_run = first_trial.runs[0]
+            trials = source.get_trials(experiment)
+            first_trial = trials[0]
+            first_run = source.get_trial_runs(first_trial)[0]
             
             # These should return empty lists, not crash
-            trial_artifacts = source.get_artifacts("trial", first_trial)
-            run_artifacts = source.get_artifacts("trial_run", first_run)
+            trial_artifacts = source.get_artifacts(Level.TRIAL.value, first_trial)
+            run_artifacts = source.get_artifacts(Level.TRIAL_RUN.value, first_run)
             
             assert isinstance(trial_artifacts, list), "Trial artifacts should return a list"
             assert isinstance(run_artifacts, list), "Run artifacts should return a list"
             
             # Test 4: DataFrame filtering on empty results
-            df = source.metrics_dataframe(experiment)
+            df = create_metrics_dataframe(source, experiment)
             empty_filter = df[df['metric'] == 'nonexistent_metric']
             assert len(empty_filter) == 0, "Filtering for nonexistent metric should return empty DataFrame"
             assert isinstance(empty_filter, pd.DataFrame), "Empty filter should still return DataFrame"
@@ -524,7 +555,7 @@ class TestDBDataSourceIntegration:
             invalid_trial_id = max(valid_trial_ids) + 9999
             # Create a dummy trial object with invalid ID
             from experiment_manager.results.data_models import Trial
-            fake_trial = Trial(id=invalid_trial_id, name="fake", experiment_id=valid_id, runs=[])
+            fake_trial = Trial(id=invalid_trial_id, name="fake", experiment_id=valid_id)
             runs = source.get_trial_runs(fake_trial)
             assert runs == [] or runs is not None  # Should return empty list, not crash
 

@@ -3,16 +3,23 @@ from typing import List, Union, Optional
 import pandas as pd
 from omegaconf import DictConfig
 
+from experiment_manager.db import tables
+from experiment_manager.db.manager import DatabaseManager
+from experiment_manager.common.serializable import YAMLSerializable
 from experiment_manager.results.sources.datasource import ExperimentDataSource
 from experiment_manager.results.data_models import Experiment, Trial, TrialRun, MetricRecord, Artifact
-from experiment_manager.db.manager import DatabaseManager
-from experiment_manager.db import tables
-from experiment_manager.common.serializable import YAMLSerializable
+from experiment_manager.common.common import ArtifactType, RunStatus, Level
 
 @YAMLSerializable.register("DBDataSource")
 class DBDataSource(ExperimentDataSource, YAMLSerializable):
-    def __init__(self, db_path: str, use_sqlite: bool = True, host: str = "localhost", 
-                 user: str = "root", password: str = "", config: DictConfig = None, readonly: bool = True):
+    def __init__(self, 
+                 db_path: str, 
+                 use_sqlite: bool = True, 
+                 host: str = "localhost", 
+                 user: str = "root", 
+                 password: str = "", 
+                 config: DictConfig = None, 
+                 readonly: bool = True):
         
         ExperimentDataSource.__init__(self)
         YAMLSerializable.__init__(self, config)
@@ -65,13 +72,6 @@ class DBDataSource(ExperimentDataSource, YAMLSerializable):
     def get_experiment(self, experiment_id: Optional[Union[str, int]] = None) -> Experiment:
         """
         Fetch the experiment and all associated trials and runs.
-        
-        Args:
-            experiment_id: Optional experiment ID (int) or title (str). 
-                          If None, returns the first experiment.
-        
-        Returns:
-            Experiment: Complete experiment data with trials and runs
         """
         # Get all experiments from the database
         experiments_tables = self._get_experiments()
@@ -92,15 +92,11 @@ class DBDataSource(ExperimentDataSource, YAMLSerializable):
             id=experiment_table.id,
             name=experiment_table.title,
             description=experiment_table.description,
-            trials=[],  # Will be populated below
             dir_path=None
         )
-        
-        # Get all trials for this experiment
-        trials = self.get_trials(experiment)
-        experiment.trials = trials
-        
+
         return experiment
+
 
     def _find_experiment(self, experiments: List[tables.Experiment], 
                         experiment_id: Union[str, int]) -> Optional[tables.Experiment]:
@@ -168,12 +164,9 @@ class DBDataSource(ExperimentDataSource, YAMLSerializable):
                 id=row["id"],
                 name=row["name"],
                 experiment_id=row["experiment_id"],
-                runs=[],  # Will be populated by get_trial_runs if needed
                 dir_path=None
             )
             
-            # Get all runs for this trial
-            trial.runs = self.get_trial_runs(trial)
             trials.append(trial)
         
         return trials
@@ -197,16 +190,11 @@ class DBDataSource(ExperimentDataSource, YAMLSerializable):
             trial_run = TrialRun(
                 id=row["id"],
                 trial_id=row["trial_id"],
-                status=row["status"],
-                metrics=[],  # Will be populated by get_metrics if needed
-                artifacts=[],  # Will be populated by get_artifacts if needed
+                status=RunStatus(row["status"]) if isinstance(row["status"], int) else row["status"],
                 num_epochs=self._get_num_epochs(row["id"]),
                 dir_path=None
             )
-            
-            # Get metrics and artifacts for this trial run
-            trial_run.metrics = self.get_metrics(trial_run)
-            trial_run.artifacts = self.get_artifacts("trial_run", trial_run)
+
             trial_runs.append(trial_run)
         
         return trial_runs
@@ -276,7 +264,7 @@ class DBDataSource(ExperimentDataSource, YAMLSerializable):
             metric_dict = {row["type"]: row["total_val"]}
             
             # Add per-label values if they exist
-            if row["per_label_val"]:
+            if row["per_label_val"] is not None:
                 try:
                     per_label = json.loads(row["per_label_val"]) if isinstance(row["per_label_val"], str) else row["per_label_val"]
                     metric_dict[f"{row['type']}_per_label"] = per_label
@@ -292,22 +280,22 @@ class DBDataSource(ExperimentDataSource, YAMLSerializable):
         
         return metrics
 
-    def get_artifacts(self, entity_level: str, entity: Union[Experiment, Trial, TrialRun]) -> List[Artifact]:
+    def get_artifacts(self, entity_level: Level, entity: Union[Experiment, Trial, TrialRun]) -> List[Artifact]:
         """
         Fetch artifacts attached to experiment, trial, or trial_run.
         entity_level: "experiment", "trial", "trial_run"
         """
         ph = self.db_manager._get_placeholder()
         
-        if entity_level == "experiment":
+        if entity_level == Level.EXPERIMENT.value:
             junction_table = "EXPERIMENT_ARTIFACT"
             id_field = "experiment_id"
             entity_id = entity.id
-        elif entity_level == "trial":
+        elif entity_level == Level.TRIAL.value:
             junction_table = "TRIAL_ARTIFACT"
             id_field = "trial_id"
             entity_id = entity.id
-        elif entity_level == "trial_run":
+        elif entity_level == Level.TRIAL_RUN.value:
             junction_table = "TRIAL_RUN_ARTIFACT"
             id_field = "trial_run_id"
             entity_id = entity.id
@@ -333,6 +321,7 @@ class DBDataSource(ExperimentDataSource, YAMLSerializable):
             for row in rows
         ]
 
+    # TODO: this function should be moved to one of the data extractor classes (preferably the dataframe extractor)
     def metrics_dataframe(self, experiment: Experiment) -> pd.DataFrame:
         """
         Return a DataFrame with columns: ['trial', 'trial_run', 'epoch', 'metric', 'value']
@@ -340,8 +329,12 @@ class DBDataSource(ExperimentDataSource, YAMLSerializable):
         """
         data = []
         
-        for trial in experiment.trials:
-            for trial_run in trial.runs:
+        # Ensure trials are available
+        trials = experiment.trials if hasattr(experiment, "trials") else self.get_trials(experiment)
+
+        for trial in trials:
+            runs = self.get_trial_runs(trial)
+            for trial_run in runs:
                 for metric_record in trial_run.metrics:
                     for metric_name, metric_value in metric_record.metrics.items():
                         # Skip per-label metrics in the main DataFrame to keep it simple

@@ -1,5 +1,15 @@
 from enum import Enum, IntEnum, auto
 
+"""Common constants and enumerations shared across Experiment Manager.
+
+This module centralises enums (RunStatus, Level, Metric, etc.) and other
+constants so that the rest of the codebase can import them from a single
+place, ensuring consistent values, type-safety, and IDE auto-completion.
+Add new enums here whenever you introduce additional categorical fields
+(e.g., for new database tables) to avoid scattering hard-coded strings
+throughout the code.
+"""
+
 LOG_NAME = "log"
 
 class RunStatus(Enum):
@@ -89,3 +99,31 @@ def get_tracked_metrics() -> list[Metric]:
 
 # Initialize the categories after all classes are defined
 _init_metric_categories()
+
+class ArtifactType(Enum):
+    """Category of artifact stored in the ARTIFACT table and on disk.
+
+    The values are lowercase strings to match the ON-DISK/DATABASE values
+    already used by the system.  When adding a new artifact category,
+    update this enum and migrate any related database rows accordingly.
+    """
+    MODEL = "model"
+    CHECKPOINT = "checkpoint"
+    FIGURE = "figure"
+    LOG = "log"
+    TENSORBOARD = "tensorboard"
+    OTHER = "other"
+
+# Public exports for `from experiment_manager.common.common import *`
+__all__ = [
+    "LOG_NAME",
+    "RunStatus",
+    "ConfigPaths",
+    "Level",
+    "MetricCategory",
+    "Metric",
+    "ArtifactType",
+    "get_metric_category",
+    "get_metrics_by_category",
+    "get_tracked_metrics",
+]

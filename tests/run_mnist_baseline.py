@@ -94,15 +94,17 @@ def main():
         with DBDataSource(db_path) as source:
             exp_data = source.get_experiment()
             
-            # Print basic stats
+            # Print basic stats using explicit loaders
+            trials = source.get_trials(exp_data)
             print(f"\nExperiment stats:")
-            print(f"- Trials: {len(exp_data.trials)}")
-            total_runs = sum(len(trial.runs) for trial in exp_data.trials)
+            print(f"- Trials: {len(trials)}")
+            total_runs = sum(len(source.get_trial_runs(t)) for t in trials)
             print(f"- Total runs: {total_runs}")
             
             # Print trial details
-            for trial in exp_data.trials:
-                print(f"  - Trial '{trial.name}': {len(trial.runs)} runs")
+            for trial in trials:
+                runs = source.get_trial_runs(trial)
+                print(f"  - Trial '{trial.name}': {len(runs)} runs")
         
         # Print directory structure
         print("\nWorkspace structure:")

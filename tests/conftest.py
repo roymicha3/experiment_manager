@@ -15,6 +15,7 @@ from pathlib import Path
 
 from experiment_manager.results.sources.db_datasource import DBDataSource
 from tests.run_mnist_baseline import run_mnist_baseline_experiment
+from experiment_manager.common.common import Level
 
 
 @pytest.fixture(scope="session")
@@ -54,10 +55,11 @@ def shared_mnist_experiment():
         with data_source as source:
             experiment = source.get_experiment()
             
-            # Basic validation
+            # Basic validation via explicit loaders (no nested attributes)
             assert experiment is not None
             assert experiment.name == "test_mnist_baseline"
-            assert len(experiment.trials) == 3
+            trials = source.get_trials(experiment)
+            assert len(trials) == 3
             
         data_source.close()
         
@@ -165,6 +167,61 @@ def experiment_data(shared_mnist_experiment):
 
 
 # =============================================================================
+# HELPER FUNCTIONS FOR TESTS
+# =============================================================================
+
+import pandas as pd
+
+
+def create_metrics_dataframe(datasource, experiment):
+    """
+    Create a metrics DataFrame using explicit datasource method calls.
+    
+    This is a test helper that replaces the need for monkey-patching
+    DBDataSource.metrics_dataframe. It builds the same DataFrame structure
+    but uses the explicit get_trials/get_trial_runs/get_metrics pattern
+    that respects the "no nested attributes" refactor.
+    
+    Args:
+        datasource: DBDataSource instance
+        experiment: Experiment object
+        
+    Returns:
+        pandas.DataFrame: Metrics data in the same format as the original
+                         metrics_dataframe method
+    """
+    data = []
+    
+    # Always fetch trials explicitly
+    trials = datasource.get_trials(experiment)
+    
+    for trial in trials:
+        runs = datasource.get_trial_runs(trial)
+        for run in runs:
+            metrics_records = datasource.get_metrics(run)
+            for metric_record in metrics_records:
+                for metric_name, metric_value in metric_record.metrics.items():
+                    # Skip per-label metrics in the flattened DataFrame
+                    if metric_name.endswith("_per_label"):
+                        continue
+                    
+                    data.append({
+                        'experiment_id': experiment.id,
+                        'experiment_name': experiment.name,
+                        'trial_id': trial.id,
+                        'trial_name': trial.name,
+                        'trial_run_id': run.id,
+                        'trial_run_status': run.status,
+                        'epoch': metric_record.epoch,
+                        'metric': metric_name,
+                        'value': metric_value,
+                        'is_custom': metric_record.is_custom,
+                    })
+    
+    return pd.DataFrame(data)
+
+
+# =============================================================================
 # PARAMETERIZED EXPERIMENT FIXTURES
 # =============================================================================
 # These fixtures provide different levels of access to the MNIST experiment data,
@@ -229,13 +286,15 @@ def experiment_metrics_only(shared_mnist_experiment):
     try:
         with data_source as source:
             experiment = source.get_experiment()
-            metrics_df = source.metrics_dataframe(experiment)
+            metrics_df = create_metrics_dataframe(source, experiment)
+            
+            trials = source.get_trials(experiment)
             
             yield {
                 'db_path': db_path,
                 'metrics': metrics_df,
                 'experiment_id': experiment.id,
-                'trial_count': len(experiment.trials)
+                'trial_count': len(trials)
             }
     finally:
         data_source.close()
@@ -332,9 +391,11 @@ def experiment_lightweight(shared_mnist_experiment):
         with data_source as source:
             experiment = source.get_experiment()
             
+            trials = source.get_trials(experiment)
+            
             yield {
                 'experiment_name': experiment.name,
-                'trial_count': len(experiment.trials),
+                'trial_count': len(trials),
                 'db_path': db_path,
                 'workspace_exists': os.path.exists(temp_dir)
             }
@@ -449,9 +510,10 @@ def _get_lightweight_data(shared_mnist_experiment):
     try:
         with data_source as source:
             experiment = source.get_experiment()
+            trials = source.get_trials(experiment)
             return {
                 'experiment_name': experiment.name,
-                'trial_count': len(experiment.trials),
+                'trial_count': len(trials),
                 'db_path': db_path,
                 'workspace_exists': os.path.exists(temp_dir)
             }
@@ -467,13 +529,15 @@ def _get_metrics_data(shared_mnist_experiment):
     try:
         with data_source as source:
             experiment = source.get_experiment()
-            metrics_df = source.metrics_dataframe(experiment)
+            metrics_df = create_metrics_dataframe(source, experiment)
+            
+            trials = source.get_trials(experiment)
             
             return {
                 'db_path': db_path,
                 'metrics': metrics_df,
                 'experiment_id': experiment.id,
-                'trial_count': len(experiment.trials)
+                'trial_count': len(trials)
             }
     finally:
         data_source.close()
@@ -564,4 +628,60 @@ def pytest_collection_modifyitems(config, items):
             # Add custom marker to indicate this test uses experiment data
             if not item.get_closest_marker('experiment_data'):
                 # Apply default experiment_data marker if none exists
-                item.add_marker(pytest.mark.experiment_data(scope='full')) 
+                item.add_marker(pytest.mark.experiment_data(scope='full'))
+
+
+# ---------------------------------------------------------------------------
+# Autouse fixture to dynamically attach convenience attributes (trials, runs,
+# metrics, artifacts) **only for tests**.  No production code is modified.
+# ---------------------------------------------------------------------------
+
+# @pytest.fixture(autouse=True)
+# def _patch_db_datasource(monkeypatch):
+#     """Monkey-patch DBDataSource helper methods so objects returned during tests
+#     have nested attributes (trials, runs, metrics, artifacts) readily
+#     available.  This keeps the data-model lean in production while letting
+#     legacy tests work unchanged.
+#     """
+#
+#     from experiment_manager.results.sources.db_datasource import DBDataSource
+#
+#     # Keep original methods so we can delegate.
+#     _orig_get_experiment = DBDataSource.get_experiment
+#     _orig_get_trials = DBDataSource.get_trials
+#     _orig_get_trial_runs = DBDataSource.get_trial_runs
+#
+#     def _attach_runs(self, trial):
+#         """Return runs for *trial* and ensure each run has metrics & artifacts."""
+#         runs = _orig_get_trial_runs(self, trial)
+#         for run in runs:
+#             if not hasattr(run, "metrics"):
+#                 run.metrics = self.get_metrics(run)
+#             if not hasattr(run, "artifacts"):
+#                 run.artifacts = self.get_artifacts(Level.TRIAL_RUN.value, run)
+#         return runs
+#
+#     def _patched_get_trials(self, experiment):  # type: ignore[override]
+#         trials = _orig_get_trials(self, experiment)
+#         for tr in trials:
+#             if not hasattr(tr, "runs"):
+#                 tr.runs = _attach_runs(self, tr)
+#         return trials
+#
+#     def _patched_get_experiment(self, *args, **kwargs):  # type: ignore[override]
+#         exp = _orig_get_experiment(self, *args, **kwargs)
+#         # Attach trials (and cascading runs/metrics/artifacts)
+#         if not hasattr(exp, "trials"):
+#             exp.trials = _patched_get_trials(self, exp)
+#         return exp
+#
+#     # Apply patches
+#     monkeypatch.setattr(DBDataSource, "get_experiment", _patched_get_experiment, raising=True)
+#     monkeypatch.setattr(DBDataSource, "get_trials", _patched_get_trials, raising=True)
+#     monkeypatch.setattr(DBDataSource, "get_trial_runs", _attach_runs, raising=True)
+#
+#     yield  # run tests
+#
+#     # monkeypatch fixture will automatically undo patches afterwards 
+
+ 

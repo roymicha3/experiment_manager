@@ -1,12 +1,14 @@
 # models/experiment.py
 
 from dataclasses import dataclass
-from typing import List, Dict, Optional
+from typing import Dict, Optional, Union
+
+from experiment_manager.common.common import ArtifactType, RunStatus
 
 @dataclass
 class Artifact:
     id: int
-    type: str
+    type: ArtifactType | str  # Allow raw string for backward compatibility
     path: str
 
 @dataclass
@@ -20,9 +22,7 @@ class MetricRecord:
 class TrialRun:
     id: int
     trial_id: int
-    status: str
-    metrics: List[MetricRecord]
-    artifacts: List[Artifact]
+    status: Union[RunStatus, str]
     num_epochs: int
     dir_path: Optional[str] = None
 
@@ -31,13 +31,11 @@ class Trial:
     id: int
     name: str
     experiment_id: int
-    runs: List[TrialRun]
     dir_path: Optional[str] = None
 
 @dataclass
 class Experiment:
     id: int
     name: str
-    trials: List[Trial]
     description: Optional[str] = None
     dir_path: Optional[str] = None

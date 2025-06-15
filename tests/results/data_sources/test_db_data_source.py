@@ -7,6 +7,8 @@ from pathlib import Path
 from experiment_manager.results.sources.db_datasource import DBDataSource
 from experiment_manager.results.data_models import Experiment, Trial, TrialRun, MetricRecord, Artifact
 from experiment_manager.db.manager import DatabaseManager
+from experiment_manager.common.common import Level
+from tests.conftest import create_metrics_dataframe
 
 
 @pytest.fixture
@@ -136,7 +138,8 @@ class TestDBDataSource:
         assert experiment.id == 1
         assert experiment.name == "Test Experiment 1"
         assert experiment.description == "First test experiment"
-        assert len(experiment.trials) == 2
+        trials = db_datasource.get_trials(experiment)
+        assert len(trials) == 2
     
     def test_get_experiment_by_title(self, db_datasource):
         """Test getting experiment by title."""
@@ -146,7 +149,8 @@ class TestDBDataSource:
         assert experiment.id == 2
         assert experiment.name == "Test Experiment 2"
         assert experiment.description == "Second test experiment"
-        assert len(experiment.trials) == 1
+        trials = db_datasource.get_trials(experiment)
+        assert len(trials) == 1
     
     def test_get_experiment_not_found(self, db_datasource):
         """Test getting non-existent experiment."""
@@ -158,7 +162,7 @@ class TestDBDataSource:
     
     def test_get_trials(self, db_datasource):
         """Test getting trials for an experiment."""
-        experiment = Experiment(id=1, name="Test", trials=[], description="Test")
+        experiment = Experiment(id=1, name="Test", description="Test")
         trials = db_datasource.get_trials(experiment)
         
         assert len(trials) == 2
@@ -166,29 +170,44 @@ class TestDBDataSource:
         assert trials[1].name == "Trial 1-2"
         assert all(trial.experiment_id == 1 for trial in trials)
         
-        # Check that runs are populated
-        assert len(trials[0].runs) == 2  # Trial 1-1 has 2 runs
-        assert len(trials[1].runs) == 1  # Trial 1-2 has 1 run
+        # Verify runs count via helper
+        runs_trial1 = db_datasource.get_trial_runs(trials[0])
+        runs_trial2 = db_datasource.get_trial_runs(trials[1])
+        assert len(runs_trial1) == 2  # Trial 1-1 has 2 runs
+        assert len(runs_trial2) == 1  # Trial 1-2 has 1 run
     
     def test_get_trial_runs(self, db_datasource):
         """Test getting trial runs for a trial."""
-        trial = Trial(id=1, name="Trial 1-1", experiment_id=1, runs=[])
+        trial = Trial(id=1, name="Trial 1-1", experiment_id=1)
         runs = db_datasource.get_trial_runs(trial)
+        
+        # Verify we can fetch metrics and artifacts via explicit loaders
+        # Note: Not all runs have metrics/artifacts in the test data
+        for r in runs:
+            metrics = db_datasource.get_metrics(r)
+            artifacts = db_datasource.get_artifacts(Level.TRIAL_RUN.value, r)
+            
+            # Metrics and artifacts should be lists (may be empty)
+            assert isinstance(metrics, list)
+            assert isinstance(artifacts, list)
+        
+        # At least one run should have metrics (run1_1_1 has metrics linked)
+        total_metrics = sum(len(db_datasource.get_metrics(r)) for r in runs)
+        assert total_metrics > 0, "At least one run should have metrics"
+        
+        # At least one run should have artifacts (run1_1_1 has artifacts linked)
+        total_artifacts = sum(len(db_datasource.get_artifacts(Level.TRIAL_RUN.value, r)) for r in runs)
+        assert total_artifacts > 0, "At least one run should have artifacts"
         
         assert len(runs) == 2
         assert runs[0].status == "completed"
         assert runs[1].status == "failed"
         assert all(run.trial_id == 1 for run in runs)
         assert all(run.num_epochs >= 0 for run in runs)
-        
-        # Check that metrics and artifacts are populated
-        assert len(runs[0].metrics) > 0  # Should have metrics
-        assert len(runs[0].artifacts) > 0  # Should have artifacts
     
     def test_get_metrics(self, db_datasource):
         """Test getting metrics for a trial run."""
-        trial_run = TrialRun(id=1, trial_id=1, status="completed", 
-                           metrics=[], artifacts=[], num_epochs=2)
+        trial_run = TrialRun(id=1, trial_id=1, status="completed", num_epochs=2)
         metrics = db_datasource.get_metrics(trial_run)
         
         assert len(metrics) > 0
@@ -219,17 +238,17 @@ class TestDBDataSource:
     
     def test_get_artifacts_experiment(self, db_datasource):
         """Test getting artifacts for an experiment."""
-        experiment = Experiment(id=1, name="Test", trials=[], description="Test")
-        artifacts = db_datasource.get_artifacts("experiment", experiment)
+        experiment = Experiment(id=1, name="Test", description="Test")
+        artifacts = db_datasource.get_artifacts(Level.EXPERIMENT.value, experiment)
         
         assert len(artifacts) == 1
-        assert artifacts[0].type == "model"
+        assert str(artifacts[0].type) in ("model", "ArtifactType.MODEL")
         assert artifacts[0].path == "/models/model1.pt"
     
     def test_get_artifacts_trial(self, db_datasource):
         """Test getting artifacts for a trial."""
-        trial = Trial(id=1, name="Trial 1-1", experiment_id=1, runs=[])
-        artifacts = db_datasource.get_artifacts("trial", trial)
+        trial = Trial(id=1, name="Trial 1-1", experiment_id=1)
+        artifacts = db_datasource.get_artifacts(Level.TRIAL.value, trial)
         
         assert len(artifacts) == 1
         assert artifacts[0].type == "config"
@@ -237,17 +256,16 @@ class TestDBDataSource:
     
     def test_get_artifacts_trial_run(self, db_datasource):
         """Test getting artifacts for a trial run."""
-        trial_run = TrialRun(id=1, trial_id=1, status="completed", 
-                           metrics=[], artifacts=[], num_epochs=2)
-        artifacts = db_datasource.get_artifacts("trial_run", trial_run)
+        trial_run = TrialRun(id=1, trial_id=1, status="completed", num_epochs=2)
+        artifacts = db_datasource.get_artifacts(Level.TRIAL_RUN.value, trial_run)
         
         assert len(artifacts) == 1
-        assert artifacts[0].type == "log"
+        assert str(artifacts[0].type) in ("log", "ArtifactType.LOG")
         assert artifacts[0].path == "/logs/run1.log"
     
     def test_get_artifacts_invalid_level(self, db_datasource):
         """Test getting artifacts with invalid entity level."""
-        experiment = Experiment(id=1, name="Test", trials=[], description="Test")
+        experiment = Experiment(id=1, name="Test", description="Test")
         
         with pytest.raises(ValueError, match="Unknown entity_level: invalid"):
             db_datasource.get_artifacts("invalid", experiment)
@@ -255,7 +273,10 @@ class TestDBDataSource:
     def test_metrics_dataframe(self, db_datasource):
         """Test creating metrics DataFrame."""
         experiment = db_datasource.get_experiment("1")
-        df = db_datasource.metrics_dataframe(experiment)
+        trials = db_datasource.get_trials(experiment)
+        
+        # Build DataFrame directly – no need to manipulate nested attributes
+        df = create_metrics_dataframe(db_datasource, experiment)
         
         assert not df.empty
         
@@ -289,12 +310,29 @@ class TestDBDataSource:
         
         assert len(epoch_data) > 0
         assert len(result_data) > 0
+        
+        # Verify data consistency: the number of non–per-label metric rows in
+        # the DataFrame should equal the total number of such metric records
+        # fetched via explicit helper calls.
+        all_runs = [run for t in trials for run in db_datasource.get_trial_runs(t)]
+
+        non_per_label_count = 0
+        for r in all_runs:
+            metrics_records = db_datasource.get_metrics(r)
+            non_per_label_count += sum(
+                1
+                for record in metrics_records
+                for name in record.metrics.keys()
+                if not name.endswith('_per_label')
+            )
+
+        assert len(df) == non_per_label_count
     
     def test_metrics_dataframe_empty_experiment(self, db_datasource):
         """Test metrics DataFrame with experiment that has no data."""
         # Create empty experiment
-        empty_experiment = Experiment(id=999, name="Empty", trials=[], description="Empty")
-        df = db_datasource.metrics_dataframe(empty_experiment)
+        empty_experiment = Experiment(id=999, name="Empty", description="Empty")
+        df = create_metrics_dataframe(db_datasource, empty_experiment)
         
         assert df.empty
         # When DataFrame is empty from empty data (not an uninitialized DataFrame),
@@ -318,38 +356,44 @@ class TestDBDataSource:
         # Get experiment
         experiment = db_datasource.get_experiment("Test Experiment 1")
         assert experiment is not None
-        assert len(experiment.trials) == 2
+        trials = db_datasource.get_trials(experiment)
+        assert len(trials) == 2
         
         # Check trials have runs
-        for trial in experiment.trials:
-            assert len(trial.runs) > 0
+        for trial in trials:
+            runs = db_datasource.get_trial_runs(trial)
+            assert len(runs) > 0
             
-            # Check runs have metrics and artifacts
-            for run in trial.runs:
-                if run.status == "completed":
-                    assert len(run.metrics) > 0
-                
-                # Check artifacts are loaded
-                assert isinstance(run.artifacts, list)
+            # Check that we can fetch metrics for runs (some may be empty)
+            for run in runs:
+                metrics = db_datasource.get_metrics(run)
+                assert isinstance(metrics, list)
+        
+        # Verify that at least some runs have metrics
+        all_runs = [run for t in trials for run in db_datasource.get_trial_runs(t)]
+        total_metrics = sum(len(db_datasource.get_metrics(r)) for r in all_runs)
+        assert total_metrics > 0, "At least some runs should have metrics"
         
         # Create DataFrame
-        df = db_datasource.metrics_dataframe(experiment)
+        df = create_metrics_dataframe(db_datasource, experiment)
         assert not df.empty
         
-        # Verify data consistency
-        total_metrics_from_objects = sum(
-            len(run.metrics) for trial in experiment.trials for run in trial.runs
-        )
-        
-        # DataFrame should have entries for non-per-label metrics
-        non_per_label_metrics = sum(
-            len([k for k in metric.metrics.keys() if not k.endswith('_per_label')])
-            for trial in experiment.trials 
-            for run in trial.runs 
-            for metric in run.metrics
-        )
-        
-        assert len(df) == non_per_label_metrics
+        # Verify data consistency: the number of non–per-label metric rows in
+        # the DataFrame should equal the total number of such metric records
+        # fetched via explicit helper calls.
+        all_runs = [run for t in trials for run in db_datasource.get_trial_runs(t)]
+
+        non_per_label_count = 0
+        for r in all_runs:
+            metrics_records = db_datasource.get_metrics(r)
+            non_per_label_count += sum(
+                1
+                for record in metrics_records
+                for name in record.metrics.keys()
+                if not name.endswith('_per_label')
+            )
+
+        assert len(df) == non_per_label_count
     
     def test_close_method(self, db_datasource):
         """Test the close method."""

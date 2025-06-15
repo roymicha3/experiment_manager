@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from typing import List, Optional, Union
 import pandas as pd
 
+from experiment_manager.common.common import Level
 from experiment_manager.results.data_models import Experiment, Trial, TrialRun, MetricRecord, Artifact
 
 class ExperimentDataSource(ABC):
@@ -35,7 +36,7 @@ class ExperimentDataSource(ABC):
         pass
 
     @abstractmethod
-    def get_artifacts(self, entity_level: str, entity: Experiment | Trial | TrialRun) -> List[Artifact]:
+    def get_artifacts(self, entity_level: Level, entity: Experiment | Trial | TrialRun) -> List[Artifact]:
         """
         Fetch artifacts attached to experiment, trial, or run.
         entity_level: "experiment", "trial", "trial_run", etc.

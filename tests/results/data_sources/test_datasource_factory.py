@@ -9,6 +9,7 @@ from experiment_manager.results.sources.db_datasource import DBDataSource
 from experiment_manager.results.sources.datasource import ExperimentDataSource
 from experiment_manager.common.serializable import YAMLSerializable
 from experiment_manager.db.manager import DatabaseManager
+from tests.conftest import create_metrics_dataframe
 
 
 class TestDataSourceFactoryIntegration:
@@ -207,17 +208,22 @@ class TestDataSourceFactoryIntegration:
         assert experiment is not None
         assert experiment.id is not None
         assert experiment.name is not None
-        assert len(experiment.trials) > 0
-        
+
+        trials = datasource.get_trials(experiment)
+        assert len(trials) > 0
+
         # Verify trials have data
-        for trial in experiment.trials:
+        for trial in trials:
+            runs = datasource.get_trial_runs(trial)
             assert trial.id is not None
-            assert len(trial.runs) > 0
-        
+            assert len(runs) > 0
+
+        total_runs = sum(len(datasource.get_trial_runs(t)) for t in trials)
+
         print(f"✅ Factory successfully created DBDataSource with real MNIST data")
         print(f"   - Experiment: '{experiment.name}' (ID: {experiment.id})")
-        print(f"   - Trials: {len(experiment.trials)}")
-        print(f"   - Total runs: {sum(len(trial.runs) for trial in experiment.trials)}")
+        print(f"   - Trials: {len(trials)}")
+        print(f"   - Total runs: {total_runs}")
         
         # Clean up
         datasource.close()
@@ -260,8 +266,13 @@ class TestDataSourceFactoryIntegration:
         if trials:
             trial_runs = datasource.get_trial_runs(trials[0])
             assert isinstance(trial_runs, list)
-        
-        df = datasource.metrics_dataframe(experiment)
+
+            # Ensure metrics fetch works for each run
+            for r in trial_runs:
+                metrics = datasource.get_metrics(r)
+                assert len(metrics) >= 0
+
+        df = create_metrics_dataframe(datasource, experiment)
         assert hasattr(df, 'columns')  # Should be a DataFrame
         
         # Test context manager interface

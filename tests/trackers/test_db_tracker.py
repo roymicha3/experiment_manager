@@ -1,4 +1,7 @@
-"""Tests for the DBTracker."""
+"""
+Test module for DBTracker functionality and integration with real experiment data.
+"""
+
 import os
 import pytest
 from pathlib import Path
@@ -7,6 +10,7 @@ from omegaconf import OmegaConf
 from experiment_manager.trackers.plugins.db_tracker import DBTracker
 from experiment_manager.common.common import Level, Metric
 from experiment_manager.results.sources.db_datasource import DBDataSource
+from tests.conftest import create_metrics_dataframe
 
 @pytest.fixture
 def workspace(tmp_path):
@@ -599,29 +603,31 @@ def test_comprehensive_db_tracker_integration_with_full_artifacts(experiment_ful
         # ===== TEST 2: Experiment Hierarchy Validation =====
         print(f"\n📊 Testing experiment hierarchy and data integrity...")
         
-        # Validate experiment data through DatabaseManager
+        # Validate experiment data through DatabaseManager and DBDataSource
         experiment_id = experiment_obj.id
         experiment_name = experiment_obj.name
-        trial_count = len(experiment_obj.trials)
         
-        print(f"   Experiment ID: {experiment_id}")
-        print(f"   Experiment Name: {experiment_name}")
-        print(f"   Trial Count: {trial_count}")
-        
-        # Cross-validate with DBDataSource
+        # Get trial count using explicit DBDataSource calls
         with DBDataSource(db_path) as db_source:
             ds_experiment = db_source.get_experiment()
+            trials = db_source.get_trials(ds_experiment)
+            trial_count = len(trials)
+            
+            print(f"   Experiment ID: {experiment_id}")
+            print(f"   Experiment Name: {experiment_name}")
+            print(f"   Trial Count: {trial_count}")
+            
             assert ds_experiment.id == experiment_id, "Experiment IDs should match between sources"
             assert ds_experiment.name == experiment_name, "Experiment names should match"
-            assert len(ds_experiment.trials) == trial_count, "Trial counts should match"
             
-            # Validate trial hierarchy
+            # Validate trial hierarchy using explicit calls
             total_runs = 0
             total_epochs = 0
-            for trial in ds_experiment.trials:
+            for trial in trials:
                 assert trial.experiment_id == experiment_id, f"Trial {trial.id} should belong to experiment {experiment_id}"
                 
-                for run in trial.runs:
+                runs = db_source.get_trial_runs(trial)
+                for run in runs:
                     assert run.trial_id == trial.id, f"Run {run.id} should belong to trial {trial.id}"
                     total_runs += 1
                     total_epochs += run.num_epochs if hasattr(run, 'num_epochs') else 0
@@ -695,15 +701,21 @@ def test_comprehensive_db_tracker_integration_with_full_artifacts(experiment_ful
         db_experiment_artifacts = db_manager.get_experiment_artifacts(experiment_id)
         print(f"   ✅ Database experiment artifacts: {len(db_experiment_artifacts)}")
         
-        # Test trial-level artifacts
-        first_trial_id = experiment_obj.trials[0].id
-        trial_artifacts = db_manager.get_trial_artifacts(first_trial_id)
-        print(f"   ✅ Trial artifacts: {len(trial_artifacts)}")
-        
-        # Test trial run-level artifacts
-        first_run_id = experiment_obj.trials[0].runs[0].id
-        run_artifacts = db_manager.get_trial_run_artifacts(first_run_id)
-        print(f"   ✅ Trial run artifacts: {len(run_artifacts)}")
+        # Test trial-level artifacts using explicit calls
+        with DBDataSource(db_path) as db_source:
+            ds_experiment = db_source.get_experiment()
+            trials = db_source.get_trials(ds_experiment)
+            if trials:
+                first_trial_id = trials[0].id
+                trial_artifacts = db_manager.get_trial_artifacts(first_trial_id)
+                print(f"   ✅ Trial artifacts: {len(trial_artifacts)}")
+                
+                # Test trial run-level artifacts
+                runs = db_source.get_trial_runs(trials[0])
+                if runs:
+                    first_run_id = runs[0].id
+                    run_artifacts = db_manager.get_trial_run_artifacts(first_run_id)
+                    print(f"   ✅ Trial run artifacts: {len(run_artifacts)}")
         
         # ===== TEST 5: Cross-System Data Consistency =====
         print(f"\n🔄 Testing cross-system data consistency...")
@@ -715,7 +727,7 @@ def test_comprehensive_db_tracker_integration_with_full_artifacts(experiment_ful
             assert not exp_data.empty, "Experiment data should not be empty"
             
             # Get metrics data frame
-            metrics_df = db_source.metrics_dataframe(ds_experiment)
+            metrics_df = create_metrics_dataframe(db_source, ds_experiment)
             assert not metrics_df.empty, "Metrics DataFrame should not be empty"
             
             # Cross-validate metric counts
@@ -729,9 +741,10 @@ def test_comprehensive_db_tracker_integration_with_full_artifacts(experiment_ful
             unique_exp_ids = set(exp_data['experiment_id'].unique()) if 'experiment_id' in exp_data.columns else {experiment_id}
             assert experiment_id in unique_exp_ids, "Experiment ID should be consistent across all data sources"
             
-            # Validate trial ID consistency
+            # Validate trial ID consistency using explicit calls
             db_trial_ids = set(exp_data['trial_id'].unique()) if 'trial_id' in exp_data.columns else set()
-            obj_trial_ids = {trial.id for trial in experiment_obj.trials}
+            ds_trials = db_source.get_trials(ds_experiment)
+            obj_trial_ids = {trial.id for trial in ds_trials}
             if db_trial_ids:
                 common_trial_ids = db_trial_ids.intersection(obj_trial_ids)
                 assert len(common_trial_ids) > 0, "Should have common trial IDs between database and object"
