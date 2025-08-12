@@ -36,7 +36,7 @@ class ExperimentDataSource(ABC):
         pass
 
     @abstractmethod
-    def get_artifacts(self, entity_level: Level, entity: Experiment | Trial | TrialRun) -> List[Artifact]:
+    def get_artifacts(self, entity_level: Level, entity: Union[Experiment, Trial, TrialRun]) -> List[Artifact]:
         """
         Fetch artifacts attached to experiment, trial, or run.
         entity_level: "experiment", "trial", "trial_run", etc.
