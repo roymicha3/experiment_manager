@@ -18,6 +18,7 @@ class Pipeline(ABC):
         
         self.run_metrics = {}
         self.epoch_metrics = {}
+        self.batch_metrics = {}
         self.run_status = False
         
         self.env.logger.info("Pipeline initialized")
@@ -35,9 +36,9 @@ class Pipeline(ABC):
             self.env.logger.debug(f"Executing on_start for {callback.__class__.__name__}")
             callback.on_start()
             
-    def _on_epoch_start(self) -> None:
-        self.env.tracker_manager.on_create(Level.EPOCH)
-        self.env.tracker_manager.on_start(Level.EPOCH)
+    def _on_epoch_start(self, epoch_idx: int) -> None:
+        self.env.tracker_manager.on_create(Level.EPOCH, epoch_id=epoch_idx)
+        self.env.tracker_manager.on_start(Level.EPOCH, epoch_id=epoch_idx)
             
     
     def _on_epoch_end(self, epoch_idx: int, metrics: Dict[str, Any]) -> bool:
@@ -50,6 +51,22 @@ class Pipeline(ABC):
             if not should_continue:
                 stop_flag = True
         return stop_flag
+    
+    def _on_batch_start(self, batch_idx: int) -> None:
+        self.env.tracker_manager.on_create(Level.BATCH, batch_id=batch_idx)
+        self.env.tracker_manager.on_start(Level.BATCH, batch_id=batch_idx)
+            
+    
+    def _on_batch_end(self, batch_idx: int, metrics: Dict[str, Any]) -> bool:
+        self.env.tracker_manager.on_end(Level.BATCH)
+        
+        # For now, batch callbacks are optional - may add later if needed
+        # stop_flag = False
+        # for callback in self.callbacks:
+        #     should_continue = callback.on_batch_end(batch_idx, metrics)
+        #     if not should_continue:
+        #         stop_flag = True
+        return False  # Don't stop on batch end by default
     
     def _on_run_end(self, metrics: Dict[str, Any]) -> None:
         self.env.logger.info("Pipeline execution completed")
@@ -124,7 +141,7 @@ class Pipeline(ABC):
         """
         @wraps(epoch_function)
         def wrapper(self, epoch_idx, model, *args, **kwargs):
-            self._on_epoch_start()
+            self._on_epoch_start(epoch_idx)
             
             try:
                 status = epoch_function(self, epoch_idx, model, *args, **kwargs)
@@ -141,6 +158,38 @@ class Pipeline(ABC):
                 if should_stop:
                     self.env.logger.info("Stopping pipeline execution")
                     raise StopIteration("Stopping pipeline execution")
+                
+                return status
+                    
+        return wrapper
+    
+    @staticmethod
+    def batch_wrapper(batch_function):
+        """
+        Makes sure that on_batch_start and on_batch_end are called for the pipeline.
+        """
+        @wraps(batch_function)
+        def wrapper(self, batch_idx, *args, **kwargs):
+            self._on_batch_start(batch_idx)
+            
+            try:
+                status = batch_function(self, batch_idx, *args, **kwargs)
+                # Track batch metrics using the global step (epoch*batch_count + batch_idx)
+                # This step calculation might need to be refined based on actual usage
+                step = kwargs.get('step', batch_idx)
+                self.env.tracker_manager.track_dict(self.batch_metrics, step)
+            
+            except Exception as e:
+                self.env.logger.error(f"Pipeline batch failed: {e}")
+                status = RunStatus.FAILED
+            
+            finally:
+                should_stop = self._on_batch_end(batch_idx, self.batch_metrics)
+                self.batch_metrics.clear()
+                
+                if should_stop:
+                    self.env.logger.info("Stopping pipeline execution at batch level")
+                    raise StopIteration("Stopping pipeline execution at batch level")
                 
                 return status
                     

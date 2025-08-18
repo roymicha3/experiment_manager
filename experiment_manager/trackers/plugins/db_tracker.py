@@ -34,6 +34,7 @@ class DBTracker(Tracker, YAMLSerializable):
                 recreate=recreate)
             
         self.epoch_idx = None
+        self.batch_idx = None
         
     
     @classmethod
@@ -69,8 +70,15 @@ class DBTracker(Tracker, YAMLSerializable):
                 total_val=metric_value,
                 per_label_val=kwargs.get("per_label_val", None))
         
-        # Link metric to current trial run if we're in an epoch
-        if self.epoch_idx is not None and self.id:
+        # Link metric based on current tracking level
+        if self.batch_idx is not None and self.epoch_idx is not None and self.id:
+            # Link metric to batch (most granular level)
+            self.db_manager.add_batch_metric(
+                batch_idx=self.batch_idx,
+                epoch_idx=self.epoch_idx,
+                trial_run_id=self.id,
+                metric_id=metric_record.id)
+        elif self.epoch_idx is not None and self.id:
             # Link metric to epoch
             self.db_manager.add_epoch_metric(
                 epoch_idx=self.epoch_idx,
@@ -129,14 +137,33 @@ class DBTracker(Tracker, YAMLSerializable):
             return
             
         elif level == Level.EPOCH:
-            if not self.parent:
-                raise ValueError("Parent tracker must be created first")
+            if not self.id:
+                raise ValueError("Trial run must be created first")
+            # Extract epoch_id from kwargs if provided, otherwise use current epoch_idx
+            epoch_id = kwargs.get("epoch_id", self.epoch_idx)
+            if epoch_id is not None:
+                self.epoch_idx = epoch_id
             self.db_manager.create_epoch(
                 epoch_idx=self.epoch_idx,
                 trial_run_id=self.id)
+            self.batch_idx = None  # Reset batch index for new epoch (not tracking batches by default)
             return
         
         elif level == Level.BATCH:
+            if not self.id:
+                raise ValueError("Trial run must be created first")
+            if self.epoch_idx is None:
+                raise ValueError("Epoch must be created before batch")
+            # Extract batch_id from kwargs if provided
+            batch_id = kwargs.get("batch_id")
+            if batch_id is not None:
+                self.batch_idx = batch_id
+            if self.batch_idx is None:
+                raise ValueError("batch_id must be provided when creating batch")
+            self.db_manager.create_batch(
+                batch_idx=self.batch_idx,
+                epoch_idx=self.epoch_idx,
+                trial_run_id=self.id)
             return
             
         if not res:
@@ -151,10 +178,20 @@ class DBTracker(Tracker, YAMLSerializable):
             pass
         elif level == Level.TRIAL_RUN:
             self.epoch_idx = 0
+            self.batch_idx = None
             pass
         elif level == Level.EPOCH:
+            # Extract epoch_id from kwargs if provided, otherwise use current epoch_idx
+            epoch_id = kwargs.get("epoch_id", self.epoch_idx)
+            if epoch_id is not None:
+                self.epoch_idx = epoch_id
+            self.batch_idx = None  # Reset batch index for new epoch (not tracking batches by default)
             pass
         elif level == Level.BATCH:
+            # Extract batch_id from kwargs if provided
+            batch_id = kwargs.get("batch_id")
+            if batch_id is not None:
+                self.batch_idx = batch_id
             pass
         
     
@@ -164,15 +201,19 @@ class DBTracker(Tracker, YAMLSerializable):
         elif level == Level.TRIAL:
             pass
         elif level == Level.TRIAL_RUN:
-            # Reset epoch_idx to None so final metrics are linked to RESULTS
+            # Reset epoch_idx and batch_idx so final metrics are linked to RESULTS
             self.epoch_idx = None
+            self.batch_idx = None
         elif level == Level.PIPELINE:
-            # Also reset epoch_idx at pipeline level for child trackers
+            # Also reset indices at pipeline level for child trackers
             self.epoch_idx = None
+            self.batch_idx = None
         elif level == Level.EPOCH:
             self.epoch_idx += 1
+            self.batch_idx = None  # Reset batch index when epoch ends
         elif level == Level.BATCH:
-            pass
+            if self.batch_idx is not None:
+                self.batch_idx += 1  # Increment for next batch
     
 
     def on_add_artifact(self, level: Level, artifact_path:str, *args, **kwargs):
@@ -192,6 +233,10 @@ class DBTracker(Tracker, YAMLSerializable):
             if self.epoch_idx is None:
                 raise ValueError("Epoch must be created first")
             self.db_manager.link_epoch_artifact(self.epoch_idx, self.id, artifact.id)
+        elif level == Level.BATCH:
+            if self.batch_idx is None or self.epoch_idx is None:
+                raise ValueError("Batch and epoch must be created first")
+            self.db_manager.link_batch_artifact(self.batch_idx, self.epoch_idx, self.id, artifact.id)
         else:
             raise ValueError(f"Invalid level: {level}")
     
@@ -203,8 +248,9 @@ class DBTracker(Tracker, YAMLSerializable):
         tracker = DBTracker(self.workspace, self.name, recreate=False)
         tracker.id = self.id
         tracker.parent = self
-        # Inherit the parent's epoch_idx state
+        # Inherit the parent's epoch_idx and batch_idx state
         tracker.epoch_idx = self.epoch_idx
+        tracker.batch_idx = self.batch_idx
         return tracker
     
     def save(self):
