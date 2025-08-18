@@ -9,7 +9,7 @@ from pathlib import Path
 import pandas as pd
 
 from experiment_manager.db.db import init_sqlite_db, init_mysql_db
-from experiment_manager.db.tables import Experiment, Trial, TrialRun, Metric, Artifact, Epoch
+from experiment_manager.db.tables import Experiment, Trial, TrialRun, Metric, Artifact, Epoch, Batch
 
 logger = logging.getLogger(__name__)
 
@@ -193,6 +193,18 @@ class DatabaseManager:
         self._execute_query(query, (epoch_idx, trial_run_id, metric_id))
         self.connection.commit()
     
+    def add_batch_metric(self, batch_idx: int, epoch_idx: int, trial_run_id: int, metric_id: int) -> None:
+        """Link a metric to a batch."""
+        ph = self._get_placeholder()
+        
+        query = f"""
+        INSERT INTO BATCH_METRIC (batch_idx, epoch_idx, trial_run_id, metric_id)
+        VALUES ({ph}, {ph}, {ph}, {ph})
+        """
+        
+        self._execute_query(query, (batch_idx, epoch_idx, trial_run_id, metric_id))
+        self.connection.commit()
+    
     def record_artifact(self, artifact_type: str, location: str) -> Artifact:
         
         ph = self._get_placeholder()
@@ -222,6 +234,34 @@ class DatabaseManager:
         
         cursor = self._execute_query(query, (epoch_idx, trial_run_id, datetime.now().isoformat()))
         self.connection.commit()
+        
+    def create_batch(self, batch_idx: int, epoch_idx: int, trial_run_id: int) -> Batch:
+        """Create a new batch entry."""
+        ph = self._get_placeholder()
+        
+        # Check if epoch exists
+        check_query = f"SELECT idx FROM EPOCH WHERE idx = {ph} AND trial_run_id = {ph}"
+        cursor = self._execute_query(check_query, (epoch_idx, trial_run_id))
+        if not cursor.fetchone():
+            raise QueryError(f"Epoch with idx {epoch_idx} and trial_run_id {trial_run_id} does not exist")
+        
+        now = datetime.now().isoformat()
+        
+        query = f"""
+        INSERT INTO BATCH (idx, epoch_idx, trial_run_id, time)
+        VALUES ({ph}, {ph}, {ph}, {ph})
+        """
+        
+        cursor = self._execute_query(query, (batch_idx, epoch_idx, trial_run_id, now))
+        self.connection.commit()
+        
+        return Batch(
+            id=None,  # Batch uses composite primary key
+            batch_idx=batch_idx,
+            epoch_idx=epoch_idx,
+            trial_run_id=trial_run_id,
+            time=datetime.fromisoformat(now)
+        )
         
 
     def get_experiment_metrics(self, experiment_id: int) -> List[Metric]:
@@ -321,6 +361,18 @@ class DatabaseManager:
         self._execute_query(query, (epoch_idx, trial_run_id, artifact_id))
         self.connection.commit()
 
+    def link_batch_artifact(self, batch_idx: int, epoch_idx: int, trial_run_id: int, artifact_id: int) -> None:
+        """Link an artifact to a batch."""
+        ph = self._get_placeholder()
+        
+        query = f"""
+        INSERT INTO BATCH_ARTIFACT (batch_idx, epoch_idx, trial_run_id, artifact_id)
+        VALUES ({ph}, {ph}, {ph}, {ph})
+        """
+        
+        self._execute_query(query, (batch_idx, epoch_idx, trial_run_id, artifact_id))
+        self.connection.commit()
+
     def link_trial_run_artifact(self, trial_run_id: int, artifact_id: int) -> None:
         """Link an artifact to a trial run."""
         ph = self._get_placeholder()
@@ -413,6 +465,28 @@ class DatabaseManager:
         """
         
         cursor = self._execute_query(query, (epoch_idx, trial_run_id))
+        rows = cursor.fetchall()
+        
+        return [
+            Artifact(
+                id=row["id"],
+                type=row["type"],
+                location=row["loc"]
+            )
+            for row in rows
+        ]
+
+    def get_batch_artifacts(self, batch_idx: int, epoch_idx: int, trial_run_id: int) -> List[Artifact]:
+        """Get all artifacts associated with a batch."""
+        ph = self._get_placeholder()
+        
+        query = f"""
+        SELECT a.* FROM ARTIFACT a
+        JOIN BATCH_ARTIFACT ba ON ba.artifact_id = a.id
+        WHERE ba.batch_idx = {ph} AND ba.epoch_idx = {ph} AND ba.trial_run_id = {ph}
+        """
+        
+        cursor = self._execute_query(query, (batch_idx, epoch_idx, trial_run_id))
         rows = cursor.fetchall()
         
         return [
@@ -954,6 +1028,12 @@ class DatabaseManager:
             "CREATE INDEX IF NOT EXISTS idx_epoch_trial_run_id ON EPOCH(trial_run_id)",
             "CREATE INDEX IF NOT EXISTS idx_epoch_metric_epoch ON EPOCH_METRIC(epoch_idx, epoch_trial_run_id)",
             "CREATE INDEX IF NOT EXISTS idx_epoch_metric_metric_id ON EPOCH_METRIC(metric_id)",
+            
+            # Batch-based queries
+            "CREATE INDEX IF NOT EXISTS idx_batch_epoch ON BATCH(epoch_idx, trial_run_id)",
+            "CREATE INDEX IF NOT EXISTS idx_batch_metric_batch ON BATCH_METRIC(batch_idx, epoch_idx, trial_run_id)",
+            "CREATE INDEX IF NOT EXISTS idx_batch_metric_metric_id ON BATCH_METRIC(metric_id)",
+            "CREATE INDEX IF NOT EXISTS idx_batch_artifact_batch ON BATCH_ARTIFACT(batch_idx, epoch_idx, trial_run_id)",
             
             # Time-based queries
             "CREATE INDEX IF NOT EXISTS idx_trial_run_start_time ON TRIAL_RUN(start_time)",

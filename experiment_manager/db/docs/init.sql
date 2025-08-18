@@ -43,6 +43,16 @@ CREATE TABLE EPOCH (
     FOREIGN KEY (trial_run_id) REFERENCES TRIAL_RUN(id)
 );
 
+-- Create BATCH table
+CREATE TABLE BATCH (
+    idx INT,
+    epoch_idx INT,
+    trial_run_id INT,
+    time DATETIME NOT NULL,
+    PRIMARY KEY (idx, epoch_idx, trial_run_id),
+    FOREIGN KEY (epoch_idx, trial_run_id) REFERENCES EPOCH(idx, trial_run_id)
+);
+
 -- Create METRIC table
 CREATE TABLE METRIC (
     id INT PRIMARY KEY AUTO_INCREMENT,
@@ -122,5 +132,27 @@ CREATE TABLE TRIAL_RUN_ARTIFACT (
     artifact_id INT,
     PRIMARY KEY (trial_run_id, artifact_id),
     FOREIGN KEY (trial_run_id) REFERENCES TRIAL_RUN(id),
+    FOREIGN KEY (artifact_id) REFERENCES ARTIFACT(id)
+);
+
+-- BATCH to METRIC relationship
+CREATE TABLE BATCH_METRIC (
+    batch_idx INT,
+    epoch_idx INT,
+    trial_run_id INT,
+    metric_id INT,
+    PRIMARY KEY (batch_idx, epoch_idx, trial_run_id, metric_id),
+    FOREIGN KEY (batch_idx, epoch_idx, trial_run_id) REFERENCES BATCH(idx, epoch_idx, trial_run_id),
+    FOREIGN KEY (metric_id) REFERENCES METRIC(id)
+);
+
+-- BATCH to ARTIFACT relationship
+CREATE TABLE BATCH_ARTIFACT (
+    batch_idx INT,
+    epoch_idx INT,
+    trial_run_id INT,
+    artifact_id INT,
+    PRIMARY KEY (batch_idx, epoch_idx, trial_run_id, artifact_id),
+    FOREIGN KEY (batch_idx, epoch_idx, trial_run_id) REFERENCES BATCH(idx, epoch_idx, trial_run_id),
     FOREIGN KEY (artifact_id) REFERENCES ARTIFACT(id)
 );

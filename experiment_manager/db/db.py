@@ -63,6 +63,16 @@ MYSQL_TABLES = {
         FOREIGN KEY (trial_run_id) REFERENCES TRIAL_RUN(id)
     )
     """,
+    "BATCH": """
+    CREATE TABLE IF NOT EXISTS BATCH (
+        idx INT,
+        epoch_idx INT,
+        trial_run_id INT,
+        time DATETIME NOT NULL,
+        PRIMARY KEY (idx, epoch_idx, trial_run_id),
+        FOREIGN KEY (epoch_idx, trial_run_id) REFERENCES EPOCH(idx, trial_run_id)
+    )
+    """,
     "METRIC": """
     CREATE TABLE IF NOT EXISTS METRIC (
         id INT PRIMARY KEY AUTO_INCREMENT,
@@ -140,6 +150,28 @@ MYSQL_TABLES = {
         artifact_id INT,
         PRIMARY KEY (trial_run_id, artifact_id),
         FOREIGN KEY (trial_run_id) REFERENCES TRIAL_RUN(id),
+        FOREIGN KEY (artifact_id) REFERENCES ARTIFACT(id)
+    )
+    """,
+    "BATCH_METRIC": """
+    CREATE TABLE IF NOT EXISTS BATCH_METRIC (
+        batch_idx INT,
+        epoch_idx INT,
+        trial_run_id INT,
+        metric_id INT,
+        PRIMARY KEY (batch_idx, epoch_idx, trial_run_id, metric_id),
+        FOREIGN KEY (batch_idx, epoch_idx, trial_run_id) REFERENCES BATCH(idx, epoch_idx, trial_run_id),
+        FOREIGN KEY (metric_id) REFERENCES METRIC(id)
+    )
+    """,
+    "BATCH_ARTIFACT": """
+    CREATE TABLE IF NOT EXISTS BATCH_ARTIFACT (
+        batch_idx INT,
+        epoch_idx INT,
+        trial_run_id INT,
+        artifact_id INT,
+        PRIMARY KEY (batch_idx, epoch_idx, trial_run_id, artifact_id),
+        FOREIGN KEY (batch_idx, epoch_idx, trial_run_id) REFERENCES BATCH(idx, epoch_idx, trial_run_id),
         FOREIGN KEY (artifact_id) REFERENCES ARTIFACT(id)
     )
     """
