@@ -321,37 +321,54 @@ class DBDataSource(ExperimentDataSource, YAMLSerializable):
             for row in rows
         ]
 
-    # TODO: this function should be moved to one of the data extractor classes (preferably the dataframe extractor)
     def metrics_dataframe(self, experiment: Experiment) -> pd.DataFrame:
+        """Return a flattened pandas DataFrame of all metrics for the given experiment.
+
+        The returned DataFrame follows the structure expected by the test helper
+        `tests.conftest.create_metrics_dataframe` so that external callers can
+        rely on a stable schema:
+
+        ```
+        experiment_id | experiment_name | trial_id | trial_name | trial_run_id | trial_run_status | epoch | metric | value | is_custom
+        ```
+
+        Args:
+            experiment: Experiment object retrieved via ``get_experiment``.
+
+        Returns:
+            pd.DataFrame containing one row per metric value.
         """
-        Return a DataFrame with columns: ['trial', 'trial_run', 'epoch', 'metric', 'value']
-        Useful for plugins that want to pivot or aggregate.
-        """
-        data = []
-        
-        # Ensure trials are available
-        trials = experiment.trials if hasattr(experiment, "trials") else self.get_trials(experiment)
+        data: list[dict] = []
+
+        # Fetch trials explicitly to avoid relying on nested structures that may
+        # change over time. This mirrors the logic in the test helper
+        # ``create_metrics_dataframe``.
+        trials = self.get_trials(experiment)
 
         for trial in trials:
-            runs = self.get_trial_runs(trial)
-            for trial_run in runs:
-                for metric_record in trial_run.metrics:
-                    for metric_name, metric_value in metric_record.metrics.items():
-                        # Skip per-label metrics in the main DataFrame to keep it simple
-                        if not metric_name.endswith('_per_label'):
-                            data.append({
-                                'experiment_id': experiment.id,
-                                'experiment_name': experiment.name,
-                                'trial_id': trial.id,
-                                'trial_name': trial.name,
-                                'trial_run_id': trial_run.id,
-                                'trial_run_status': trial_run.status,
-                                'epoch': metric_record.epoch,
-                                'metric': metric_name,
-                                'value': metric_value,
-                                'is_custom': metric_record.is_custom
-                            })
-        
+            trial_runs = self.get_trial_runs(trial)
+            for run in trial_runs:
+                metrics_records = self.get_metrics(run)
+                for record in metrics_records:
+                    for metric_name, metric_value in record.metrics.items():
+                        # Skip per-label metrics in the flattened view – callers
+                        # can access them directly from the underlying record
+                        if metric_name.endswith("_per_label"):
+                            continue
+
+                        data.append({
+                            "experiment_id": experiment.id,
+                            "experiment_name": experiment.name,
+                            "trial_id": trial.id,
+                            "trial_name": trial.name,
+                            "trial_run_id": run.id,
+                            "trial_run_status": run.status,
+                            "epoch": record.epoch,
+                            "metric": metric_name,
+                            "value": metric_value,
+                            "is_custom": record.is_custom,
+                        })
+
         return pd.DataFrame(data)
 
     def close(self):

@@ -43,11 +43,3 @@ class ExperimentDataSource(ABC):
         """
         pass
 
-    # Convenience for DataFrames, if desired:
-    @abstractmethod
-    def metrics_dataframe(self, experiment: Experiment) -> 'pd.DataFrame':
-        """
-        Return a DataFrame with columns: ['trial', 'trial_run', 'epoch', 'metric', 'value']
-        Useful for plugins that want to pivot or aggregate.
-        """
-        pass
