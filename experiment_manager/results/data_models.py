@@ -8,7 +8,7 @@ from experiment_manager.common.common import ArtifactType, RunStatus
 @dataclass
 class Artifact:
     id: int
-    type: ArtifactType | str  # Allow raw string for backward compatibility
+    type: Union[ArtifactType, str]  # Allow raw string for backward compatibility
     path: str
 
 @dataclass

@@ -32,6 +32,6 @@ class FileSystemDataSource(ExperimentDataSource, YAMLSerializable):
     def get_metrics(self, trial_run: TrialRun) -> List[MetricRecord]:
         pass
     
-    def get_artifacts(self, entity_level: str, entity: Experiment | Trial | TrialRun) -> List[Artifact]:
+    def get_artifacts(self, entity_level: str, entity: Union[Experiment, Trial, TrialRun]) -> List[Artifact]:
         pass
     

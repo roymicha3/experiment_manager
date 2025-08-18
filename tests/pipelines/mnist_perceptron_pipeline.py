@@ -1,12 +1,9 @@
-import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader, TensorDataset
-from sklearn.datasets import fetch_openml
-from sklearn.preprocessing import StandardScaler
+from sklearn.datasets import load_digits
 from sklearn.model_selection import train_test_split
 
 from experiment_manager.common.common import Metric, RunStatus
@@ -46,12 +43,13 @@ class MNISTPerceptronPipeline(Pipeline, YAMLSerializable):
         self.batch_size = config.pipeline.batch_size
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
-        # Load and prepare MNIST data (using sklearn's fetch_openml for simplicity)
+        # Load and prepare dataset (use sklearn digits to avoid network I/O)
         self._prepare_data()
         
         # Initialize model
+        # digits features are 8x8 flattened to 64 and classes are 10
         self.model = SingleLayerPerceptron(
-            input_size=784, 
+            input_size=64, 
             hidden_dim=self.hidden_dim, 
             num_classes=10
         ).to(self.device)
@@ -60,13 +58,13 @@ class MNISTPerceptronPipeline(Pipeline, YAMLSerializable):
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
 
     def _prepare_data(self):
-        """Load and prepare MNIST data."""
-        # Use a subset of MNIST for faster testing
-        mnist = fetch_openml('mnist_784', version=1, as_frame=False, parser='auto')
+        """Load and prepare dataset without network dependency."""
+        # Return flattened features and labels directly
+        X, y = load_digits(return_X_y=True)
         
-        # Use only first 10000 samples for speed
-        X = mnist.data[:10000].astype('float32') / 255.0  # Normalize to [0,1]
-        y = mnist.target[:10000].astype('int64')
+        # Normalize to [0,1]
+        X = (X / 16.0).astype('float32')
+        y = y.astype('int64')
         
         # Split into train/val/test
         X_train_val, self.X_test, y_train_val, self.y_test = train_test_split(
@@ -108,7 +106,7 @@ class MNISTPerceptronPipeline(Pipeline, YAMLSerializable):
             correct += (predicted == target).sum().item()
         
         train_loss = running_loss / len(train_loader)
-        train_acc = correct / total
+        train_acc = correct / total if total > 0 else 0.0
         
         # Evaluate on validation set
         val_loss, val_acc = self._evaluate(model, val_loader, criterion, device)
@@ -142,8 +140,8 @@ class MNISTPerceptronPipeline(Pipeline, YAMLSerializable):
                 total += target.size(0)
                 correct += (predicted == target).sum().item()
         
-        avg_loss = running_loss / len(data_loader)
-        accuracy = correct / total
+        avg_loss = running_loss / len(data_loader) if len(data_loader) > 0 else 0.0
+        accuracy = correct / total if total > 0 else 0.0
         return avg_loss, accuracy
 
     @Pipeline.run_wrapper
