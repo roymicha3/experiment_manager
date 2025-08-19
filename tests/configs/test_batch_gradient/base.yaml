@@ -1,0 +1,6 @@
+pipeline:
+  type: MNISTBatchGradientPipeline
+  epochs: 2 # Reduced for faster testing with real data
+  batch_size: 64 # Standard batch size for MNIST
+  learning_rate: 0.01
+  optimizer_type: "SGD"

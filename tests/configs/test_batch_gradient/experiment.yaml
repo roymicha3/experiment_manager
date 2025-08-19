@@ -1,0 +1,6 @@
+name: "MNIST Batch Gradient Analysis"
+desc: "Comprehensive gradient tracking experiment with batch-level statistics"
+
+settings:
+  debug: false
+  verbose: false
