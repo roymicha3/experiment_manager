@@ -45,7 +45,7 @@ def shared_mnist_experiment():
     
     try:
         # Run the baseline experiment
-        framework_experiment, db_path = run_mnist_baseline_experiment(temp_dir)
+        framework_experiment, db_path, temp_config_dir = run_mnist_baseline_experiment(temp_dir)
         
         # Verify database exists
         assert os.path.exists(db_path), f"Database not created at {db_path}"

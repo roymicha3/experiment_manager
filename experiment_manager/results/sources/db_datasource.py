@@ -255,7 +255,8 @@ class DBDataSource(ExperimentDataSource, YAMLSerializable):
                 trial_run_id=trial_run.id,
                 epoch=row["epoch"],
                 metrics=metric_dict,
-                is_custom=False
+                is_custom=False,
+                granularity='results'
             ))
         
         # Get epoch-level metrics
@@ -275,7 +276,50 @@ class DBDataSource(ExperimentDataSource, YAMLSerializable):
                 trial_run_id=trial_run.id,
                 epoch=row["epoch"],
                 metrics=metric_dict,
-                is_custom=False
+                is_custom=False,
+                granularity='epoch'
+            ))
+        
+        return metrics
+
+    def get_batch_metrics(self, trial_run: TrialRun) -> List[MetricRecord]:
+        """Fetch all batch-level metrics for a trial run."""
+        ph = self.db_manager._get_placeholder()
+        
+        batch_query = f"""
+        SELECT b.idx as batch, b.epoch_idx as epoch, b.time, 
+               m.type, m.total_val, m.per_label_val
+        FROM BATCH b
+        JOIN BATCH_METRIC bm ON bm.batch_idx = b.idx 
+                            AND bm.epoch_idx = b.epoch_idx 
+                            AND bm.trial_run_id = b.trial_run_id
+        JOIN METRIC m ON m.id = bm.metric_id
+        WHERE b.trial_run_id = {ph}
+        ORDER BY b.epoch_idx, b.idx
+        """
+        
+        metrics = []
+        cursor = self.db_manager._execute_query(batch_query, (trial_run.id,))
+        
+        for row in cursor.fetchall():
+            metric_dict = {row["type"]: row["total_val"]}
+            
+            # Add per-label values if they exist
+            if row["per_label_val"] is not None:
+                try:
+                    per_label = json.loads(row["per_label_val"]) if isinstance(row["per_label_val"], str) else row["per_label_val"]
+                    metric_dict[f"{row['type']}_per_label"] = per_label
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            
+            metrics.append(MetricRecord(
+                trial_run_id=trial_run.id,
+                epoch=row["epoch"],
+                batch=row["batch"],
+                metrics=metric_dict,
+                is_custom=False,
+                timestamp=row.get("time"),
+                granularity='batch'
             ))
         
         return metrics

@@ -30,13 +30,26 @@ def run_mnist_baseline_experiment(workspace_dir=None):
     # Get config directory
     config_dir = os.path.join(os.path.dirname(__file__), "configs", "test_mnist_baseline")
     
-    # Update workspace if provided
+    # Create a temporary copy of the config directory if workspace_dir is provided
+    temp_config_dir = None
     if workspace_dir:
+        import tempfile
+        import shutil
         from omegaconf import OmegaConf
-        env_path = os.path.join(config_dir, "env.yaml")
+        
+        # Create temporary config directory
+        temp_config_dir = tempfile.mkdtemp()
+        temp_config_path = os.path.join(temp_config_dir, "test_mnist_baseline")
+        shutil.copytree(config_dir, temp_config_path)
+        
+        # Update workspace in the temporary copy
+        env_path = os.path.join(temp_config_path, "env.yaml")
         env_config = OmegaConf.load(env_path)
         env_config.workspace = workspace_dir
         OmegaConf.save(env_config, env_path)
+        
+        # Use the temporary config directory
+        config_dir = temp_config_path
     
     # Create and run experiment
     experiment = Experiment.create(config_dir, TestPipelineFactory)
@@ -51,13 +64,14 @@ def run_mnist_baseline_experiment(workspace_dir=None):
     # Get database path
     db_path = os.path.join(experiment.env.artifact_dir, "experiment.db")
     
-    return experiment, db_path
+    return experiment, db_path, temp_config_dir
 
 
 def main():
     """Run the baseline experiment for testing."""
+    temp_config_dir = None
     try:
-        experiment, db_path = run_mnist_baseline_experiment()
+        experiment, db_path, temp_config_dir = run_mnist_baseline_experiment()
         
         print(f"\nExperiment completed successfully!")
         print(f"Database path: {db_path}")
@@ -120,6 +134,14 @@ def main():
     except Exception as e:
         print(f"Error running experiment: {e}")
         raise
+    finally:
+        # Clean up temporary config directory if it was created
+        if temp_config_dir and os.path.exists(temp_config_dir):
+            import shutil
+            try:
+                shutil.rmtree(temp_config_dir)
+            except Exception as e:
+                print(f"Warning: Could not clean up temporary directory {temp_config_dir}: {e}")
 
 
 if __name__ == "__main__":

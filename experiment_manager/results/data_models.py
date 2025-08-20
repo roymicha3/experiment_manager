@@ -17,6 +17,9 @@ class MetricRecord:
     epoch: Optional[int]
     metrics: Dict[str, float]
     is_custom: bool = False
+    batch: Optional[int] = None
+    timestamp: Optional[str] = None
+    granularity: str = 'results'
 
 @dataclass
 class TrialRun:
