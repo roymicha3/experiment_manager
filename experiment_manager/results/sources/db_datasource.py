@@ -318,7 +318,7 @@ class DBDataSource(ExperimentDataSource, YAMLSerializable):
                 batch=row["batch"],
                 metrics=metric_dict,
                 is_custom=False,
-                timestamp=row.get("time"),
+                timestamp=row["time"] if "time" in row.keys() else None,
                 granularity='batch'
             ))
         
