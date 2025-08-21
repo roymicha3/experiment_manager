@@ -153,7 +153,10 @@ class TestBatchGradientTracking:
                 gradient_metrics = cursor.fetchall()
                 gradient_types = [row["type"] for row in gradient_metrics]
                 
-                expected_grad_metrics = ["grad_max", "grad_min", "grad_mean", "grad_l2_norm"]
+                expected_grad_metrics = [
+                    "grad_max", "grad_min", "grad_mean", "grad_l2_norm",
+                    "grad_std", "grad_median", "grad_99th_percentile", "grad_sparsity"
+                ]
                 for expected in expected_grad_metrics:
                     assert expected in gradient_types, f"Should track {expected} gradient metric"
                 

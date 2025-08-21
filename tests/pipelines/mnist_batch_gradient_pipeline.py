@@ -142,15 +142,29 @@ class MNISTBatchGradientPipeline(Pipeline, YAMLSerializable):
                 all_grads.extend(param.grad.flatten().cpu().numpy())
         
         if not all_grads:
-            return {"grad_max": 0.0, "grad_min": 0.0, "grad_mean": 0.0, "grad_l2_norm": 0.0}
+            return {
+                "grad_max": 0.0, 
+                "grad_min": 0.0, 
+                "grad_mean": 0.0, 
+                "grad_l2_norm": 0.0,
+                "grad_std": 0.0,
+                "grad_median": 0.0,
+                "grad_99th_percentile": 0.0,
+                "grad_sparsity": 0.0
+            }
         
         all_grads = np.array(all_grads)
+        abs_grads = np.abs(all_grads)
         
         return {
-            "grad_max": float(np.max(np.abs(all_grads))),
-            "grad_min": float(np.min(np.abs(all_grads))),
-            "grad_mean": float(np.mean(np.abs(all_grads))),
-            "grad_l2_norm": float(np.linalg.norm(all_grads))
+            "grad_max": float(np.max(abs_grads)),
+            "grad_min": float(np.min(abs_grads)),
+            "grad_mean": float(np.mean(abs_grads)),
+            "grad_l2_norm": float(np.linalg.norm(all_grads)),
+            "grad_std": float(np.std(abs_grads)),
+            "grad_median": float(np.median(abs_grads)),
+            "grad_99th_percentile": float(np.percentile(abs_grads, 99)),
+            "grad_sparsity": float(np.sum(abs_grads < 1e-6) / len(abs_grads))  # Fraction of near-zero gradients
         }
     
     @Pipeline.batch_wrapper
@@ -190,10 +204,14 @@ class MNISTBatchGradientPipeline(Pipeline, YAMLSerializable):
         # Store metrics for epoch aggregation and tracking
         self._current_batch_metrics = batch_metrics_data
         
-        # Track each metric individually using Metric.CUSTOM
-        # step is passed as a parameter to the function
+        # Track multiple gradient parameters per batch using our new fix
+        # This tests the multiple CUSTOM_METRICS fix
+        custom_metrics_list = []
         for metric_name, metric_value in batch_metrics_data.items():
-            self.env.tracker_manager.track(Metric.CUSTOM, (metric_name, metric_value), step)
+            custom_metrics_list.append((metric_name, metric_value))
+        
+        # Track all metrics at once using the new list approach
+        self.env.tracker_manager.track(Metric.CUSTOM, custom_metrics_list, step)
         
         # Also populate batch_metrics for the wrapper (though we're not using track_dict anymore)
         self.batch_metrics.clear()
@@ -208,7 +226,10 @@ class MNISTBatchGradientPipeline(Pipeline, YAMLSerializable):
         
         epoch_loss = 0.0
         epoch_acc = 0.0
-        epoch_grad_stats = {"grad_max": [], "grad_min": [], "grad_mean": [], "grad_l2_norm": []}
+        epoch_grad_stats = {
+            "grad_max": [], "grad_min": [], "grad_mean": [], "grad_l2_norm": [],
+            "grad_std": [], "grad_median": [], "grad_99th_percentile": [], "grad_sparsity": []
+        }
         
         for batch_idx, (data, target) in enumerate(self.train_loader):
             # Train on batch (this will automatically create batch tracking)
@@ -238,7 +259,11 @@ class MNISTBatchGradientPipeline(Pipeline, YAMLSerializable):
             "train_grad_max_avg": float(np.mean(epoch_grad_stats["grad_max"])),
             "train_grad_min_avg": float(np.mean(epoch_grad_stats["grad_min"])), 
             "train_grad_mean_avg": float(np.mean(epoch_grad_stats["grad_mean"])),
-            "train_grad_l2_norm_avg": float(np.mean(epoch_grad_stats["grad_l2_norm"]))
+            "train_grad_l2_norm_avg": float(np.mean(epoch_grad_stats["grad_l2_norm"])),
+            "train_grad_std_avg": float(np.mean(epoch_grad_stats["grad_std"])),
+            "train_grad_median_avg": float(np.mean(epoch_grad_stats["grad_median"])),
+            "train_grad_99th_percentile_avg": float(np.mean(epoch_grad_stats["grad_99th_percentile"])),
+            "train_grad_sparsity_avg": float(np.mean(epoch_grad_stats["grad_sparsity"]))
         }
         
         # Validation

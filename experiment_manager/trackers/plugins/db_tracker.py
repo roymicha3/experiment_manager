@@ -46,16 +46,32 @@ class DBTracker(Tracker, YAMLSerializable):
         
         Args:
             metric: The metric to track
-            value: The value to track (can be scalar or dict)
+            value: The value to track (can be scalar, dict, or list for custom metrics)
             step: Optional step number
             *args: Additional args treated as per_label_val
         """
-        metric_name = metric.name
-        metric_value = value
         if metric == Metric.CUSTOM:
-            metric_name = value[0]
-            metric_value = value[1]
+            # Handle list of custom metrics
+            if isinstance(value, list):
+                for custom_metric in value:
+                    self._track_single_metric(custom_metric[0], custom_metric[1], step, *args, **kwargs)
+            else:
+                # Handle single custom metric (backward compatibility)
+                metric_name, metric_value = value
+                self._track_single_metric(metric_name, metric_value, step, *args, **kwargs)
+        else:
+            # Handle regular metrics (unchanged)
+            self._track_single_metric(metric.name, value, step, *args, **kwargs)
+    
+    def _track_single_metric(self, metric_name, metric_value, step: int = None, *args, **kwargs):
+        """Track a single metric value.
         
+        Args:
+            metric_name: The name of the metric
+            metric_value: The value to track (can be scalar or dict)
+            step: Optional step number
+            *args: Additional args treated as per_label_val
+        """
         if not self.id:
             raise ValueError("Tracker must be created first")
         
