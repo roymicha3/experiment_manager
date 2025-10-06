@@ -6,6 +6,7 @@ from experiment_manager.common.factory import Factory
 from experiment_manager.environment import Environment
 from experiment_manager.common.common import Level, ConfigPaths
 from experiment_manager.trackers.tracker_manager import TrackScope
+from experiment_manager.common.yaml_utils import deep_merge_configs
 
 """
 This is the main class that is responsible for the experiment.
@@ -76,7 +77,7 @@ class Experiment:
         # TODO: initialize registry or load existing one
         with TrackScope(self.env.tracker_manager, level = Level.EXPERIMENT):
             for conf in self.trials_config:
-                conf.settings = OmegaConf.merge(self.experiment_config.settings, conf.settings)
+                conf.settings = deep_merge_configs(self.experiment_config.settings, conf.settings)
                 
                 trial = Trial.from_config(conf, self.env)
                 trial.run()

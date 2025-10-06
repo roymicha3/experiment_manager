@@ -1,0 +1,4 @@
+- desc: Test trial for custom metrics fix
+  name: test_trial_1
+  repeat: 1
+  settings: {}
