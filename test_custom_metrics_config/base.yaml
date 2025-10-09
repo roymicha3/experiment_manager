@@ -1,4 +1,0 @@
-pipeline:
-  batches_per_epoch: 2
-  epochs: 2
-  type: CustomMetricsTestPipeline

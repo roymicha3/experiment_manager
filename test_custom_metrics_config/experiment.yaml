@@ -1,6 +1,0 @@
-desc: Test the fix for multiple CUSTOM_METRICS bug
-id: 1
-name: Custom Metrics Fix Test
-settings:
-  debug: true
-  verbose: true

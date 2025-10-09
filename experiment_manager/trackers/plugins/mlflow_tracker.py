@@ -25,10 +25,18 @@ class MLflowTracker(Tracker, YAMLSerializable):
         
     def track(self, metric: Metric, value, step: int, *args, **kwargs):
         if metric == Metric.CUSTOM:
-            mlflow.log_metric(value[0], value[1], step = self.epoch)
+            # Handle custom metrics - can be single tuple or list of tuples
+            if isinstance(value, list):
+                # List of (name, value) tuples
+                for custom_metric in value:
+                    if isinstance(custom_metric, (tuple, list)) and len(custom_metric) >= 2:
+                        mlflow.log_metric(custom_metric[0], custom_metric[1], step=self.epoch)
+            elif isinstance(value, (tuple, list)) and len(value) >= 2:
+                # Single (name, value) tuple
+                mlflow.log_metric(value[0], value[1], step=self.epoch)
         
         else:
-            mlflow.log_metric(metric.name, value, step = self.epoch)
+            mlflow.log_metric(metric.name, value, step=self.epoch)
         
     
     def on_checkpoint(self, 
