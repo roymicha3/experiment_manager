@@ -2,6 +2,7 @@ from abc import ABC
 from functools import wraps
 from omegaconf import DictConfig
 from typing import Dict, Any, List
+import traceback
 
 from experiment_manager.common.common import Level
 from experiment_manager.common.common import RunStatus
@@ -117,7 +118,17 @@ class Pipeline(ABC):
                 status = RunStatus.STOPPED
             
             except Exception as e:
-                self.env.logger.error(f"Pipeline run failed: {e}")
+                # Enhanced error reporting with detailed traceback information
+                tb = traceback.extract_tb(e.__traceback__)
+                if tb:
+                    filename, line, func, text = tb[-1]  # last traceback entry
+                    self.env.logger.error(f"Pipeline run failed: {e}")
+                    self.env.logger.error(f"Exception in file: {filename}, line: {line}, function: {func}")
+                    self.env.logger.error(f"Code: {text}")
+                    self.env.logger.error(f"Exception type: {type(e).__name__}")
+                else:
+                    self.env.logger.error(f"Pipeline run failed: {e}")
+                    self.env.logger.error(f"Exception type: {type(e).__name__}")
                 status = RunStatus.FAILED
             
             finally:
@@ -148,7 +159,19 @@ class Pipeline(ABC):
                 self.env.tracker_manager.track_dict(self.epoch_metrics, epoch_idx)
             
             except Exception as e:
-                self.env.logger.error(f"Pipeline epoch failed: {e}")
+                # Enhanced error reporting with detailed traceback information
+                tb = traceback.extract_tb(e.__traceback__)
+                if tb:
+                    filename, line, func, text = tb[-1]  # last traceback entry
+                    self.env.logger.error(f"Pipeline epoch failed: {e}")
+                    self.env.logger.error(f"Exception in file: {filename}, line: {line}, function: {func}")
+                    self.env.logger.error(f"Code: {text}")
+                    self.env.logger.error(f"Exception type: {type(e).__name__}")
+                    self.env.logger.error(f"Epoch index: {epoch_idx}")
+                else:
+                    self.env.logger.error(f"Pipeline epoch failed: {e}")
+                    self.env.logger.error(f"Exception type: {type(e).__name__}")
+                    self.env.logger.error(f"Epoch index: {epoch_idx}")
                 status = RunStatus.FAILED
             
             finally:
@@ -180,7 +203,23 @@ class Pipeline(ABC):
                 self.env.tracker_manager.track_dict(self.batch_metrics, step)
             
             except Exception as e:
-                self.env.logger.error(f"Pipeline batch failed: {e}")
+                # Enhanced error reporting with detailed traceback information
+                tb = traceback.extract_tb(e.__traceback__)
+                if tb:
+                    filename, line, func, text = tb[-1]  # last traceback entry
+                    self.env.logger.error(f"Pipeline batch failed: {e}")
+                    self.env.logger.error(f"Exception in file: {filename}, line: {line}, function: {func}")
+                    self.env.logger.error(f"Code: {text}")
+                    self.env.logger.error(f"Exception type: {type(e).__name__}")
+                    self.env.logger.error(f"Batch index: {batch_idx}")
+                    self.env.logger.error(f"Batch args: {args}")
+                    self.env.logger.error(f"Batch kwargs: {kwargs}")
+                else:
+                    self.env.logger.error(f"Pipeline batch failed: {e}")
+                    self.env.logger.error(f"Exception type: {type(e).__name__}")
+                    self.env.logger.error(f"Batch index: {batch_idx}")
+                    self.env.logger.error(f"Batch args: {args}")
+                    self.env.logger.error(f"Batch kwargs: {kwargs}")
                 status = RunStatus.FAILED
             
             finally:
