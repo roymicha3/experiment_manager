@@ -3,11 +3,9 @@ from omegaconf import DictConfig
 from typing import Dict, Any, List, Optional
 
 from experiment_manager.trackers.tracker import Tracker
-from experiment_manager.trackers.tracker_factory import TrackerFactory
 from experiment_manager.common.common import Level, Metric, MetricCategory, get_metric_category
+from experiment_manager.trackers.tracker_factory import TrackerFactory
 
-
-    
 
 class TrackerManager(Tracker):
     def __init__(self, workspace: str = None) -> None:
@@ -69,13 +67,14 @@ class TrackerManager(Tracker):
             tracker.save()
 
     @classmethod
-    def from_config(cls, config: DictConfig, workspace: str):
+    def from_config(cls, config: DictConfig, workspace: str, tracker_factory: TrackerFactory = None):
         manager = cls(workspace)
         for tracker_conf in config.get("trackers", []):
             if "type" not in tracker_conf:
                 raise ValueError("missing required 'type' field")
             
-            tracker = TrackerFactory.create(tracker_conf.type, tracker_conf, workspace)
+            factory = tracker_factory or TrackerFactory()
+            tracker = factory.create(tracker_conf.type, tracker_conf, workspace)
             manager.add_tracker(tracker)
         
         return manager

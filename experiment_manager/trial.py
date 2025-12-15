@@ -6,6 +6,7 @@ from experiment_manager.environment import Environment
 from experiment_manager.common.serializable import YAMLSerializable
 from experiment_manager.common.common import ConfigPaths
 from experiment_manager.trackers.tracker_manager import TrackScope
+from experiment_manager.common.factory_registry import FactoryType
 
 
 class Trial(YAMLSerializable):
@@ -53,11 +54,8 @@ class Trial(YAMLSerializable):
         with TrackScope(trial_run_env.tracker_manager, level = Level.TRIAL_RUN):
         
             try:
-                if self.env.factory is None:
-                    self.env.logger.error("Factory not initialized in environment")
-                    return
-                
-                pipeline = self.env.factory.create(
+                factory = self.env.factory_registry.get(FactoryType.PIPELINE)
+                pipeline = factory.create(
                     name=self.config.pipeline.type,
                     config=self.config,
                     env=trial_run_env)

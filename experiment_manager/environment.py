@@ -4,7 +4,7 @@ from enum import Enum
 from datetime import datetime
 from omegaconf import OmegaConf, DictConfig
 
-from experiment_manager.common.factory import Factory
+from experiment_manager.common.factory_registry import FactoryRegistry, FactoryType
 from experiment_manager.common.common import LOG_NAME
 from experiment_manager.common.serializable import YAMLSerializable
 from experiment_manager.trackers.tracker_manager import TrackerManager
@@ -28,22 +28,22 @@ class Environment(YAMLSerializable):
     def __init__(self, 
                  workspace: str,
                  config: DictConfig,
-                 factory: Factory = None,
                  verbose: bool = False, 
                  debug: bool = False,
                  args: DictConfig = None,
                  device: str = "cpu",
-                 tracker_manager: TrackerManager = None):
+                 tracker_manager: TrackerManager = None,
+                 factory_registry: FactoryRegistry = None):
         super().__init__()
         
         self.workspace = os.path.abspath(workspace)  # Convert to absolute path
         os.makedirs(self.workspace, exist_ok=True)
         
         self.config = config
-        self.factory = factory
         self.verbose = verbose
         self.debug = debug
         self.args: DictConfig = args or DictConfig({})
+        self.factory_registry = factory_registry or FactoryRegistry()
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         self.log_name = f"{LOG_NAME}-{timestamp}"
         
@@ -59,12 +59,12 @@ class Environment(YAMLSerializable):
         self.tracker_manager = tracker_manager or \
                 TrackerManager.from_config(
                                     self.config,
-                                    self.workspace)
+                                    self.workspace,
+                                    tracker_factory=self.factory_registry.get(FactoryType.TRACKER))
         
         
         self.device = device
         self.logger.info(f"Using device: {self.device}")
-        
         self.save()
     
         
@@ -140,7 +140,7 @@ class Environment(YAMLSerializable):
         env = self.__class__(
             workspace=self.workspace,
             config=self.config,
-            factory=self.factory,
+            factory_registry=self.factory_registry,
             verbose=self.verbose,
             debug=self.debug,
             device=self.device,
@@ -157,7 +157,7 @@ class Environment(YAMLSerializable):
         child_env = self.__class__(
             workspace=child_workspace,
             config=self.config,
-            factory=self.factory,
+            factory_registry=self.factory_registry,
             verbose=self.verbose,
             debug=self.debug,
             tracker_manager=self.tracker_manager.create_child(child_workspace),
