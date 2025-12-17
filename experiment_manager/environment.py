@@ -145,7 +145,7 @@ class Environment(YAMLSerializable):
             debug=self.debug,
             device=self.device,
             args=self.args)
-    
+        
         env.tracker_manager = self.tracker_manager
         return env
         

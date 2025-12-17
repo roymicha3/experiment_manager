@@ -50,7 +50,7 @@ class Metric(IntEnum):
     TRAIN_ACC = 6
     TRAIN_LOSS = 7
     LEARNING_RATE = 8
-    CUSTOM = 9 # custom metric (name, value)
+    CUSTOM = 9 # custom metric (name, value) - tracked by all trackers
 
     # Untracked metrics
     NETWORK = 10
@@ -58,6 +58,7 @@ class Metric(IntEnum):
     LABELS = 12
     STATUS = 13
     CONFUSION = 14
+    CUSTOM_UNTRACKED = 15 # custom metric (name, value) - NOT tracked, only accessible in callbacks
     
     @property
     def name(self) -> str:
@@ -86,6 +87,7 @@ def _init_metric_categories():
     Metric.DATA: MetricCategory.UNTRACKED,
     Metric.LABELS: MetricCategory.UNTRACKED,
     Metric.STATUS: MetricCategory.UNTRACKED,
+    Metric.CUSTOM_UNTRACKED: MetricCategory.UNTRACKED,
 }
 
 def get_metric_category(metric: Metric) -> MetricCategory:

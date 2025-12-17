@@ -15,7 +15,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from experiment_manager.experiment import Experiment
-from experiment_manager.common.factory import Factory
+from experiment_manager.common.factory_registry import FactoryRegistry, FactoryType
 from examples.pipelines.custom_metrics_factory import CustomMetricsPipelineFactory
 
 
@@ -40,7 +40,12 @@ def main():
     try:
         # Create the experiment
         print("🔧 Creating experiment...")
-        experiment = Experiment.create(str(config_dir), CustomMetricsPipelineFactory)
+        
+        # Create custom factory registry
+        registry = FactoryRegistry()
+        registry.register(FactoryType.PIPELINE, CustomMetricsPipelineFactory())
+        
+        experiment = Experiment.create(str(config_dir), registry)
         
         print("✅ Experiment created successfully")
         print(f"📊 Experiment name: {experiment.name}")

@@ -18,6 +18,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from experiment_manager.experiment import Experiment
+from experiment_manager.common.factory_registry import FactoryRegistry, FactoryType
 from tests.pipelines.test_batch_gradient_pipeline_factory import TestBatchGradientPipelineFactory
 
 
@@ -79,7 +80,9 @@ class TestTupleErrorReproduction:
                 
                 try:
                     # Create fresh experiment for each run
-                    experiment = Experiment.create(temp_config_dir, TestBatchGradientPipelineFactory)
+                    registry = FactoryRegistry()
+                    registry.register(FactoryType.PIPELINE, TestBatchGradientPipelineFactory())
+                    experiment = Experiment.create(temp_config_dir, registry)
                     
                     # Capture any tuple-related errors
                     original_logger_error = experiment.env.logger.error
@@ -177,7 +180,9 @@ class TestTupleErrorReproduction:
                 OmegaConf.save(trials_config, os.path.join(temp_config_dir, "trials.yaml"))
                 
                 try:
-                    experiment = Experiment.create(temp_config_dir, TestBatchGradientPipelineFactory)
+                    registry = FactoryRegistry()
+                    registry.register(FactoryType.PIPELINE, TestBatchGradientPipelineFactory())
+                    experiment = Experiment.create(temp_config_dir, registry)
                     
                     # Capture any tuple-related errors
                     original_logger_error = experiment.env.logger.error
@@ -252,13 +257,16 @@ class TestTupleErrorReproduction:
             
             # Test individual components
             try:
-                experiment = Experiment.create(temp_config_dir, TestBatchGradientPipelineFactory)
+                registry = FactoryRegistry()
+                registry.register(FactoryType.PIPELINE, TestBatchGradientPipelineFactory())
+                experiment = Experiment.create(temp_config_dir, registry)
                 
                 # Test the pipeline creation
                 print("📋 Testing pipeline creation...")
                 # Get pipeline type from base config
                 pipeline_type = experiment.base_config.pipeline.type
-                pipeline = experiment.env.factory.create(
+                pipeline_factory = experiment.env.factory_registry.get(FactoryType.PIPELINE)
+                pipeline = pipeline_factory.create(
                     name=pipeline_type,
                     config=experiment.base_config,
                     env=experiment.env

@@ -453,6 +453,116 @@ for epoch in range(epochs):
 6. **Track checkpoints** with `on_checkpoint()`
 7. **Use step parameters** for time-series metrics tracking
 
+## Custom Metrics: Tracked vs Untracked
+
+The framework provides two types of custom metrics to give you fine-grained control over what gets persisted to trackers:
+
+### Metric.CUSTOM (Tracked)
+
+**Use for:** Important metrics you want to visualize, analyze, and compare across experiments.
+
+**Goes to:** All trackers (Database, MLflow, TensorBoard, Log files, etc.)
+
+```python
+@Pipeline.epoch_wrapper
+def run_epoch(self, epoch_idx: int, model, *args, **kwargs):
+    # ... training code ...
+    
+    # These metrics will be saved to all trackers
+    self.epoch_metrics[Metric.CUSTOM] = [
+        ("model_accuracy", accuracy_value),
+        ("learning_rate", current_lr),
+        ("gradient_norm", grad_norm),
+        ("validation_score", val_score),
+    ]
+    
+    return RunStatus.FINISHED
+```
+
+### Metric.CUSTOM_UNTRACKED (Untracked)
+
+**Use for:** Debug information, temporary calculations, and internal state that you don't want cluttering your tracking databases.
+
+**Goes to:** Only accessible in callbacks via the `epoch_metrics` dictionary. NOT saved to any trackers.
+
+```python
+@Pipeline.epoch_wrapper
+def run_epoch(self, epoch_idx: int, model, *args, **kwargs):
+    # ... training code ...
+    
+    # These metrics are only accessible in callbacks, not tracked
+    self.epoch_metrics[Metric.CUSTOM_UNTRACKED] = [
+        ("debug_tensor_norm", debug_value),
+        ("temp_calculation", temp_value),
+        ("internal_counter", counter_value),
+        ("intermediate_state", state_info),
+    ]
+    
+    return RunStatus.FINISHED
+```
+
+### Using Both Together
+
+You can use both metric types in the same epoch:
+
+```python
+@Pipeline.epoch_wrapper
+def run_epoch(self, epoch_idx: int, model, *args, **kwargs):
+    # ... training code ...
+    
+    # Tracked: Important metrics for analysis
+    self.epoch_metrics[Metric.CUSTOM] = [
+        ("val_accuracy", val_acc),
+        ("learning_rate", lr),
+    ]
+    
+    # Untracked: Debug info
+    self.epoch_metrics[Metric.CUSTOM_UNTRACKED] = [
+        ("debug_gradient_max", grad_max),
+        ("debug_memory_usage", mem_usage),
+    ]
+    
+    # Standard metrics work as always
+    self.epoch_metrics[Metric.TRAIN_LOSS] = train_loss
+    self.epoch_metrics[Metric.VAL_ACC] = val_acc
+    
+    return RunStatus.FINISHED
+```
+
+### Accessing Untracked Metrics in Callbacks
+
+Create a custom callback to process untracked metrics:
+
+```python
+class DebugMetricsCallback(Callback):
+    """Process untracked debug metrics."""
+    
+    def on_epoch_end(self, epoch_idx: int, metrics: Dict[str, Any]) -> bool:
+        # Access untracked metrics
+        if Metric.CUSTOM_UNTRACKED in metrics:
+            for name, value in metrics[Metric.CUSTOM_UNTRACKED]:
+                # Conditional logging based on debug values
+                if "debug_gradient_max" in name and value > 10.0:
+                    self.env.logger.warning(f"High gradient detected: {value}")
+        
+        return False  # Continue training
+```
+
+### Comparison
+
+| Feature | `Metric.CUSTOM` | `Metric.CUSTOM_UNTRACKED` |
+|---------|----------------|---------------------------|
+| **Saved to Database** | ✅ Yes | ❌ No |
+| **Saved to MLflow** | ✅ Yes | ❌ No |
+| **Saved to TensorBoard** | ✅ Yes | ❌ No |
+| **Available in Callbacks** | ✅ Yes | ✅ Yes |
+| **Use Case** | Important metrics | Debug/temporary data |
+| **Example** | Validation accuracy, learning rate | Debug info, intermediate calculations |
+
+See `examples/pipelines/untracked_metrics_demo.py` for a complete working example.
+
+---
+
 ## Factory Implementation
 
 Don't forget to implement the corresponding factory:

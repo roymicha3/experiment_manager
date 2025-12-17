@@ -20,6 +20,8 @@ from typing import Dict, Any, List, Union
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from experiment_manager.experiment import Experiment
+from experiment_manager.common.factory_registry import FactoryRegistry, FactoryType
+from experiment_manager.pipelines.pipeline_factory import PipelineFactory
 from experiment_manager.common.common import Metric, RunStatus
 from omegaconf import OmegaConf
 
@@ -308,12 +310,24 @@ class AdvancedDataTypesPipeline:
                 raise e
 
 
-class AdvancedDataTypesFactory:
+class AdvancedDataTypesFactory(PipelineFactory):
     """Factory for the advanced data types test pipeline."""
     
     @staticmethod
     def create(name: str, config, env, id=None):
-        return AdvancedDataTypesPipeline(env, id)
+        # Create the pipeline instance directly
+        pipeline = AdvancedDataTypesPipeline(env, id)
+        
+        # Handle callbacks if present
+        callbacks = config.pipeline.get("callbacks", [])
+        if callbacks:
+            from experiment_manager.common.factory_registry import FactoryType
+            for callback_config in callbacks:
+                callback_factory = env.factory_registry.get(FactoryType.CALLBACK)
+                callback = callback_factory.create(callback_config.type, callback_config, env)
+                pipeline.register_callback(callback)
+        
+        return pipeline
 
 
 class TestAdvancedDataTypes:
@@ -360,7 +374,9 @@ class TestAdvancedDataTypes:
             print(f"📊 Testing with workspace: {workspace}")
             
             # Create and run experiment
-            experiment = Experiment.create(temp_config_dir, AdvancedDataTypesFactory)
+            registry = FactoryRegistry()
+            registry.register(FactoryType.PIPELINE, AdvancedDataTypesFactory())
+            experiment = Experiment.create(temp_config_dir, registry)
             
             # Track any tuple-related errors
             tuple_errors = []

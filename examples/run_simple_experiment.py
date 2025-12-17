@@ -1,13 +1,19 @@
 import os
 
 from experiment_manager.experiment import Experiment
+from experiment_manager.common.factory_registry import FactoryRegistry, FactoryType
 from examples.pipelines.dummy_pipeline_factory import DummyPipelineFactory
 
 def main():
 
     # Create and run experiment
     config_dir = os.path.join(os.path.dirname(__file__), "configs", "simple_experiment")
-    experiment = Experiment.create(config_dir, DummyPipelineFactory)
+    
+    # Create custom factory registry
+    registry = FactoryRegistry()
+    registry.register(FactoryType.PIPELINE, DummyPipelineFactory())
+    
+    experiment = Experiment.create(config_dir, registry)
     print(f"\nCreated experiment: {experiment.name}")
     print(f"Experiment workspace: {experiment.env.workspace}")
     

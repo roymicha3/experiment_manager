@@ -2,7 +2,7 @@ import os
 from omegaconf import OmegaConf, DictConfig
 
 from experiment_manager.trial import Trial
-from experiment_manager.common.factory import Factory
+from experiment_manager.common.factory_registry import FactoryRegistry
 from experiment_manager.environment import Environment
 from experiment_manager.common.common import Level, ConfigPaths
 from experiment_manager.trackers.tracker_manager import TrackScope
@@ -25,7 +25,7 @@ class Experiment:
                  experiment_conf: DictConfig,
                  base_config: DictConfig,
                  trials_config: DictConfig,
-                 factory: Factory):
+                 factory_registry: FactoryRegistry = None):
         """
         Initialize the experiment.
         Shouldnt be used by the user, please refer to the create function instead
@@ -38,12 +38,15 @@ class Experiment:
         # environment
         self.env_config  = env_config
         self.env         = Environment.from_config(env_config)
-        self.env.factory = factory
+        
+        # Override factory registry if provided
+        if factory_registry:
+            self.env.factory_registry = factory_registry
+        
         self.env.tracker_manager.on_create(Level.EXPERIMENT, self.name)
 
         self.env.logger.info(f"Creating experiment '{self.name}'")
         self.env.logger.info(f"Description: {self.desc}")
-        self.env.logger.info(f"Pipeline factory: {factory.__name__}")
         
         # configurations of the experiment
         self.experiment_config = experiment_conf
@@ -84,9 +87,17 @@ class Experiment:
             
         
     @staticmethod
-    def create(config_dir: str, factory: Factory, workdir: str = None) -> "Experiment":
+    def create(config_dir: str, factory_registry: FactoryRegistry = None, workdir: str = None) -> "Experiment":
         """
         Create a new environment from a configuration directory - you should always use this method to create a new experiment.
+        
+        Args:
+            config_dir: Path to the configuration directory containing experiment YAML files
+            factory_registry: Optional custom FactoryRegistry for overriding default factories
+            workdir: Optional custom workspace directory
+            
+        Returns:
+            Experiment instance
         """
         if not os.path.exists(config_dir):
             raise ValueError(f"Config directory {config_dir} does not exist.")
@@ -102,7 +113,7 @@ class Experiment:
         base_config = OmegaConf.load(os.path.join(config_dir, ConfigPaths.BASE_CONFIG.value))
         trials_config = OmegaConf.load(os.path.join(config_dir, ConfigPaths.TRIALS_CONFIG.value))
         
-        return Experiment(env_config, experiment_config, base_config, trials_config, factory)
+        return Experiment(env_config, experiment_config, base_config, trials_config, factory_registry)
     
     @staticmethod
     def check_files_exist(config_dir: str) -> bool:

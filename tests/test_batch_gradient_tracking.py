@@ -19,6 +19,7 @@ from omegaconf import DictConfig
 
 from experiment_manager.environment import Environment
 from experiment_manager.experiment import Experiment
+from experiment_manager.common.factory_registry import FactoryRegistry, FactoryType
 from experiment_manager.db.manager import DatabaseManager
 
 
@@ -102,8 +103,12 @@ class TestBatchGradientTracking:
             # Import the factory
             from tests.pipelines.test_batch_gradient_pipeline_factory import TestBatchGradientPipelineFactory
             
+            # Create custom factory registry
+            registry = FactoryRegistry()
+            registry.register(FactoryType.PIPELINE, TestBatchGradientPipelineFactory())
+            
             # Create and run experiment
-            experiment = Experiment.create(temp_config_dir, TestBatchGradientPipelineFactory)
+            experiment = Experiment.create(temp_config_dir, registry)
             
             print("🚀 Starting MNIST batch gradient tracking experiment...")
             experiment.run()

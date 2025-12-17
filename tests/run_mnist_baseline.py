@@ -12,6 +12,7 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from experiment_manager.experiment import Experiment
+from experiment_manager.common.factory_registry import FactoryRegistry, FactoryType
 from tests.pipelines.test_pipeline_factory import TestPipelineFactory
 
 
@@ -52,7 +53,11 @@ def run_mnist_baseline_experiment(workspace_dir=None):
         config_dir = temp_config_path
     
     # Create and run experiment
-    experiment = Experiment.create(config_dir, TestPipelineFactory)
+    # Create custom factory registry
+    registry = FactoryRegistry()
+    registry.register(FactoryType.PIPELINE, TestPipelineFactory())
+    
+    experiment = Experiment.create(config_dir, registry)
     print(f"Created experiment: {experiment.name}")
     print(f"Experiment workspace: {experiment.env.workspace}")
     

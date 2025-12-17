@@ -19,6 +19,8 @@ from typing import Dict, Any, List, Union
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from experiment_manager.experiment import Experiment
+from experiment_manager.common.factory_registry import FactoryRegistry, FactoryType
+from experiment_manager.pipelines.pipeline_factory import PipelineFactory
 from experiment_manager.common.common import Metric
 from omegaconf import OmegaConf
 
@@ -148,12 +150,24 @@ class ComprehensiveTrackerTestPipeline:
         }
 
 
-class ComprehensiveTrackerTestFactory:
+class ComprehensiveTrackerTestFactory(PipelineFactory):
     """Factory for the comprehensive tracker test pipeline."""
     
     @staticmethod
     def create(name: str, config, env, id=None):
-        return ComprehensiveTrackerTestPipeline(env, id)
+        # Create the pipeline instance directly
+        pipeline = ComprehensiveTrackerTestPipeline(env, id)
+        
+        # Handle callbacks if present
+        callbacks = config.pipeline.get("callbacks", [])
+        if callbacks:
+            from experiment_manager.common.factory_registry import FactoryType
+            for callback_config in callbacks:
+                callback_factory = env.factory_registry.get(FactoryType.CALLBACK)
+                callback = callback_factory.create(callback_config.type, callback_config, env)
+                pipeline.register_callback(callback)
+        
+        return pipeline
 
 
 class TestComprehensiveTrackerTypes:
@@ -200,7 +214,9 @@ class TestComprehensiveTrackerTypes:
             print(f"📊 Testing with workspace: {workspace}")
             
             # Create and run experiment
-            experiment = Experiment.create(temp_config_dir, ComprehensiveTrackerTestFactory)
+            registry = FactoryRegistry()
+            registry.register(FactoryType.PIPELINE, ComprehensiveTrackerTestFactory())
+            experiment = Experiment.create(temp_config_dir, registry)
             
             # Track any tuple-related errors
             tuple_errors = []

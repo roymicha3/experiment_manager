@@ -86,6 +86,7 @@ Experiment Manager is particularly valuable for:
   - Structured execution with automatic lifecycle management
   - Built-in decorators (@run_wrapper, @epoch_wrapper) for error handling
   - Comprehensive metric tracking with standardized Metric enum
+  - **Tracked vs Untracked Custom Metrics** - Fine-grained control over what gets persisted
   - Extensible callback system with plugin architecture
   - Automatic database persistence and MLflow integration
   - Robust error handling and early stopping support
@@ -211,6 +212,18 @@ class YourPipeline(Pipeline):
         self.epoch_metrics[Metric.TRAIN_LOSS] = train_loss
         self.epoch_metrics[Metric.VAL_LOSS] = val_loss
         self.epoch_metrics[Metric.VAL_ACC] = val_acc
+        
+        # Tracked custom metrics (saved to DB, MLflow, TensorBoard)
+        self.epoch_metrics[Metric.CUSTOM] = [
+            ("learning_rate", 0.001),
+            ("gradient_norm", 2.5),
+        ]
+        
+        # Untracked custom metrics (only accessible in callbacks, NOT saved)
+        self.epoch_metrics[Metric.CUSTOM_UNTRACKED] = [
+            ("debug_info", 123.45),
+            ("temp_calculation", 0.789),
+        ]
         
         return RunStatus.COMPLETED
     

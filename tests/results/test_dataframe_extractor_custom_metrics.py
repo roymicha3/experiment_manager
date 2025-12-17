@@ -16,6 +16,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from experiment_manager.experiment import Experiment
+from experiment_manager.common.factory_registry import FactoryRegistry, FactoryType
 from experiment_manager.results.extractors.dataframe_extractor import DataFrameExtractor
 from experiment_manager.results.sources.db_datasource import DBDataSource
 from tests.pipelines.test_batch_gradient_pipeline_factory import TestBatchGradientPipelineFactory
@@ -77,7 +78,9 @@ class TestDataFrameExtractorCustomMetrics:
             OmegaConf.save(env_config, env_path)
             
             # Create and run experiment
-            experiment = Experiment.create(temp_config_dir, TestBatchGradientPipelineFactory)
+            registry = FactoryRegistry()
+            registry.register(FactoryType.PIPELINE, TestBatchGradientPipelineFactory())
+            experiment = Experiment.create(temp_config_dir, registry)
             
             print("🚀 Starting MNIST batch gradient experiment for dataframe extraction test...")
             experiment.run()
@@ -278,7 +281,9 @@ class TestDataFrameExtractorCustomMetrics:
             OmegaConf.save(env_config, env_path)
             
             # Create and run experiment
-            experiment = Experiment.create(temp_config_dir, TestBatchGradientPipelineFactory)
+            registry = FactoryRegistry()
+            registry.register(FactoryType.PIPELINE, TestBatchGradientPipelineFactory())
+            experiment = Experiment.create(temp_config_dir, registry)
             
             print("🚀 Starting MNIST experiment for epoch-level extraction test...")
             experiment.run()

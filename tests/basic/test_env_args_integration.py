@@ -3,6 +3,7 @@ import shutil
 import yaml
 import pytest
 from experiment_manager.experiment import Experiment
+from experiment_manager.common.factory_registry import FactoryRegistry, FactoryType
 from tests.pipelines.dummy_pipeline_factory import DummyPipelineFactory
 
 @pytest.fixture
@@ -69,7 +70,11 @@ def test_env_args_reaches_pipeline(config_dir_with_env_args):
         print("\n===== trials.yaml before Experiment.create =====\n")
         print(content)
         print("\n==============================================\n")
-    experiment = Experiment.create(config_dir_with_env_args, DummyPipelineFactory)
+    # Create custom factory registry
+    registry = FactoryRegistry()
+    registry.register(FactoryType.PIPELINE, DummyPipelineFactory())
+    
+    experiment = Experiment.create(config_dir_with_env_args, registry)
     experiment.run()
     # Check logs for evidence
     found_custom_arg_42 = False
