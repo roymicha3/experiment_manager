@@ -6,9 +6,8 @@ This factory creates the CustomMetricsTestPipeline for the custom metrics exampl
 """
 
 from omegaconf import DictConfig
-from experiment_manager.common.factory import Factory
-from experiment_manager.pipelines.pipeline import Pipeline
-from experiment_manager.environment import Environment
+from experiment_manager import Environment, Pipeline
+from experiment_manager.common import Factory
 
 from .custom_metrics_pipeline import CustomMetricsTestPipeline
 

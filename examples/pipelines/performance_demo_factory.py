@@ -1,7 +1,6 @@
 from omegaconf import DictConfig
-from experiment_manager.environment import Environment
-from experiment_manager.pipelines.pipeline_factory import PipelineFactory
-from experiment_manager.pipelines.pipeline import Pipeline
+from experiment_manager import Environment, Pipeline
+from experiment_manager.pipelines import PipelineFactory
 from examples.pipelines.performance_demo_pipeline import PerformanceDemoPipeline
 
 

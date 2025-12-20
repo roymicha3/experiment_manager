@@ -9,10 +9,7 @@ from typing import Dict, Any, List
 from unittest.mock import MagicMock, patch
 from omegaconf import DictConfig, OmegaConf
 
-from experiment_manager.pipelines.callbacks.callback import Callback
-from experiment_manager.pipelines.pipeline import Pipeline
-from experiment_manager.environment import Environment
-from experiment_manager.common.common import Metric, RunStatus
+from experiment_manager import Environment, Pipeline, Callback, Metric, RunStatus
 
 
 # =============================================================================

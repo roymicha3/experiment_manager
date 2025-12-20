@@ -14,8 +14,8 @@ import time
 from pathlib import Path
 
 from experiment_manager.results.sources.db_datasource import DBDataSource
+from experiment_manager.common import Level
 from tests.run_mnist_baseline import run_mnist_baseline_experiment
-from experiment_manager.common.common import Level
 
 
 @pytest.fixture(scope="session")

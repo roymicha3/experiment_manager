@@ -16,11 +16,8 @@ import numpy as np
 from omegaconf import DictConfig
 from typing import Dict, Any
 
-from experiment_manager.environment import Environment
-from experiment_manager.pipelines.pipeline import Pipeline
-from experiment_manager.common.serializable import YAMLSerializable
-from experiment_manager.common.common import Metric, RunStatus
-from experiment_manager.pipelines.callbacks.callback import Callback
+from experiment_manager import Environment, Pipeline, Metric, RunStatus, Callback
+from experiment_manager.common import YAMLSerializable
 
 
 @YAMLSerializable.register("UntrackedMetricsDemoPipeline")
