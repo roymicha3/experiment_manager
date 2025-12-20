@@ -61,13 +61,13 @@ class Pipeline(ABC):
     def _on_batch_end(self, batch_idx: int, metrics: Dict[str, Any]) -> bool:
         self.env.tracker_manager.on_end(Level.BATCH)
         
-        # For now, batch callbacks are optional - may add later if needed
-        # stop_flag = False
-        # for callback in self.callbacks:
-        #     should_continue = callback.on_batch_end(batch_idx, metrics)
-        #     if not should_continue:
-        #         stop_flag = True
-        return False  # Don't stop on batch end by default
+        stop_flag = False
+        for callback in self.callbacks:
+            self.env.logger.debug(f"Executing on_batch_end for {callback.__class__.__name__}")
+            should_continue = callback.on_batch_end(batch_idx, metrics)
+            if not should_continue:
+                stop_flag = True
+        return stop_flag
     
     def _on_run_end(self, metrics: Dict[str, Any]) -> None:
         self.env.logger.info("Pipeline execution completed")
@@ -153,10 +153,16 @@ class Pipeline(ABC):
         @wraps(epoch_function)
         def wrapper(self, epoch_idx, model, *args, **kwargs):
             self._on_epoch_start(epoch_idx)
+            should_propagate_stop = False
             
             try:
                 status = epoch_function(self, epoch_idx, model, *args, **kwargs)
                 self.env.tracker_manager.track_dict(self.epoch_metrics, epoch_idx)
+            
+            except StopIteration:
+                # Mark for re-raising after cleanup (from batch stopping)
+                should_propagate_stop = True
+                status = RunStatus.STOPPED
             
             except Exception as e:
                 # Enhanced error reporting with detailed traceback information
@@ -174,15 +180,16 @@ class Pipeline(ABC):
                     self.env.logger.error(f"Epoch index: {epoch_idx}")
                 status = RunStatus.FAILED
             
-            finally:
-                should_stop = self._on_epoch_end(epoch_idx, self.epoch_metrics)
-                self.epoch_metrics.clear()
-                
-                if should_stop:
-                    self.env.logger.info("Stopping pipeline execution")
-                    raise StopIteration("Stopping pipeline execution")
-                
-                return status
+            # Cleanup and check for epoch-level stopping
+            should_stop = self._on_epoch_end(epoch_idx, self.epoch_metrics)
+            self.epoch_metrics.clear()
+            
+            # Raise StopIteration if batch or epoch callback requested stop
+            if should_propagate_stop or should_stop:
+                self.env.logger.info("Stopping pipeline execution")
+                raise StopIteration("Stopping pipeline execution")
+            
+            return status
                     
         return wrapper
     
