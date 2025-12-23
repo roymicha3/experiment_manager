@@ -1,10 +1,7 @@
 from omegaconf import DictConfig
 
-from experiment_manager.pipelines.pipeline import Pipeline
-from experiment_manager.pipelines.pipeline_factory import PipelineFactory
-from experiment_manager.common.serializable import YAMLSerializable
-from experiment_manager.environment import Environment
-from experiment_manager.pipelines.callbacks.callback_factory import CallbackFactory
+from experiment_manager import Environment, Pipeline
+from experiment_manager.pipelines import PipelineFactory
 
 # import pipelines
 from tests.pipelines.dummy_pipeline import DummyPipeline

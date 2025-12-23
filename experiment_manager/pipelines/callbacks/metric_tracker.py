@@ -36,21 +36,29 @@ class MetricsTracker(Callback, YAMLSerializable):
         tracked_metrics = []
         for key, value in metrics.items():
             if get_metric_category(key) == MetricCategory.TRACKED:
-                # save it to the metrics dictionary
-                if key not in self.metrics:
-                    if key == Metric.CUSTOM:
-                        if value[0] not in self.metrics:
-                            self.metrics[value[0]] = []
-                            self.env.logger.debug(f"Started tracking custom metric: {value[0]}")
-                    else:
-                        self.metrics[key] = []
-                    
-                    self.env.logger.debug(f"Started tracking metric: {key.value}")
-                
                 if key == Metric.CUSTOM:
-                    self.metrics[value[0]].append(value[1])
-                    tracked_metrics.append(f"{value[0]}: {value[1]:.4f}")
+                    # Handle list of custom metrics
+                    if isinstance(value, list):
+                        for custom_metric in value:
+                            metric_name, metric_value = custom_metric
+                            if metric_name not in self.metrics:
+                                self.metrics[metric_name] = []
+                                self.env.logger.debug(f"Started tracking custom metric: {metric_name}")
+                            self.metrics[metric_name].append(metric_value)
+                            tracked_metrics.append(f"{metric_name}: {metric_value:.4f}")
+                    else:
+                        # Handle single custom metric (backward compatibility)
+                        metric_name, metric_value = value
+                        if metric_name not in self.metrics:
+                            self.metrics[metric_name] = []
+                            self.env.logger.debug(f"Started tracking custom metric: {metric_name}")
+                        self.metrics[metric_name].append(metric_value)
+                        tracked_metrics.append(f"{metric_name}: {metric_value:.4f}")
                 else:
+                    # Handle regular metrics (unchanged)
+                    if key not in self.metrics:
+                        self.metrics[key] = []
+                        self.env.logger.debug(f"Started tracking metric: {key.value}")
                     self.metrics[key].append(value)
                     tracked_metrics.append(f"{key.value}: {value:.4f}")
         
@@ -65,7 +73,10 @@ class MetricsTracker(Callback, YAMLSerializable):
         final_metrics = []
         for key, value in metrics.items():
             if get_metric_category(key) == MetricCategory.TRACKED:
-                self.metrics[key] = [value]
+                # Append final metrics to existing data instead of overwriting
+                if key not in self.metrics:
+                    self.metrics[key] = []
+                self.metrics[key].append(value)
                 final_metrics.append(f"{key}: {value:.4f}")
         
         if final_metrics:

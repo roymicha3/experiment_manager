@@ -1,10 +1,12 @@
-#####################################################################################
-#   Experiment Configuration -    #
-#####################################################################################
-
-name: "simple"
-desc: "a simple experiment"
-settings: # the base cofiguration of the experiment
-
-trials: # each trial changes the parameters it chooses - this is later merged with the trials.yaml
-
+name: test_experiment
+desc: a simple experiment
+settings:
+  pipeline:
+    type: DummyPipeline
+    epochs: 3
+    batch_size: 64
+    validation_split: 0.2
+    test_split: 0.2
+    shuffle: true
+    callbacks: null
+trials: null

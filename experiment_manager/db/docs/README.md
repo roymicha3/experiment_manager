@@ -44,6 +44,14 @@ Represents individual epochs within a trial run.
 - `time` (DATETIME): Time of the epoch
 (Composite PK: idx, trial_run_id)
 
+#### BATCH
+Represents individual batches within an epoch.
+- `idx` (INT): Batch index within the epoch
+- `epoch_idx` (INT): Reference to parent epoch
+- `trial_run_id` (INT): Reference to TRIAL_RUN
+- `time` (DATETIME): Time when batch processing started
+(Composite PK: idx, epoch_idx, trial_run_id)
+
 #### METRIC
 Stores metric data for results and epochs.
 - `id` (INT, PK): Unique identifier

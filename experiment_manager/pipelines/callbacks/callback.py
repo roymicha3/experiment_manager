@@ -12,8 +12,23 @@ class Callback(ABC):
     
     @abstractmethod
     def on_epoch_end(self, epoch_idx: int, metrics: Dict[str, Any]) -> bool:
-        """Called at the end of each epoch."""
+        """Called at the end of each epoch. Return False to stop training."""
         pass
+    
+    def on_batch_end(self, batch_idx: int, metrics: Dict[str, Any]) -> bool:
+        """Called at the end of each batch. Return False to stop training.
+        
+        This method has a default implementation that returns True (continue training).
+        Override in subclasses to implement batch-level logic.
+        
+        Args:
+            batch_idx: The index of the completed batch.
+            metrics: Dictionary of metrics collected during the batch.
+            
+        Returns:
+            bool: True to continue training, False to stop.
+        """
+        return True
     
     @abstractmethod
     def on_end(self, metrics: Dict[str, Any]) -> None:

@@ -1,0 +1,39 @@
+#####################################################################################
+#   Trials Configuration for Custom Metrics Test                                   #
+#####################################################################################
+
+# Trial 1: Default configuration
+- name: "default_config"
+  repeat: 1
+  settings:
+    pipeline:
+      epochs: 2
+      batch_size: 16
+
+# Trial 2: Different learning rate
+- name: "high_lr"
+  repeat: 1
+  settings:
+    pipeline:
+      learning_rate: 0.05
+      epochs: 2
+      batch_size: 16
+
+# Trial 3: Different model architecture
+- name: "large_model"
+  repeat: 1
+  settings:
+    model:
+      hidden_dim: 128
+    pipeline:
+      hidden_dim: 128
+      epochs: 2
+      batch_size: 16
+
+# Trial 4: Different batch size
+- name: "small_batch"
+  repeat: 1
+  settings:
+    pipeline:
+      batch_size: 8
+      epochs: 2

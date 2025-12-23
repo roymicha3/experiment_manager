@@ -1,0 +1,9 @@
+name: test_mnist_baseline
+desc: MNIST single layer perceptron baseline for testing
+id: 1
+
+settings:
+  debug: false
+  verbose: false
+
+trials: 

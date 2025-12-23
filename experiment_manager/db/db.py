@@ -8,6 +8,16 @@ from datetime import datetime
 
 # SQL statements for creating tables
 MYSQL_TABLES = {
+    "SCHEMA_VERSION": """
+    CREATE TABLE IF NOT EXISTS SCHEMA_VERSION (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        version VARCHAR(20) NOT NULL UNIQUE,
+        migration_name VARCHAR(255) NOT NULL,
+        description TEXT,
+        applied_at DATETIME NOT NULL,
+        rollback_script TEXT
+    )
+    """,
     "EXPERIMENT": """
     CREATE TABLE IF NOT EXISTS EXPERIMENT (
         id INT PRIMARY KEY AUTO_INCREMENT,
@@ -51,6 +61,16 @@ MYSQL_TABLES = {
         time DATETIME NOT NULL,
         PRIMARY KEY (idx, trial_run_id),
         FOREIGN KEY (trial_run_id) REFERENCES TRIAL_RUN(id)
+    )
+    """,
+    "BATCH": """
+    CREATE TABLE IF NOT EXISTS BATCH (
+        idx INT,
+        epoch_idx INT,
+        trial_run_id INT,
+        time DATETIME NOT NULL,
+        PRIMARY KEY (idx, epoch_idx, trial_run_id),
+        FOREIGN KEY (epoch_idx, trial_run_id) REFERENCES EPOCH(idx, trial_run_id)
     )
     """,
     "METRIC": """
@@ -132,6 +152,28 @@ MYSQL_TABLES = {
         FOREIGN KEY (trial_run_id) REFERENCES TRIAL_RUN(id),
         FOREIGN KEY (artifact_id) REFERENCES ARTIFACT(id)
     )
+    """,
+    "BATCH_METRIC": """
+    CREATE TABLE IF NOT EXISTS BATCH_METRIC (
+        batch_idx INT,
+        epoch_idx INT,
+        trial_run_id INT,
+        metric_id INT,
+        PRIMARY KEY (batch_idx, epoch_idx, trial_run_id, metric_id),
+        FOREIGN KEY (batch_idx, epoch_idx, trial_run_id) REFERENCES BATCH(idx, epoch_idx, trial_run_id),
+        FOREIGN KEY (metric_id) REFERENCES METRIC(id)
+    )
+    """,
+    "BATCH_ARTIFACT": """
+    CREATE TABLE IF NOT EXISTS BATCH_ARTIFACT (
+        batch_idx INT,
+        epoch_idx INT,
+        trial_run_id INT,
+        artifact_id INT,
+        PRIMARY KEY (batch_idx, epoch_idx, trial_run_id, artifact_id),
+        FOREIGN KEY (batch_idx, epoch_idx, trial_run_id) REFERENCES BATCH(idx, epoch_idx, trial_run_id),
+        FOREIGN KEY (artifact_id) REFERENCES ARTIFACT(id)
+    )
     """
 }
 
@@ -151,13 +193,13 @@ def dict_factory(cursor: sqlite3.Cursor, row: tuple) -> dict:
         d[col[0]] = row[idx]
     return d
 
-def init_sqlite_db(db_path: Union[str, Path], recreate: bool = False) -> sqlite3.Connection:
+def init_sqlite_db(db_path: Union[str, Path], recreate: bool = False, readonly: bool = False) -> sqlite3.Connection:
     """Initialize SQLite database with all tables.
     
     Args:
         db_path: Path to SQLite database file
         recreate: If True, delete existing database file
-        
+        readonly: If True, open database in readonly mode
     Returns:
         SQLite connection object
     """
@@ -170,19 +212,22 @@ def init_sqlite_db(db_path: Union[str, Path], recreate: bool = False) -> sqlite3
     db_path.parent.mkdir(parents=True, exist_ok=True)
     
     # Connect to database
-    conn = sqlite3.connect(str(db_path))
+    if readonly:
+        conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    else:
+        conn = sqlite3.connect(str(db_path))
     conn.row_factory = dict_factory
     cursor = conn.cursor()
     
-    # Create tables in order (due to foreign key constraints)
-    for table_name, create_sql in SQLITE_TABLES.items():
-        try:
-            cursor.execute(create_sql)
-        except sqlite3.OperationalError as e:
-            print(f"Error creating table {table_name}: {e}")
-            raise
-    
-    conn.commit()
+    if not readonly:
+        # Create tables in order (due to foreign key constraints)
+        for table_name, create_sql in SQLITE_TABLES.items():
+            try:
+                cursor.execute(create_sql)
+            except sqlite3.OperationalError as e:
+                print(f"Error creating table {table_name}: {e}")
+                raise
+        conn.commit()
     return conn
 
 def init_mysql_db(host: str, user: str, password: str, database: str, 

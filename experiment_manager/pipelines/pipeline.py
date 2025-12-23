@@ -2,6 +2,7 @@ from abc import ABC
 from functools import wraps
 from omegaconf import DictConfig
 from typing import Dict, Any, List
+import traceback
 
 from experiment_manager.common.common import Level
 from experiment_manager.common.common import RunStatus
@@ -18,6 +19,7 @@ class Pipeline(ABC):
         
         self.run_metrics = {}
         self.epoch_metrics = {}
+        self.batch_metrics = {}
         self.run_status = False
         
         self.env.logger.info("Pipeline initialized")
@@ -35,9 +37,9 @@ class Pipeline(ABC):
             self.env.logger.debug(f"Executing on_start for {callback.__class__.__name__}")
             callback.on_start()
             
-    def _on_epoch_start(self) -> None:
-        self.env.tracker_manager.on_create(Level.EPOCH)
-        self.env.tracker_manager.on_start(Level.EPOCH)
+    def _on_epoch_start(self, epoch_idx: int) -> None:
+        self.env.tracker_manager.on_create(Level.EPOCH, epoch_id=epoch_idx)
+        self.env.tracker_manager.on_start(Level.EPOCH, epoch_id=epoch_idx)
             
     
     def _on_epoch_end(self, epoch_idx: int, metrics: Dict[str, Any]) -> bool:
@@ -51,8 +53,34 @@ class Pipeline(ABC):
                 stop_flag = True
         return stop_flag
     
+    def _on_batch_start(self, batch_idx: int) -> None:
+        self.env.tracker_manager.on_create(Level.BATCH, batch_id=batch_idx)
+        self.env.tracker_manager.on_start(Level.BATCH, batch_id=batch_idx)
+            
+    
+    def _on_batch_end(self, batch_idx: int, metrics: Dict[str, Any]) -> bool:
+        self.env.tracker_manager.on_end(Level.BATCH)
+        
+        stop_flag = False
+        for callback in self.callbacks:
+            self.env.logger.debug(f"Executing on_batch_end for {callback.__class__.__name__}")
+            should_continue = callback.on_batch_end(batch_idx, metrics)
+            if not should_continue:
+                stop_flag = True
+        return stop_flag
+    
     def _on_run_end(self, metrics: Dict[str, Any]) -> None:
         self.env.logger.info("Pipeline execution completed")
+        
+        # Reset epoch_idx to None for all DBTrackers so final metrics go to RESULTS
+        for tracker in self.env.tracker_manager.trackers:
+            if hasattr(tracker, 'epoch_idx'):
+                tracker.epoch_idx = None
+        
+        # Track final run metrics (these will be linked to RESULTS since epoch_idx is now None)
+        if metrics:
+            self.env.tracker_manager.track_dict(metrics)
+            
         self.env.tracker_manager.on_end(Level.PIPELINE)
         for callback in self.callbacks:
             self.env.logger.debug(f"Executing on_end for {callback.__class__.__name__}")
@@ -84,13 +112,32 @@ class Pipeline(ABC):
                 status = RunStatus.RUNNING
                 status = run_function(self, config)
             
+            except StopIteration as e:
+                # Early stopping is not a failure - it's a successful early completion
+                self.env.logger.info(f"Pipeline completed early: {e}")
+                status = RunStatus.STOPPED
+            
             except Exception as e:
-                self.env.logger.error(f"Pipeline run failed: {e}")
+                # Enhanced error reporting with detailed traceback information
+                tb = traceback.extract_tb(e.__traceback__)
+                if tb:
+                    filename, line, func, text = tb[-1]  # last traceback entry
+                    self.env.logger.error(f"Pipeline run failed: {e}")
+                    self.env.logger.error(f"Exception in file: {filename}, line: {line}, function: {func}")
+                    self.env.logger.error(f"Code: {text}")
+                    self.env.logger.error(f"Exception type: {type(e).__name__}")
+                else:
+                    self.env.logger.error(f"Pipeline run failed: {e}")
+                    self.env.logger.error(f"Exception type: {type(e).__name__}")
                 status = RunStatus.FAILED
             
             finally:
+                # Always call on_end for proper cleanup, except for true failures
                 if status != RunStatus.FAILED:
-                    self.env.logger.info("Pipeline run completed successfully")
+                    if status == RunStatus.STOPPED:
+                        self.env.logger.info("Pipeline completed early via early stopping")
+                    else:
+                        self.env.logger.info("Pipeline run completed successfully")
                     self._on_run_end(self.run_metrics)
                 
                 return status
@@ -105,17 +152,90 @@ class Pipeline(ABC):
         """
         @wraps(epoch_function)
         def wrapper(self, epoch_idx, model, *args, **kwargs):
-            self._on_epoch_start()
+            self._on_epoch_start(epoch_idx)
+            should_propagate_stop = False
             
             try:
                 status = epoch_function(self, epoch_idx, model, *args, **kwargs)
                 self.env.tracker_manager.track_dict(self.epoch_metrics, epoch_idx)
             
+            except StopIteration:
+                # Mark for re-raising after cleanup (from batch stopping)
+                should_propagate_stop = True
+                status = RunStatus.STOPPED
+            
+            except Exception as e:
+                # Enhanced error reporting with detailed traceback information
+                tb = traceback.extract_tb(e.__traceback__)
+                if tb:
+                    filename, line, func, text = tb[-1]  # last traceback entry
+                    self.env.logger.error(f"Pipeline epoch failed: {e}")
+                    self.env.logger.error(f"Exception in file: {filename}, line: {line}, function: {func}")
+                    self.env.logger.error(f"Code: {text}")
+                    self.env.logger.error(f"Exception type: {type(e).__name__}")
+                    self.env.logger.error(f"Epoch index: {epoch_idx}")
+                else:
+                    self.env.logger.error(f"Pipeline epoch failed: {e}")
+                    self.env.logger.error(f"Exception type: {type(e).__name__}")
+                    self.env.logger.error(f"Epoch index: {epoch_idx}")
+                status = RunStatus.FAILED
+            
+            # Cleanup and check for epoch-level stopping
+            should_stop = self._on_epoch_end(epoch_idx, self.epoch_metrics)
+            self.epoch_metrics.clear()
+            
+            # Raise StopIteration if batch or epoch callback requested stop
+            if should_propagate_stop or should_stop:
+                self.env.logger.info("Stopping pipeline execution")
+                raise StopIteration("Stopping pipeline execution")
+            
+            return status
+                    
+        return wrapper
+    
+    @staticmethod
+    def batch_wrapper(batch_function):
+        """
+        Makes sure that on_batch_start and on_batch_end are called for the pipeline.
+        """
+        @wraps(batch_function)
+        def wrapper(self, batch_idx, *args, **kwargs):
+            self._on_batch_start(batch_idx)
+            
+            try:
+                status = batch_function(self, batch_idx, *args, **kwargs)
+                # Track batch metrics using the global step (epoch*batch_count + batch_idx)
+                # This step calculation might need to be refined based on actual usage
+                step = kwargs.get('step', batch_idx)
+                self.env.tracker_manager.track_dict(self.batch_metrics, step)
+            
+            except Exception as e:
+                # Enhanced error reporting with detailed traceback information
+                tb = traceback.extract_tb(e.__traceback__)
+                if tb:
+                    filename, line, func, text = tb[-1]  # last traceback entry
+                    self.env.logger.error(f"Pipeline batch failed: {e}")
+                    self.env.logger.error(f"Exception in file: {filename}, line: {line}, function: {func}")
+                    self.env.logger.error(f"Code: {text}")
+                    self.env.logger.error(f"Exception type: {type(e).__name__}")
+                    self.env.logger.error(f"Batch index: {batch_idx}")
+                    self.env.logger.error(f"Batch args: {args}")
+                    self.env.logger.error(f"Batch kwargs: {kwargs}")
+                else:
+                    self.env.logger.error(f"Pipeline batch failed: {e}")
+                    self.env.logger.error(f"Exception type: {type(e).__name__}")
+                    self.env.logger.error(f"Batch index: {batch_idx}")
+                    self.env.logger.error(f"Batch args: {args}")
+                    self.env.logger.error(f"Batch kwargs: {kwargs}")
+                status = RunStatus.FAILED
+            
             finally:
-                should_stop = self._on_epoch_end(epoch_idx, self.epoch_metrics)
+                should_stop = self._on_batch_end(batch_idx, self.batch_metrics)
+                self.batch_metrics.clear()
+                
                 if should_stop:
-                    self.env.logger.info("Stopping pipeline execution")
-                    raise StopIteration("Stopping pipeline execution")
+                    self.env.logger.info("Stopping pipeline execution at batch level")
+                    raise StopIteration("Stopping pipeline execution at batch level")
                 
                 return status
                     

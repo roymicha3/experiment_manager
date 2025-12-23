@@ -1,5 +1,18 @@
-trials:
-  - name: "Trial 1"
-    repeat: 1
-    settings: # the actual cofiguration of the trial
-    
+- args:
+    custom_arg: 42
+  name: Trial 1
+  repeat: 5
+  settings:
+    pipeline:
+      assert_custom_arg: true
+      epochs: 3
+      expected_custom_arg: 42
+      type: EnvArgsCheckPipeline
+- name: Trial 2
+  repeat: 2
+  settings:
+    pipeline:
+      assert_custom_arg: true
+      epochs: 3
+      expected_custom_arg: null
+      type: EnvArgsCheckPipeline
