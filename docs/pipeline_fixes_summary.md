@@ -135,7 +135,30 @@ When implementing a pipeline, verify:
 5. **Review checkpoint management** follows the patterns
 
 ---
-*Fixed: December 5, 2024 - Critical bug in epoch_wrapper + pipeline guide improvements* 
+*Fixed: December 2024 - Critical bug in epoch_wrapper + pipeline guide improvements*
+
+---
+
+## Additional Information
+
+### The Three Decorators
+
+The pipeline system provides three decorators for automatic lifecycle management:
+
+1. **`@Pipeline.run_wrapper`** - Required for all pipelines
+   - Handles run start/end lifecycle
+   - Tracks `self.run_metrics` at the end
+   - Manages exceptions and status reporting
+
+2. **`@Pipeline.epoch_wrapper`** - For epoch-level training
+   - Creates EPOCH tracking context
+   - Tracks `self.epoch_metrics` and clears them after each epoch
+   - Calls `callback.on_epoch_end()` for all callbacks
+
+3. **`@Pipeline.batch_wrapper`** - For batch-level granularity (optional)
+   - Creates BATCH tracking context
+   - Tracks `self.batch_metrics` and clears them after each batch
+   - Calls `callback.on_batch_end()` for all callbacks 
 
 # Pipeline Implementation Fixes Summary
 
