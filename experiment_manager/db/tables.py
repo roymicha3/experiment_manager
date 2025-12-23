@@ -52,6 +52,15 @@ class Epoch:
     trial_run_id: int
     time: datetime
 
+@dataclass  
+class Batch:
+    """Represents a batch in the database."""
+    id: Optional[int]
+    batch_idx: int
+    epoch_idx: int
+    trial_run_id: int
+    time: datetime
+
 @dataclass
 class SchemaVersion:
     """Represents a schema version in the database."""

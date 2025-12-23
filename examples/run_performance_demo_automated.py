@@ -15,6 +15,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from experiment_manager.experiment import Experiment
+from experiment_manager.common.factory_registry import FactoryRegistry, FactoryType
 from examples.pipelines.performance_demo_factory import PerformanceDemoFactory
 
 
@@ -27,7 +28,12 @@ def main():
     config_dir = os.path.join(os.path.dirname(__file__), "configs", "performance_demo")
     
     print(f"📁 Loading configuration from: {config_dir}")
-    experiment = Experiment.create(config_dir, PerformanceDemoFactory)
+    
+    # Create custom factory registry
+    registry = FactoryRegistry()
+    registry.register(FactoryType.PIPELINE, PerformanceDemoFactory())
+    
+    experiment = Experiment.create(config_dir, registry)
     
     print(f"✅ Experiment: {experiment.name}")
     print(f"📂 Workspace: {experiment.env.workspace}")

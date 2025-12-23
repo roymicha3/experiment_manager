@@ -1,5 +1,15 @@
 from enum import Enum, IntEnum, auto
 
+"""Common constants and enumerations shared across Experiment Manager.
+
+This module centralises enums (RunStatus, Level, Metric, etc.) and other
+constants so that the rest of the codebase can import them from a single
+place, ensuring consistent values, type-safety, and IDE auto-completion.
+Add new enums here whenever you introduce additional categorical fields
+(e.g., for new database tables) to avoid scattering hard-coded strings
+throughout the code.
+"""
+
 LOG_NAME = "log"
 
 class RunStatus(Enum):
@@ -40,7 +50,7 @@ class Metric(IntEnum):
     TRAIN_ACC = 6
     TRAIN_LOSS = 7
     LEARNING_RATE = 8
-    CUSTOM = 9 # custom metric (name, value)
+    CUSTOM = 9 # custom metric (name, value) - tracked by all trackers
 
     # Untracked metrics
     NETWORK = 10
@@ -48,6 +58,7 @@ class Metric(IntEnum):
     LABELS = 12
     STATUS = 13
     CONFUSION = 14
+    CUSTOM_UNTRACKED = 15 # custom metric (name, value) - NOT tracked, only accessible in callbacks
     
     @property
     def name(self) -> str:
@@ -76,6 +87,7 @@ def _init_metric_categories():
     Metric.DATA: MetricCategory.UNTRACKED,
     Metric.LABELS: MetricCategory.UNTRACKED,
     Metric.STATUS: MetricCategory.UNTRACKED,
+    Metric.CUSTOM_UNTRACKED: MetricCategory.UNTRACKED,
 }
 
 def get_metric_category(metric: Metric) -> MetricCategory:
@@ -89,3 +101,31 @@ def get_tracked_metrics() -> list[Metric]:
 
 # Initialize the categories after all classes are defined
 _init_metric_categories()
+
+class ArtifactType(Enum):
+    """Category of artifact stored in the ARTIFACT table and on disk.
+
+    The values are lowercase strings to match the ON-DISK/DATABASE values
+    already used by the system.  When adding a new artifact category,
+    update this enum and migrate any related database rows accordingly.
+    """
+    MODEL = "model"
+    CHECKPOINT = "checkpoint"
+    FIGURE = "figure"
+    LOG = "log"
+    TENSORBOARD = "tensorboard"
+    OTHER = "other"
+
+# Public exports for `from experiment_manager.common.common import *`
+__all__ = [
+    "LOG_NAME",
+    "RunStatus",
+    "ConfigPaths",
+    "Level",
+    "MetricCategory",
+    "Metric",
+    "ArtifactType",
+    "get_metric_category",
+    "get_metrics_by_category",
+    "get_tracked_metrics",
+]

@@ -230,6 +230,8 @@ class TestPipelineIntegration:
     
     def test_early_stopping_patience(self, test_env):
         """Test early stopping patience mechanism."""
+        import random
+        random.seed(42)  # Make test deterministic
         pipeline = TestIntegrationPipeline(
             env=test_env,
             epochs=8,
@@ -246,7 +248,9 @@ class TestPipelineIntegration:
         # Should have stopped due to plateauing
         if early_stopping.stopped_early:
             assert early_stopping.wait_count == early_stopping.patience
-            assert pipeline.epoch_count <= 6  # Should stop before completing all epochs
+            # With patience=2, early stopping triggers after 2 epochs with no improvement.
+            # In the plateauing scenario, this happens after epoch 4, so epoch_count should be 5.
+            assert pipeline.epoch_count == 5
     
     def test_callbacks_integration(self, test_env):
         """Test that callbacks work together properly."""

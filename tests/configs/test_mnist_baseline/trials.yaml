@@ -1,0 +1,17 @@
+- name: small_lr
+  repeat: 2
+  settings:
+    learning_rate: 0.001
+    hidden_dim: 128
+
+- name: medium_lr  
+  repeat: 2
+  settings:
+    learning_rate: 0.01
+    hidden_dim: 256
+
+- name: large_lr
+  repeat: 2  
+  settings:
+    learning_rate: 0.1
+    hidden_dim: 512 

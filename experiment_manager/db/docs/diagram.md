@@ -31,8 +31,15 @@ erDiagram
     }
     
     EPOCH {
-        int idx CK
-        int trial_run_id CK
+        int idx PK
+        int trial_run_id PK
+        datetime time
+    }
+    
+    BATCH {
+        int idx PK
+        int epoch_idx PK
+        int trial_run_id PK
         datetime time
     }
     
@@ -56,10 +63,13 @@ erDiagram
     TRIAL_RUN ||--o{ RESULTS : produces
     TRIAL_RUN ||--o{ EPOCH : contains
     TRIAL_RUN ||--o{ ARTIFACT : generates
+    EPOCH ||--o{ BATCH : contains
     RESULTS ||--o{ METRIC : measures
     RESULTS ||--o{ ARTIFACT : links
     EPOCH ||--o{ METRIC : records
     EPOCH ||--o{ ARTIFACT : stores
+    BATCH ||--o{ METRIC : records
+    BATCH ||--o{ ARTIFACT : stores
 
 
 ```

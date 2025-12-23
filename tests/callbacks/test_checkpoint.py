@@ -3,6 +3,7 @@ import pytest
 from omegaconf import OmegaConf
 from experiment_manager.experiment import Experiment, ConfigPaths
 from experiment_manager.environment import Environment
+from experiment_manager.common.factory_registry import FactoryRegistry, FactoryType
 from tests.pipelines.dummy_pipeline_factory import DummyPipelineFactory
 
     
@@ -24,7 +25,11 @@ def test_experiment_creates_checkpoint(prepare_env, config_dir):
     """Test that experiment logs to the environment's log file"""
     print("\nStarting test_experiment_creates_log_file")
     
-    experiment = Experiment.create(config_dir, DummyPipelineFactory)
+    # Create custom factory registry
+    registry = FactoryRegistry()
+    registry.register(FactoryType.PIPELINE, DummyPipelineFactory())
+    
+    experiment = Experiment.create(config_dir, registry)
     
     print("\nCreated experiment")
     print(f"Experiment workspace: {experiment.env.workspace}")

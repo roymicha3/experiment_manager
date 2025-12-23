@@ -20,8 +20,9 @@ The database schema consists of the following main tables:
 3. `TRIAL_RUN`: Stores individual runs of trials
 4. `RESULTS`: Stores results of trial runs
 5. `EPOCH`: Stores epoch data for trial runs
-6. `METRIC`: Stores metric values
-7. `ARTIFACT`: Stores artifact metadata
+6. `BATCH`: Stores batch data within epochs
+7. `METRIC`: Stores metric values
+8. `ARTIFACT`: Stores artifact metadata
 
 And relationship tables:
 - `EXPERIMENT_ARTIFACT`: Links artifacts to experiments
@@ -30,6 +31,8 @@ And relationship tables:
 - `RESULTS_ARTIFACT`: Links artifacts to results
 - `EPOCH_METRIC`: Links metrics to epochs
 - `EPOCH_ARTIFACT`: Links artifacts to epochs
+- `BATCH_METRIC`: Links metrics to batches
+- `BATCH_ARTIFACT`: Links artifacts to batches
 - `TRIAL_RUN_ARTIFACT`: Links artifacts to trial runs
 
 ## Usage
@@ -60,8 +63,14 @@ trial_run = db.create_trial_run(trial.id)
 # Create epoch
 db.create_epoch(1, trial_run.id)
 
+# Create batch within epoch
+batch = db.create_batch(0, 1, trial_run.id)
+
 # Record and link metric to epoch
 metric = db.record_metric(0.95, "accuracy", {"class_0": 0.93, "class_1": 0.97})
+
+# Link metric to batch
+db.add_batch_metric(0, 1, trial_run.id, metric.id)
 db.add_epoch_metric(1, trial_run.id, metric.id)
 
 # Record and link artifact to experiment

@@ -1,0 +1,8 @@
+pipeline:
+  type: MNISTPerceptronPipeline
+  epochs: 3
+  batch_size: 128
+  
+  # Callbacks (Optional)
+  callbacks:
+    - type: "MetricsTracker" 

@@ -4,6 +4,7 @@ import sqlite3
 from omegaconf import OmegaConf
 
 from experiment_manager.experiment import Experiment, ConfigPaths
+from experiment_manager.common.factory_registry import FactoryRegistry, FactoryType
 from tests.pipelines.dummy_pipeline_factory import DummyPipelineFactory
 
 
@@ -33,7 +34,11 @@ def prepare_env(tmp_path, config_dir):
 
 def setup_and_run_test_experiment(tmp_path, config_dir):
     """Helper to set up and run a test experiment"""
-    experiment = Experiment.create(config_dir, DummyPipelineFactory)
+    # Create custom factory registry
+    registry = FactoryRegistry()
+    registry.register(FactoryType.PIPELINE, DummyPipelineFactory())
+    
+    experiment = Experiment.create(config_dir, registry)
     experiment.run()
     return experiment
 

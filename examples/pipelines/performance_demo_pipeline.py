@@ -3,10 +3,8 @@ import time
 import numpy as np
 from typing import Dict, Any
 
-from experiment_manager.common.common import Level, Metric, RunStatus
-from experiment_manager.environment import Environment
-from experiment_manager.pipelines.pipeline import Pipeline
-from experiment_manager.common.serializable import YAMLSerializable
+from experiment_manager import Environment, Pipeline, Metric, RunStatus
+from experiment_manager.common import YAMLSerializable
 
 
 @YAMLSerializable.register("PerformanceDemoPipeline")

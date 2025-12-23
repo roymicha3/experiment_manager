@@ -11,8 +11,8 @@ import time
 import tempfile
 from pathlib import Path
 
-from experiment_manager.trackers.plugins.performance_tracker import PerformanceTracker
-from experiment_manager.common.common import Level
+from experiment_manager.trackers import PerformanceTracker
+from experiment_manager.common import Level
 
 def simulate_ml_experiment():
     """Simulate a machine learning experiment with performance monitoring."""

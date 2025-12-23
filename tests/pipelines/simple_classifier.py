@@ -8,10 +8,8 @@ from sklearn.datasets import make_classification
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, TensorDataset
 
-from experiment_manager.common.common import Metric
-from experiment_manager.environment import Environment
-from experiment_manager.pipelines.pipeline import Pipeline
-from experiment_manager.common.serializable import YAMLSerializable
+from experiment_manager import Environment, Pipeline, Metric
+from experiment_manager.common import YAMLSerializable
 
 # 1. Define the Model (MLP)
 class MLP(nn.Module):

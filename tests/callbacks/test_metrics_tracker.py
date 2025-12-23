@@ -2,6 +2,7 @@ import os
 import pytest
 from omegaconf import OmegaConf
 from experiment_manager.experiment import Experiment, ConfigPaths
+from experiment_manager.common.factory_registry import FactoryRegistry, FactoryType
 from tests.pipelines.dummy_pipeline_factory import DummyPipelineFactory
 
 @pytest.fixture
@@ -18,7 +19,11 @@ def prepare_env(tmp_path, config_dir):
 
 
 def test_metrics_tracker_creates_metrics_log(config_dir, tmp_path, prepare_env):
-    experiment = Experiment.create(config_dir, DummyPipelineFactory)
+    # Create custom factory registry
+    registry = FactoryRegistry()
+    registry.register(FactoryType.PIPELINE, DummyPipelineFactory())
+    
+    experiment = Experiment.create(config_dir, registry)
     experiment.env.workspace = os.path.join(tmp_path, "test_outputs")
     experiment.run()
 

@@ -32,7 +32,17 @@ class TensorBoardTracker(Tracker, YAMLSerializable):
 
     def track(self, metric: Metric, value, step: int, *args, **kwargs):
         if metric == Metric.CUSTOM:
-            self.writer.add_scalar(value[0], value[1], global_step = self.epoch)
+            # Handle the new list-based custom metrics format
+            if isinstance(value, list):
+                # New format: list of (metric_name, metric_value) tuples
+                for metric_name, metric_value in value:
+                    self.writer.add_scalar(metric_name, metric_value, global_step = self.epoch)
+            elif isinstance(value, tuple) and len(value) == 2:
+                # Backward compatibility: single (metric_name, metric_value) tuple
+                self.writer.add_scalar(value[0], value[1], global_step = self.epoch)
+            else:
+                # Fallback: treat as single metric
+                self.writer.add_scalar("custom_metric", value, global_step = self.epoch)
         else:
             self.writer.add_scalar(metric.name, value, global_step = self.epoch)
 

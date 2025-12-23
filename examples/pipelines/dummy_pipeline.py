@@ -2,11 +2,8 @@ from omegaconf import DictConfig
 import time
 from typing import Dict, Any
 
-from experiment_manager.common.common import Level, RunStatus
-from experiment_manager.environment import Environment
-from experiment_manager.pipelines.pipeline import Pipeline
-from experiment_manager.common.common import Metric
-from experiment_manager.common.serializable import YAMLSerializable
+from experiment_manager import Environment, Pipeline, Metric, RunStatus
+from experiment_manager.common import YAMLSerializable
 
 
 @YAMLSerializable.register("DummyPipeline")
