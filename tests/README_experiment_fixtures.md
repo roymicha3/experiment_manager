@@ -384,4 +384,21 @@ def test_early_stopping_with_real_curves(experiment_metrics_only):
     # Test early stopping logic with real convergence patterns
 ```
 
-This fixture system provides a robust foundation for testing all framework components with real MNIST experiment data while maintaining optimal performance characteristics. 
+This fixture system provides a robust foundation for testing all framework components with real MNIST experiment data while maintaining optimal performance characteristics.
+
+---
+
+## Framework Hierarchical Levels
+
+The fixtures align with the framework's six-level hierarchy:
+
+1. **EXPERIMENT** - Top-level experiment container
+2. **TRIAL** - Individual experiment configurations
+3. **TRIAL_RUN** - Single execution of a trial
+4. **PIPELINE** - Execution context for training workflows
+5. **EPOCH** - Individual training epochs
+6. **BATCH** - Individual batch processing (finest granularity)
+
+---
+
+*Last Updated: December 2024* 

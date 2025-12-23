@@ -15,7 +15,7 @@ This module provides a framework for registering, serializing, and deserializing
 ### 1. Define and Register a Serializable Class
 ```python
 from omegaconf import DictConfig
-from settings.serializable import YAMLSerializable
+from experiment_manager.common.serializable import YAMLSerializable
 
 @YAMLSerializable.register("example_model")
 class ExampleModel(YAMLSerializable):
@@ -46,8 +46,8 @@ loaded_instance = ExampleModel.from_config(example_instance)
 
 ### 3. Instantiate a Registered Model Using Factory
 ```python
-from settings.factory import Factory
-from settings.serializable import YAMLSerializable
+from experiment_manager.common.factory import Factory
+from experiment_manager.common.serializable import YAMLSerializable
 
 # import all classes the factory is responsible for
 import ExampleModel

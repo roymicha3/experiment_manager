@@ -13,27 +13,27 @@ This module provides database management functionality for the experiment manage
 
 ## Database Schema
 
-The database schema consists of the following main tables:
+The database schema consists of 8 core tables that form a hierarchical structure:
 
-1. `EXPERIMENT`: Stores experiment metadata
-2. `TRIAL`: Stores trials associated with experiments
-3. `TRIAL_RUN`: Stores individual runs of trials
-4. `RESULTS`: Stores results of trial runs
-5. `EPOCH`: Stores epoch data for trial runs
-6. `BATCH`: Stores batch data within epochs
-7. `METRIC`: Stores metric values
-8. `ARTIFACT`: Stores artifact metadata
+1. `EXPERIMENT`: Stores experiment metadata (id, title, description, timestamps)
+2. `TRIAL`: Stores trials associated with experiments (id, name, experiment_id, timestamps)
+3. `TRIAL_RUN`: Stores individual runs of trials (id, trial_id, status, timestamps)
+4. `RESULTS`: Stores overall results of trial runs (trial_run_id, time)
+5. `EPOCH`: Stores epoch data for trial runs (idx, trial_run_id, time)
+6. `BATCH`: Stores batch data within epochs (idx, epoch_idx, trial_run_id, time)
+7. `METRIC`: Stores metric values (id, type, total_val, per_label_val as JSON)
+8. `ARTIFACT`: Stores artifact metadata (id, type, location)
 
-And relationship tables:
+And 9 junction/relationship tables for many-to-many relationships:
 - `EXPERIMENT_ARTIFACT`: Links artifacts to experiments
 - `TRIAL_ARTIFACT`: Links artifacts to trials
+- `TRIAL_RUN_ARTIFACT`: Links artifacts to trial runs
 - `RESULTS_METRIC`: Links metrics to results
 - `RESULTS_ARTIFACT`: Links artifacts to results
 - `EPOCH_METRIC`: Links metrics to epochs
 - `EPOCH_ARTIFACT`: Links artifacts to epochs
-- `BATCH_METRIC`: Links metrics to batches
-- `BATCH_ARTIFACT`: Links artifacts to batches
-- `TRIAL_RUN_ARTIFACT`: Links artifacts to trial runs
+- `BATCH_METRIC`: Links metrics to batches (enables batch-level metric tracking)
+- `BATCH_ARTIFACT`: Links artifacts to batches (enables batch-level artifact tracking)
 
 ## Usage
 

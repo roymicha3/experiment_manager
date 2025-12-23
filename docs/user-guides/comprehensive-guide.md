@@ -1,7 +1,7 @@
 # Comprehensive Guide to Experiment Manager
 
 **Purpose**: Complete technical documentation for Product Managers and Software Architects  
-**Last Updated**: 2025-06-07  
+**Last Updated**: December 2024  
 **Status**: Active
 
 ## Table of contents
@@ -32,10 +32,11 @@
 - **Extensibility**: Plugin architecture for custom tracking and pipelines
 
 ### Technical stack
-- **Language**: Python 3.6+
-- **Core Dependencies**: PyTorch, OmegaConf, MLflow, MySQL/SQLite
+- **Language**: Python 3.8+
+- **Core Dependencies**: PyTorch, OmegaConf, MLflow, TensorBoard, MySQL/SQLite
 - **Architecture**: Modular factory-pattern with plugin extensibility
 - **Configuration**: YAML-based with inheritance and merging
+- **Tracking**: Multi-backend support (DBTracker, MLflowTracker, TensorBoardTracker, LogTracker, PerformanceTracker)
 
 ---
 
@@ -223,13 +224,19 @@ class Pipeline(ABC):
     def __init__(self, env: Environment):
         self.env = env
         self.callbacks: List[Callback] = []
+        self.run_metrics = {}      # Final run metrics
+        self.epoch_metrics = {}    # Per-epoch metrics (auto-cleared)
+        self.batch_metrics = {}    # Per-batch metrics (auto-cleared)
         
     @abstractmethod
     def run(self, config: DictConfig) -> RunStatus:
-        """Main execution method"""
+        """Main execution method - must use @run_wrapper decorator"""
         
     def run_epoch(self, epoch_idx, model, *args, **kwargs) -> RunStatus:
-        """Single epoch execution"""
+        """Single epoch execution - should use @epoch_wrapper decorator"""
+    
+    def run_batch(self, batch_idx, *args, **kwargs) -> RunStatus:
+        """Single batch execution - can use @batch_wrapper decorator"""
 ```
 
 ### Lifecycle management
@@ -240,10 +247,10 @@ class Pipeline(ABC):
 
 ### Callback system
 Built-in callbacks provide:
-- **Early Stopping**: Training termination based on metrics
-- **Checkpointing**: Model state persistence
-- **Metric Tracking**: Comprehensive metric collection
-- **Custom Hooks**: User-defined execution points
+- **Early Stopping**: Training termination based on metrics (configurable patience, delta, mode)
+- **Checkpointing**: Model state persistence at configurable intervals
+- **Metric Tracking**: Comprehensive metric collection with CSV export
+- **Custom Hooks**: User-defined execution points via `on_start()`, `on_epoch_end()`, `on_batch_end()`, `on_end()`
 
 ---
 
@@ -262,12 +269,22 @@ class CustomPipeline(Pipeline):
     @Pipeline.run_wrapper
     def run(self, config: DictConfig) -> RunStatus:
         # Implement domain-specific logic
-        pass
+        for epoch in range(config.epochs):
+            self.run_epoch(epoch, model)
+        return RunStatus.SUCCESS
         
     @Pipeline.epoch_wrapper  
     def run_epoch(self, epoch_idx, model, *args, **kwargs):
         # Implement epoch-specific logic
-        pass
+        for batch_idx, data in enumerate(dataloader):
+            self.run_batch(batch_idx, data)
+        return RunStatus.SUCCESS
+    
+    @Pipeline.batch_wrapper  
+    def run_batch(self, batch_idx, *args, **kwargs):
+        # Implement batch-specific logic (optional, for fine-grained tracking)
+        self.batch_metrics[Metric.TRAIN_LOSS] = loss
+        return RunStatus.SUCCESS
 ```
 
 ### Tracker extension
@@ -412,6 +429,6 @@ The framework addresses critical ML development challenges while maintaining fle
 
 ---
 
-*Document Version: 1.0*  
+*Document Version: 1.1*  
 *Last Updated: December 2024*  
 *Prepared for: Product Manager & Software Architect Review* 

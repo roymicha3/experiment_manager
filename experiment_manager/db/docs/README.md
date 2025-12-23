@@ -77,6 +77,10 @@ To handle many-to-many relationships, the following junction tables are used:
 - `trial_id` (INT, FK): Reference to TRIAL
 - `artifact_id` (INT, FK): Reference to ARTIFACT
 
+#### TRIAL_RUN_ARTIFACT
+- `trial_run_id` (INT, FK): Reference to TRIAL_RUN
+- `artifact_id` (INT, FK): Reference to ARTIFACT
+
 #### RESULTS_METRIC
 - `results_id` (INT, FK): Reference to RESULTS
 - `metric_id` (INT, FK): Reference to METRIC
@@ -95,8 +99,16 @@ To handle many-to-many relationships, the following junction tables are used:
 - `epoch_trial_run_id` (INT): Reference to EPOCH.trial_run_id
 - `artifact_id` (INT, FK): Reference to ARTIFACT
 
-#### TRIAL_RUN_ARTIFACT
-- `trial_run_id` (INT, FK): Reference to TRIAL_RUN
+#### BATCH_METRIC
+- `batch_idx` (INT): Reference to BATCH.idx
+- `epoch_idx` (INT): Reference to BATCH.epoch_idx
+- `trial_run_id` (INT): Reference to BATCH.trial_run_id
+- `metric_id` (INT, FK): Reference to METRIC
+
+#### BATCH_ARTIFACT
+- `batch_idx` (INT): Reference to BATCH.idx
+- `epoch_idx` (INT): Reference to BATCH.epoch_idx
+- `trial_run_id` (INT): Reference to BATCH.trial_run_id
 - `artifact_id` (INT, FK): Reference to ARTIFACT
 
 ## Entity Relationships
@@ -105,14 +117,16 @@ To handle many-to-many relationships, the following junction tables are used:
 2. A TRIAL can have multiple TRIAL_RUNs and ARTIFACTs
 3. A TRIAL_RUN is associated with one RESULTS entry and can have multiple ARTIFACTs
 4. A TRIAL_RUN can have multiple EPOCHs
-5. RESULTS and EPOCHs can be associated with multiple METRICs and ARTIFACTs
+5. An EPOCH can have multiple BATCHes
+6. RESULTS, EPOCHs, and BATCHes can be associated with multiple METRICs and ARTIFACTs
 
 ## Key Features
 
-1. **Hierarchical Structure**: Experiments > Trials > Trial Runs > Epochs
-2. **Flexible Metric Storage**: Supports both overall and per-label metric values
-3. **Comprehensive Artifact Tracking**: Ability to link artifacts (e.g., model files, plots) to experiments, trials, trial runs, results, and epochs
+1. **Hierarchical Structure**: Experiments > Trials > Trial Runs > Epochs > Batches
+2. **Flexible Metric Storage**: Supports both overall and per-label metric values (JSON)
+3. **Comprehensive Artifact Tracking**: Ability to link artifacts (e.g., model files, plots) to experiments, trials, trial runs, results, epochs, and batches
 4. **Temporal Tracking**: All major entities include timestamp information
+5. **Batch-Level Granularity**: Fine-grained tracking for detailed training diagnostics
 
 ## Best Practices for Usage
 

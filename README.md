@@ -84,12 +84,13 @@ Experiment Manager is particularly valuable for:
 
 - **Advanced Pipeline System**
   - Structured execution with automatic lifecycle management
-  - Built-in decorators (@run_wrapper, @epoch_wrapper) for error handling
+  - Built-in decorators (`@run_wrapper`, `@epoch_wrapper`, `@batch_wrapper`) for error handling
   - Comprehensive metric tracking with standardized Metric enum
   - **Tracked vs Untracked Custom Metrics** - Fine-grained control over what gets persisted
   - Extensible callback system with plugin architecture
   - Automatic database persistence and MLflow integration
   - Robust error handling and early stopping support
+  - Batch-level granularity for detailed training diagnostics
 
 - **Built-in Training Callbacks**
   - **Early Stopping**: Configurable patience, delta thresholds, and monitoring modes
@@ -132,9 +133,13 @@ workspace: "outputs/my_experiment"
 verbose: true
 debug: false
 trackers:
-  - type: "mlflow"
-    tracking_uri: "sqlite:///mlruns.db"
-    experiment_name: "my_experiment"
+  - type: LogTracker
+    name: "log"
+    verbose: true
+  - type: DBTracker
+    name: experiment.db
+  - type: MLflowTracker
+    name: my_experiment
 
 # experiment.yaml - Experiment configuration
 name: my_experiment
@@ -265,13 +270,18 @@ class YourPipelineFactory(PipelineFactory):
 
 ```python
 from experiment_manager.experiment import Experiment
+from experiment_manager.common.factory_registry import FactoryRegistry, FactoryType
 from your_module.your_pipeline_factory import YourPipelineFactory
 
 # Configuration directory containing your YAML files
 config_dir = "path/to/configs"
 
-# Create experiment from configs
-experiment = Experiment.create(config_dir, YourPipelineFactory)
+# Create custom factory registry (optional)
+registry = FactoryRegistry()
+registry.register(FactoryType.PIPELINE, YourPipelineFactory())
+
+# Create experiment from configs with custom factory registry
+experiment = Experiment.create(config_dir, factory_registry=registry)
 
 # Run the entire experiment (all trials)
 experiment.run()
@@ -293,11 +303,9 @@ env_config = OmegaConf.create({
     "verbose": True,
     "debug": False,
     "trackers": [
-        {
-            "type": "mlflow",
-            "tracking_uri": "sqlite:///mlruns.db",
-            "experiment_name": "my_experiment"
-        }
+        {"type": "LogTracker", "name": "log", "verbose": True},
+        {"type": "DBTracker", "name": "experiment.db"},
+        {"type": "MLflowTracker", "name": "my_experiment"}
     ]
 })
 
@@ -314,10 +322,15 @@ The `Experiment` class manages experiment execution:
 
 ```python
 from experiment_manager.experiment import Experiment
+from experiment_manager.common.factory_registry import FactoryRegistry, FactoryType
 from your_module.your_pipeline_factory import YourPipelineFactory
 
+# Create custom factory registry
+registry = FactoryRegistry()
+registry.register(FactoryType.PIPELINE, YourPipelineFactory())
+
 # Create experiment from configuration directory
-experiment = Experiment.create("path/to/configs", YourPipelineFactory)
+experiment = Experiment.create("path/to/configs", factory_registry=registry)
 
 # Run experiment
 experiment.run()
@@ -396,7 +409,7 @@ The Pipeline system provides a powerful foundation for structured experiment exe
 
 #### Pipeline Decorators
 
-The pipeline system uses two key decorators that handle lifecycle management automatically:
+The pipeline system uses three key decorators that handle lifecycle management automatically:
 
 ```python
 from experiment_manager.pipelines.pipeline import Pipeline
@@ -457,7 +470,24 @@ class YourPipeline(Pipeline):
         # 2. Passed to all callbacks
         # 3. Cleared after epoch completes
         
-        return RunStatus.COMPLETED
+        return RunStatus.SUCCESS
+    
+    @Pipeline.batch_wrapper  
+    def run_batch(self, batch_idx, *args, **kwargs):
+        """
+        @batch_wrapper automatically handles:
+        - Creating and starting BATCH level tracking context
+        - Tracking all metrics in self.batch_metrics
+        - Calling callback.on_batch_end() for all registered callbacks
+        - Clearing batch_metrics for next batch
+        """
+        # Your batch implementation
+        loss = self.forward_backward_step(*args, **kwargs)
+        
+        # Add metrics to be automatically tracked
+        self.batch_metrics[Metric.TRAIN_LOSS] = loss
+        
+        return RunStatus.SUCCESS
 ```
 
 #### Available Metrics
@@ -574,7 +604,8 @@ The pipeline system uses a comprehensive `RunStatus` enum:
 from experiment_manager.common.common import RunStatus
 
 RunStatus.RUNNING      # Currently executing
-RunStatus.COMPLETED    # Finished successfully  
+RunStatus.SUCCESS      # Completed successfully  
+RunStatus.FINISHED     # Finished (alias for success)
 RunStatus.STOPPED      # Stopped via early stopping
 RunStatus.FAILED       # Failed due to error
 RunStatus.ABORTED      # Manually aborted
@@ -623,7 +654,7 @@ The Experiment Manager includes a comprehensive database system for persistent e
 
 ### Database Schema
 
-The database consists of 7 core tables and 7 junction tables that provide a complete hierarchical structure for experiment tracking:
+The database consists of 8 core tables and 9 junction tables that provide a complete hierarchical structure for experiment tracking:
 
 #### Core Tables
 - **EXPERIMENT**: Stores high-level experiment metadata (id, title, description, timestamps)
@@ -631,6 +662,7 @@ The database consists of 7 core tables and 7 junction tables that provide a comp
 - **TRIAL_RUN**: Individual executions of trials (id, trial_id, status, timestamps)
 - **RESULTS**: Overall results for trial runs (trial_run_id, time)
 - **EPOCH**: Individual epochs within trial runs (idx, trial_run_id, time)
+- **BATCH**: Individual batches within epochs (idx, epoch_idx, trial_run_id, time)
 - **METRIC**: Stores metric values with support for per-label metrics (id, type, total_val, per_label_val as JSON)
 - **ARTIFACT**: Tracks files and objects generated during experiments (id, type, location)
 
@@ -642,8 +674,10 @@ The database consists of 7 core tables and 7 junction tables that provide a comp
 - **RESULTS_ARTIFACT**: Links artifacts to results
 - **EPOCH_METRIC**: Links metrics to epochs
 - **EPOCH_ARTIFACT**: Links artifacts to epochs
+- **BATCH_METRIC**: Links metrics to batches
+- **BATCH_ARTIFACT**: Links artifacts to batches
 
-This design enables artifact and metric tracking at every level of the experiment hierarchy.
+This design enables artifact and metric tracking at every level of the experiment hierarchy, including fine-grained batch-level tracking.
 
 ### Database Manager API
 
@@ -769,10 +803,10 @@ from experiment_manager.common.common import Level
 
 Level.EXPERIMENT    # Top-level experiment (contains multiple trials)
 Level.TRIAL         # Individual trial configuration (contains trial runs)
-Level.TRIAL_RUN     # Single execution of a trial (contains epochs)
-Level.PIPELINE      # Pipeline execution context
+Level.TRIAL_RUN     # Single execution of a trial (contains pipeline)
+Level.PIPELINE      # Pipeline execution context (contains epochs)
 Level.EPOCH         # Individual training epoch (contains batches)
-Level.BATCH         # Individual batch processing (optional fine-grained tracking)
+Level.BATCH         # Individual batch processing (finest granularity)
 ```
 
 #### Automatic Context Management
@@ -898,10 +932,10 @@ class Level(Enum):
    - **Context**: Fine-grained training progress and intermediate results
 
 6. **BATCH Level (5)**:
-   - **Purpose**: Finest granularity for batch-level processing (optional)
-   - **Responsibilities**: Batch-specific metrics, detailed debugging information
-   - **Tracked Items**: Batch loss, gradient information, detailed debugging data
-   - **Context**: Detailed training diagnostics when needed
+   - **Purpose**: Finest granularity for batch-level processing
+   - **Responsibilities**: Batch-specific metrics, gradient tracking, detailed debugging
+   - **Tracked Items**: Batch loss, gradient norms, learning rate per step, detailed training data
+   - **Context**: Detailed training diagnostics with `@Pipeline.batch_wrapper` decorator
 
 ### Callbacks vs Trackers: Context Distinction
 
