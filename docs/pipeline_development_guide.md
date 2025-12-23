@@ -76,6 +76,29 @@ def run_epoch(self, epoch_idx: int, model, *args, **kwargs) -> RunStatus:
     return RunStatus.SUCCESS
 ```
 
+### @Pipeline.batch_wrapper Decorator (Optional)
+
+For fine-grained batch-level tracking, use the batch wrapper:
+
+```python
+@Pipeline.batch_wrapper
+def run_batch(self, batch_idx, *args, **kwargs) -> RunStatus:
+    """Run one batch with proper batch lifecycle management."""
+    # Your batch implementation here
+    
+    # Store metrics in batch_metrics for automatic tracking
+    self.batch_metrics[Metric.TRAIN_LOSS] = batch_loss
+    
+    return RunStatus.SUCCESS
+```
+
+**What the decorator does:**
+- Automatically calls `_on_batch_start(batch_idx)` before execution
+- Tracks all metrics in `self.batch_metrics` with the step parameter
+- Automatically calls `_on_batch_end(batch_idx, batch_metrics)` after execution
+- Calls `callback.on_batch_end()` for all registered callbacks
+- Clears `self.batch_metrics` after each batch
+
 ## Proper Metrics Recording
 
 ### Using self.run_metrics and self.epoch_metrics
@@ -131,7 +154,8 @@ def run(self, config: DictConfig) -> Dict[str, Any]:
 Use the predefined `Metric` enum values:
 
 ```python
-# Standard metrics
+# Tracked metrics (automatically saved to database/trackers)
+Metric.EPOCH           # Epoch number
 Metric.TRAIN_LOSS      # Training loss
 Metric.TRAIN_ACC       # Training accuracy
 Metric.VAL_LOSS        # Validation loss
@@ -139,9 +163,15 @@ Metric.VAL_ACC         # Validation accuracy
 Metric.TEST_LOSS       # Test loss
 Metric.TEST_ACC        # Test accuracy
 Metric.LEARNING_RATE   # Learning rate
+Metric.CONFUSION       # Confusion matrix
+Metric.CUSTOM          # Custom tracked metrics - Format: (metric_name, value) or list of tuples
 
-# Custom metrics
-Metric.CUSTOM          # Format: (metric_name, value)
+# Untracked metrics (available in callbacks but NOT saved to trackers)
+Metric.NETWORK         # Model/network object
+Metric.DATA            # Data objects
+Metric.LABELS          # Label information
+Metric.STATUS          # Status information
+Metric.CUSTOM_UNTRACKED # Custom untracked metrics - for debugging/internal use
 ```
 
 ## Checkpoint Management
@@ -446,12 +476,13 @@ for epoch in range(epochs):
 ## ✅ Correct Patterns Summary
 
 1. **Always use `@Pipeline.run_wrapper`** on your `run` method
-2. **Use `self.epoch_metrics` and `self.run_metrics`** dictionaries for automatic tracking
+2. **Use `self.epoch_metrics`, `self.batch_metrics`, and `self.run_metrics`** dictionaries for automatic tracking
 3. **Use proper `Metric` enum values** for all tracking calls
-4. **Manage epoch lifecycle** with `on_create(Level.EPOCH)`, `on_start(Level.EPOCH)`, `on_end(Level.EPOCH)`
-5. **Log parameters** at the start with `log_params()`
-6. **Track checkpoints** with `on_checkpoint()`
-7. **Use step parameters** for time-series metrics tracking
+4. **Manage epoch lifecycle** with `@Pipeline.epoch_wrapper` or manual `on_create(Level.EPOCH)`, `on_start(Level.EPOCH)`, `on_end(Level.EPOCH)`
+5. **Manage batch lifecycle** with `@Pipeline.batch_wrapper` for fine-grained tracking (optional)
+6. **Log parameters** at the start with `log_params()`
+7. **Track checkpoints** with `on_checkpoint()`
+8. **Use step parameters** for time-series metrics tracking
 
 ## Custom Metrics: Tracked vs Untracked
 

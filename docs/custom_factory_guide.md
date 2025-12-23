@@ -304,7 +304,12 @@ experiment = Experiment.create(config_dir, factory_registry=registry)
 - See `examples/` directory for more factory examples
 - Read `experiment_manager/pipelines/pipeline_factory.py` to understand the base implementation
 - Check `experiment_manager/common/factory_registry.py` for API details
+- Review `docs/pipeline_development_guide.md` for pipeline implementation best practices
 
 ---
 
 **Questions?** Check the main documentation or examine the factory implementations in the framework source code.
+
+---
+
+_Last Updated: December 2024_

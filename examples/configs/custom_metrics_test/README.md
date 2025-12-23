@@ -66,3 +66,12 @@ If you encounter issues:
 2. Check that the configuration files are in the correct location
 3. Verify that the workspace directory is writable
 4. Check the logs for any error messages
+
+## Related Documentation
+
+- [Pipeline Development Guide](../../../docs/pipeline_development_guide.md) - Complete guide on pipeline implementation
+- [Custom Factory Guide](../../../docs/custom_factory_guide.md) - How to create custom factories
+
+---
+
+*Last Updated: December 2024*

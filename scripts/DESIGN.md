@@ -151,7 +151,8 @@ A central pattern in the codebase is the Factory-Serializable pattern, which com
 Decorators are used extensively for cross-cutting concerns:
 
 - `@Pipeline.run_wrapper`: Handles lifecycle management for pipeline runs
-- `@Pipeline.epoch_wrapper`: Manages per-epoch operations
+- `@Pipeline.epoch_wrapper`: Manages per-epoch operations (creates EPOCH context, tracks epoch_metrics)
+- `@Pipeline.batch_wrapper`: Manages per-batch operations (creates BATCH context, tracks batch_metrics)
 - `@YAMLSerializable.register`: Registers components with the factory system
 
 ### 4.3 Observer Pattern
@@ -378,10 +379,44 @@ def run_wrapper(run_function):
         self._on_run_start()
         try:
             status = run_function(self, config)
+        except StopIteration:
+            status = RunStatus.STOPPED  # Early stopping
         except Exception as e:
             status = RunStatus.FAILED
         finally:
             self._on_run_end(self.run_metrics)
+        return status
+    return wrapper
+
+@staticmethod
+def epoch_wrapper(epoch_function):
+    @wraps(epoch_function)
+    def wrapper(self, epoch_idx, model, *args, **kwargs):
+        self._on_epoch_start(epoch_idx)
+        try:
+            status = epoch_function(self, epoch_idx, model, *args, **kwargs)
+            self.env.tracker_manager.track_dict(self.epoch_metrics, epoch_idx)
+        finally:
+            should_stop = self._on_epoch_end(epoch_idx, self.epoch_metrics)
+            self.epoch_metrics.clear()  # Auto-clear metrics
+            if should_stop:
+                raise StopIteration("Early stopping")
+        return status
+    return wrapper
+
+@staticmethod
+def batch_wrapper(batch_function):
+    @wraps(batch_function)
+    def wrapper(self, batch_idx, *args, **kwargs):
+        self._on_batch_start(batch_idx)
+        try:
+            status = batch_function(self, batch_idx, *args, **kwargs)
+            self.env.tracker_manager.track_dict(self.batch_metrics, step)
+        finally:
+            should_stop = self._on_batch_end(batch_idx, self.batch_metrics)
+            self.batch_metrics.clear()  # Auto-clear metrics
+            if should_stop:
+                raise StopIteration("Batch-level early stopping")
         return status
     return wrapper
 ```
@@ -391,6 +426,7 @@ def run_wrapper(run_function):
 - **Error Handling**: Consistent error handling across all pipeline implementations
 - **Code Reuse**: Eliminates boilerplate lifecycle code in user implementations
 - **Aspect-Oriented Programming**: Cross-cutting concerns handled declaratively
+- **Automatic Metrics Clearing**: Prevents metric accumulation between epochs/batches
 
 ### 6.5 Composite Pattern for TrackerManager
 
